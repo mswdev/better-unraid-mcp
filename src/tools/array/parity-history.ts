@@ -16,6 +16,11 @@ const inputSchema = {
 
 type Checks = ParityHistoryQuery["parityHistory"];
 
+/** Sorts parity checks newest-first by ISO date (null dates last); the SDL guarantees no order. */
+function sortNewestFirst(checks: Checks): Checks {
+  return [...checks].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+}
+
 /** Summarizes the most recent parity check. */
 function summarize(checks: Checks): string {
   if (checks.length === 0) {
@@ -38,7 +43,7 @@ export function createParityHistoryHandler(client: GraphQLExecutor) {
   }: { response_format: ResponseFormat; limit: number }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ParityHistoryDocument);
-      const checks = data.parityHistory.slice(0, limit);
+      const checks = sortNewestFirst(data.parityHistory).slice(0, limit);
       return formatResponse(response_format, summarize(checks), checks);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -64,8 +69,7 @@ export function registerParityHistory(server: McpServer, client: GraphQLExecutor
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
       },
     },
     createParityHistoryHandler(client),

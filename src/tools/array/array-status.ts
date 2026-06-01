@@ -62,8 +62,7 @@ export function registerArrayStatus(server: McpServer, client: GraphQLExecutor):
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
       },
     },
     createArrayStatusHandler(client),

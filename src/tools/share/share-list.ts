@@ -76,8 +76,7 @@ export function registerShareList(server: McpServer, client: GraphQLExecutor): v
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
       },
     },
     createShareListHandler(client),

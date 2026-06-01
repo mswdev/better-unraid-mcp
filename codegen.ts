@@ -27,7 +27,6 @@ const config: CodegenConfig = {
           PrefixedID: "string",
           JSON: "unknown",
           BigInt: "string",
-          Long: "number",
           Port: "number",
           URL: "string",
         },
