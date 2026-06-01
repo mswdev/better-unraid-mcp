@@ -1,0 +1,52 @@
+{
+  "name": "better-unraid-mcp",
+  "version": "0.1.0",
+  "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
+  "license": "MIT",
+  "author": "Matt White (mswdev)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "better-unraid-mcp": "dist/index.js"
+  },
+  "files": ["dist", "schema"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "generate": "graphql-codegen --config codegen.ts",
+    "schema:update": "curl -fsSL https://raw.githubusercontent.com/unraid/api/main/api/generated-schema.graphql -o schema/unraid.graphql",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test && npm run lint"
+  },
+  "dependencies": {
+    "@graphql-typed-document-node/core": "^3.2.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "graphql": "^16.14.0",
+    "pino": "^9.14.0",
+    "undici": "^6.26.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@graphql-codegen/cli": "^7.1.1",
+    "@graphql-codegen/typed-document-node": "^7.0.2",
+    "@graphql-codegen/typescript": "^6.0.2",
+    "@graphql-codegen/typescript-operations": "^6.0.3",
+    "@types/node": "^22.19.19",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

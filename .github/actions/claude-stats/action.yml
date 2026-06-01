@@ -1,0 +1,97 @@
+name: Post Claude Stats
+description: Parse Claude execution file and post usage stats as a PR/issue comment
+
+inputs:
+  execution-file:
+    description: Path to the Claude execution JSON file
+    required: true
+  entity-number:
+    description: PR or issue number to comment on
+    required: true
+  github-token:
+    description: GitHub token for posting comments
+    required: true
+  repository:
+    description: Repository in owner/repo format
+    required: true
+  max-turns:
+    description: Max turns to display in stats (e.g. 15, 20)
+    required: false
+    default: "15"
+  model-name:
+    description: Model name to display in stats
+    required: false
+    default: "claude-sonnet-4-5"
+  label:
+    description: Label prefix for the stats comment (e.g. "Claude Stats", "Claude Review Stats")
+    required: false
+    default: "Claude Stats"
+  suffix:
+    description: Optional text appended after the stats line
+    required: false
+    default: ""
+  fallback-to-issue:
+    description: If true, falls back to issue comment when PR comment fails
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Post stats comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        EXEC_FILE: ${{ inputs.execution-file }}
+        ENTITY_NUMBER: ${{ inputs.entity-number }}
+        REPOSITORY: ${{ inputs.repository }}
+        MAX_TURNS: ${{ inputs.max-turns }}
+        MODEL_NAME: ${{ inputs.model-name }}
+        LABEL: ${{ inputs.label }}
+        SUFFIX: ${{ inputs.suffix }}
+        FALLBACK_TO_ISSUE: ${{ inputs.fallback-to-issue }}
+      run: |
+        if [ ! -f "$EXEC_FILE" ]; then
+          echo "Execution file not found, skipping stats"
+          exit 0
+        fi
+
+        if [ -z "$ENTITY_NUMBER" ]; then
+          echo "No PR or issue number found, skipping stats"
+          exit 0
+        fi
+
+        COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+        INPUT_TOKENS=$(jq '[.[] | select(.type == "assistant") | .message.usage | ((.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))] | add // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+        OUTPUT_TOKENS=$(jq '[.[] | select(.type == "assistant") | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+        CACHE_READ=$(jq '[.[] | select(.type == "assistant") | .message.usage.cache_read_input_tokens // 0] | add // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+        DURATION_MS=$(jq '[.[] | select(.type == "result")] | last | .duration_ms // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+        NUM_TURNS=$(jq '[.[] | select(.type == "assistant")] | length' "$EXEC_FILE" 2>/dev/null || echo "0")
+        TOOL_CALLS=$(jq '[.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use")] | length' "$EXEC_FILE" 2>/dev/null || echo "0")
+
+        COST_FMT=$(printf '%.4f' "$COST")
+        DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc 2>/dev/null || echo "0")
+        INPUT_K=$(echo "scale=1; $INPUT_TOKENS / 1000" | bc 2>/dev/null || echo "0")
+        OUTPUT_K=$(echo "scale=1; $OUTPUT_TOKENS / 1000" | bc 2>/dev/null || echo "0")
+
+        if [ "$INPUT_TOKENS" -gt 0 ] 2>/dev/null; then
+          CACHE_PCT=$(echo "scale=1; $CACHE_READ * 100 / $INPUT_TOKENS" | bc 2>/dev/null || echo "0")
+        else
+          CACHE_PCT="0"
+        fi
+
+        STATS_BODY="---
+        **${LABEL}** — Cost: \$${COST_FMT} · Input: ${INPUT_K}k tokens · Output: ${OUTPUT_K}k tokens · Cache hit: ${CACHE_PCT}% · Tool calls: ${TOOL_CALLS} · Turns: ${NUM_TURNS}/${MAX_TURNS} · Duration: ${DURATION_S}s · Model: ${MODEL_NAME}"
+
+        if [ -n "$SUFFIX" ]; then
+          STATS_BODY="${STATS_BODY}
+
+        ${SUFFIX}"
+        fi
+
+        if [ "$FALLBACK_TO_ISSUE" = "true" ]; then
+          gh pr comment "$ENTITY_NUMBER" --repo "$REPOSITORY" --body "$STATS_BODY" 2>/dev/null \
+            || gh issue comment "$ENTITY_NUMBER" --repo "$REPOSITORY" --body "$STATS_BODY"
+        else
+          gh pr comment "$ENTITY_NUMBER" --repo "$REPOSITORY" --body "$STATS_BODY"
+        fi

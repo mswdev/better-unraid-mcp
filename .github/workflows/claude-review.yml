@@ -1,0 +1,128 @@
+name: Claude PR Review
+
+# Automated PR review using Anthropic Claude.
+# Uses anthropics/claude-code-action@v1 which natively reads .claude/CLAUDE.md.
+#
+# Review criteria are defined in .github/prompts/review.md, which references
+# .claude/rules/ as the single source of truth for coding standards.
+#
+# CURRENTLY DISABLED — set job-level `if` to re-enable.
+#
+# Triggers:
+# 1. PR opened/reopened/ready_for_review (not on every push)
+# 2. 'claude-review' label added to a PR (manual trigger)
+# 3. workflow_dispatch (manual fallback)
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, labeled]
+  workflow_dispatch:
+
+# Only one Claude review per PR at a time — cancel stale reviews
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    # DISABLED — change to the condition below to re-enable:
+    # if: |
+    #   github.event_name == 'workflow_dispatch' || (
+    #     github.event.pull_request.draft == false && (
+    #       github.event.action != 'labeled' ||
+    #       github.event.label.name == 'claude-review'
+    #     )
+    #   )
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || '' }}
+          fetch-depth: 0
+
+      - name: Pre-fetch base ref for diff context
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+
+      - name: Check changed files
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FILES=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          CODE_FILES=$(echo "$FILES" | grep -vE '\.(md|txt)$|^docs/|^\.github/|^\.vscode/|^\.idea/|^LICENSE([-.]|$)|^\.gitignore$|^\.gitattributes$' || true)
+          if [ -z "$CODE_FILES" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Only docs/config/workflow files changed — skipping Claude review"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build review prompt
+        if: steps.changes.outputs.skip != 'true'
+        id: prompt
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || 'N/A (manual dispatch)' }}
+          PR_REPO: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title || 'Manual review (workflow_dispatch)' }}
+          PR_BODY: ${{ github.event.pull_request.body || 'No PR context — this is a manual dispatch.' }}
+        run: |
+          # Build prompt safely via env vars (prevents script injection from PR titles/bodies)
+          {
+            printf 'REPO: %s\n' "$PR_REPO"
+            printf 'PR NUMBER: %s\n\n' "$PR_NUMBER"
+            printf '%s\n\n' "You are reviewing a PR in this repository."
+            printf '%s\n\n' "Review ONLY the changes introduced by this PR. Use git to examine the diff against the base branch."
+            printf 'Pull request title: %s\n' "$PR_TITLE"
+            printf '%s\n' "Pull request description:"
+            printf '%s\n\n' "$PR_BODY"
+            printf '%s\n\n' "---"
+            printf '%s\n' "Read the shared review instructions at \`.github/prompts/review.md\` and follow them exactly."
+            printf '%s\n' "That file tells you which project rule files to read and how to structure your review."
+          } > .claude-review-prompt.md
+
+          # Pass prompt as multiline step output for the action
+          {
+            echo "content<<CLAUDE_PROMPT_EOF"
+            cat .claude-review-prompt.md
+            echo "CLAUDE_PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.changes.outputs.skip != 'true'
+        id: claude-review
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: ${{ steps.prompt.outputs.content }}
+          # Customize model and max turns as needed
+          claude_args: |
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20
+
+      - name: Post review stats
+        if: always() && steps.claude-review.outputs.execution_file != ''
+        uses: ./.github/actions/claude-stats
+        with:
+          execution-file: ${{ steps.claude-review.outputs.execution_file }}
+          entity-number: ${{ github.event.pull_request.number }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          max-turns: "20"
+          model-name: "claude-sonnet-4-5"
+          label: "Claude Review Stats"
