@@ -1,0 +1,20 @@
+query DiskList {
+  disks {
+    device
+    name
+    vendor
+    type
+    size
+    interfaceType
+    smartStatus
+    temperature
+    isSpinning
+    serialNum
+    firmwareRevision
+    partitions {
+      name
+      fsType
+      size
+    }
+  }
+}
