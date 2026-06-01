@@ -3,10 +3,10 @@
 ## Directory Size Limits
 
 These are **hard limits**, not guidelines:
-- **MAXIMUM 10 source files per directory.** Count only source files (`.ts`, `.tsx`) — colocated `.test.` and `.stories.` files do NOT count toward the cap. If a directory has 10 source files, the next file MUST go in a subdirectory. No exceptions.
-- **Colocate test and story files with their source files.** `Button.tsx`, `Button.test.tsx`, and `Button.stories.tsx` belong together in the same directory.
+- **MAXIMUM 10 source files per directory.** Count only source files (`.ts`) — colocated `.test.ts` files do NOT count toward the cap. If a directory has 10 source files, the next file MUST go in a subdirectory. No exceptions.
+- **Colocate test files with their source files.** `client.ts` and `client.test.ts` belong together in the same directory.
 
-When a directory approaches the cap, group related files into subdirectories by **domain**, **feature**, or **concern** — not by file type. Colocated tests and stories move with their source files into the subdirectory.
+When a directory approaches the cap, group related files into subdirectories by **domain**, **feature**, or **concern** — not by file type. Colocated tests move with their source files into the subdirectory.
 
 ## Directory Grouping
 

@@ -90,7 +90,6 @@ Before approving any PR, verify:
 - **These rules are authoritative over observed codebase patterns.** If existing code violates a rule in this document or `.claude/rules/`, that is technical debt — not a convention to follow. Never justify bad practices because you see them elsewhere in the repo. When in doubt, follow the rules, not the code.
 - **Follow existing design patterns that comply with these rules.** Study the relevant package and match the established architecture, file placement, and naming. If a convention exists and does not violate these rules, use it. If you have a clear technical reason to deviate, explain the rationale.
 - **Reuse existing utility functions**
-- **Reuse existing UI components**
 - **Verify schema and queries against source files.** Check the vendored Unraid SDL for type/field structure before writing code that references them.
 - **Check existing types before creating new ones** to avoid duplication. Create new types when genuinely needed for new features.
 - **Flag security concerns proactively** (exposed secrets, SQL injection, missing auth, etc.).

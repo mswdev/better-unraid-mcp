@@ -21,7 +21,7 @@ Names should be **descriptive and unambiguous**. A reader should never have to l
 - **Booleans**: prefix with `is`, `has`, `can`, `should` (`isEligible`, `hasAccess`)
 - **Collections**: pluralize (`users`, `activeOrders`, `pendingItems`)
 - **Constants**: UPPER_SNAKE_CASE (`ALGORITHM`, `KEY_LENGTH`, `MAX_RETRY_COUNT`)
-- **Files**: PascalCase for classes (`UserService.tsx`), camelCase for utils (`format-date.ts`)
+- **Files**: PascalCase for classes (`UnraidClient.ts`), camelCase/kebab-case for utils (`get-system-info.ts`)
 
 ## General Rules
 

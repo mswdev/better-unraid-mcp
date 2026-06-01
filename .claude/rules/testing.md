@@ -35,10 +35,8 @@ describe('OrderProcessor', () => {
 
 - **Processors and business logic** — Always. This is the core of the system.
 - **Utility/helper functions** — Always. They're pure and easy to test.
-- **Financial calculations** — Always. Money math must be bulletproof.
-- **API route handlers** — Integration tests for the happy path and key error cases.
-- **React components** — Test behavior (user interactions, conditional rendering), not implementation.
-- **Complex hooks** — Test with `renderHook` when they contain meaningful logic.
+- **Tool handlers** — Always. Test the concise/detailed output and error paths through the executor seam.
+- **GraphQL client/error mapping** — Test against hand-written fakes (no network), covering success, GraphQL errors, and empty data.
 
 ## What NOT to Test
 
