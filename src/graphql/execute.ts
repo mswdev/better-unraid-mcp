@@ -19,13 +19,19 @@ export interface GraphQLResponse<TData> {
   errors?: Array<{ message: string }>;
 }
 
-const selfSignedDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+let selfSignedDispatcher: Agent | undefined;
+
+/** Lazily constructs the self-signed-TLS dispatcher, so the secure default allocates nothing. */
+function getSelfSignedDispatcher(): Agent {
+  selfSignedDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return selfSignedDispatcher;
+}
 
 function defaultFetch(allowSelfSigned: boolean): FetchLike {
   return (url, init) =>
     undiciFetch(url, {
       ...init,
-      dispatcher: allowSelfSigned ? selfSignedDispatcher : undefined,
+      dispatcher: allowSelfSigned ? getSelfSignedDispatcher() : undefined,
     }) as unknown as Promise<Response>;
 }
 

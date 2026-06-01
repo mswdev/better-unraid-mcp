@@ -1,7 +1,8 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { parse } from "graphql";
 import { describe, expect, it } from "vitest";
-import { UnraidApiError, UnraidClient } from "./client.js";
+import { UnraidClient } from "./client.js";
+import { UnraidApiError } from "./errors.js";
 
 const PingDoc = parse("query Ping { online }") as unknown as TypedDocumentNode<
   { online: boolean },
@@ -29,5 +30,11 @@ describe("UnraidClient.execute", () => {
     const client = clientWith({ errors: [{ message: "forbidden" }] });
 
     await expect(client.execute(PingDoc)).rejects.toThrow(UnraidApiError);
+  });
+
+  it("throws UnraidApiError when the response data is null", async () => {
+    const client = clientWith({ data: null });
+
+    await expect(client.execute(PingDoc)).rejects.toThrow(/no data/);
   });
 });

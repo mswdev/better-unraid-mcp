@@ -19,8 +19,11 @@ jobs:
       - name: Verify generated types are up to date
         run: |
           npm run generate
-          git diff --exit-code src/types/unraid/ \
-            || (echo "::error::Generated types are stale. Run 'npm run generate' and commit." && exit 1)
+          if [ -n "$(git status --porcelain src/types/unraid/)" ]; then
+            echo "::error::Generated types are stale or untracked. Run 'npm run generate' and commit the result."
+            git status --porcelain src/types/unraid/
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm run build
       - run: npm test

@@ -6,6 +6,9 @@ import { SERVER_VERSION } from "./version.js";
 /**
  * Builds a fully-configured MCP server bound to a GraphQL executor.
  * Called once for stdio, and once per request for stateless HTTP.
+ *
+ * @param client - The GraphQL executor the registered tools will use.
+ * @returns A configured McpServer with all tools registered.
  */
 export function buildServer(client: GraphQLExecutor): McpServer {
   const server = new McpServer({ name: "better-unraid-mcp", version: SERVER_VERSION });

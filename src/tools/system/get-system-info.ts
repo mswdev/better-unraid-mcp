@@ -22,6 +22,9 @@ function summarize(data: GetSystemInfoQuery): string {
 /**
  * Creates the `get_system_info` handler bound to a GraphQL executor.
  * Exposed separately from registration so it can be unit-tested directly.
+ *
+ * @param client - The GraphQL executor used to fetch system info.
+ * @returns An MCP tool handler producing a concise or detailed summary.
  */
 export function createGetSystemInfoHandler(client: GraphQLExecutor) {
   return async ({
@@ -37,7 +40,12 @@ export function createGetSystemInfoHandler(client: GraphQLExecutor) {
   };
 }
 
-/** Registers the read-only `get_system_info` tool on the server. */
+/**
+ * Registers the read-only `get_system_info` tool on the server.
+ *
+ * @param server - The MCP server to register the tool on.
+ * @param client - The GraphQL executor the tool uses.
+ */
 export function registerGetSystemInfo(server: McpServer, client: GraphQLExecutor): void {
   server.registerTool(
     TOOL_NAME,

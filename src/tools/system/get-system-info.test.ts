@@ -17,7 +17,22 @@ const sample = {
     },
     cpu: { manufacturer: "AMD", brand: "Ryzen 9 5950X", cores: 16, threads: 32 },
   },
-} as unknown as GetSystemInfoQuery;
+} satisfies GetSystemInfoQuery;
+
+const allNull = {
+  info: {
+    time: "2026-05-31T00:00:00Z",
+    os: {
+      platform: null,
+      distro: null,
+      release: null,
+      kernel: null,
+      uptime: null,
+      hostname: null,
+    },
+    cpu: { manufacturer: null, brand: null, cores: null, threads: null },
+  },
+} satisfies GetSystemInfoQuery;
 
 function fakeExecutor(result: GetSystemInfoQuery): GraphQLExecutor {
   return { execute: async () => result as never };
@@ -29,6 +44,10 @@ function throwingExecutor(message: string): GraphQLExecutor {
       throw new Error(message);
     },
   };
+}
+
+function rejectingExecutor(reason: unknown): GraphQLExecutor {
+  return { execute: () => Promise.reject(reason) };
 }
 
 describe("get_system_info handler", () => {
@@ -50,6 +69,16 @@ describe("get_system_info handler", () => {
     expect(firstText(result)).toContain('"kernel": "6.6.0"');
   });
 
+  it("uses fallbacks when os and cpu fields are null", async () => {
+    const handler = createGetSystemInfoHandler(fakeExecutor(allNull));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/Unraid/);
+    expect(firstText(result)).toMatch(/\?C\/\?T/);
+  });
+
   it("returns an error result when the client throws", async () => {
     const handler = createGetSystemInfoHandler(throwingExecutor("unauthorized"));
 
@@ -57,5 +86,14 @@ describe("get_system_info handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/unauthorized/);
+  });
+
+  it("coerces a non-Error rejection into the error message", async () => {
+    const handler = createGetSystemInfoHandler(rejectingExecutor("boom-string"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/boom-string/);
   });
 });

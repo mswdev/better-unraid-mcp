@@ -1,4 +1,5 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
+import { UnraidApiError } from "./errors.js";
 import { type FetchLike, executeGraphQL } from "./execute.js";
 
 /** Anything that can run a typed Unraid operation. Tools depend on this. */
@@ -8,9 +9,6 @@ export interface GraphQLExecutor {
     variables?: TVariables,
   ): Promise<TData>;
 }
-
-/** Raised when the Unraid API returns GraphQL errors or no data. */
-export class UnraidApiError extends Error {}
 
 /** Configuration for a live Unraid GraphQL client. */
 export interface UnraidClientConfig {
