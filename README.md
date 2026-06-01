@@ -43,6 +43,8 @@ npx -y better-unraid-mcp
 | `UNRAID_API_KEY` | yes | — | API key created above. |
 | `MCP_TRANSPORT` | no | `stdio` | `stdio` (local clients) or `http` (remote/hosted clients). |
 | `MCP_HTTP_PORT` | no | `3000` | Port for the `http` transport. |
+| `MCP_HTTP_HOST` | no | `127.0.0.1` | Bind address for the `http` transport. Defaults to localhost; set `0.0.0.0` to expose it (e.g. in Docker) — only behind authentication. |
+| `MCP_HTTP_ALLOWED_HOSTS` | no | — | Comma-separated `Host` allow-list. When set, enables DNS-rebinding protection (only the listed hosts are accepted). |
 | `UNRAID_ALLOW_SELF_SIGNED` | no | `false` | Set `true` only if your server uses a self-signed TLS cert on the LAN. |
 | `LOG_LEVEL` | no | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`. |
 
@@ -138,6 +140,15 @@ npx -y better-unraid-mcp
 ```
 
 The MCP endpoint is then `POST http://host:3000/mcp`.
+
+> **Security of the HTTP transport.** By default the server binds to
+> `127.0.0.1` (localhost only) and performs **no authentication** of inbound
+> requests — anyone who can reach the endpoint can invoke its tools, and the
+> server uses your privileged Unraid API key for every upstream call. To expose
+> it beyond localhost (e.g. in Docker, set `MCP_HTTP_HOST=0.0.0.0`), put it
+> behind a reverse proxy that adds authentication and TLS, and set
+> `MCP_HTTP_ALLOWED_HOSTS` to enable DNS-rebinding protection. Do not expose the
+> raw endpoint directly to an untrusted network.
 
 ## ChatGPT caveat
 
