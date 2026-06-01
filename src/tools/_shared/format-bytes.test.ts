@@ -12,6 +12,14 @@ describe("humanizeBytes", () => {
     expect(humanizeBytes(1024 * 1024 * 1024 * 1.5)).toBe("1.5 GB");
   });
 
+  it("rolls exactly 1024 bytes up to the next unit", () => {
+    expect(humanizeBytes(1024)).toBe("1.0 KB");
+  });
+
+  it("clamps very large values at the largest unit (PB)", () => {
+    expect(humanizeBytes(1024 ** 6)).toBe("1024.0 PB");
+  });
+
   it("treats non-finite or negative input as zero", () => {
     expect(humanizeBytes(Number.NaN)).toBe("0 B");
     expect(humanizeBytes(-5)).toBe("0 B");

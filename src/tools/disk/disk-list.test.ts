@@ -23,6 +23,25 @@ const disks = {
   ],
 } satisfies DiskListQuery;
 
+const diskNoTemp = {
+  disks: [
+    {
+      device: "/dev/sdc",
+      name: "Seagate ST4000",
+      vendor: "Seagate",
+      type: "HDD",
+      size: 4_000_000_000_000,
+      interfaceType: "SATA",
+      smartStatus: "OK",
+      temperature: null,
+      isSpinning: false,
+      serialNum: "XYZ789",
+      firmwareRevision: "2.0",
+      partitions: [],
+    },
+  ],
+} satisfies DiskListQuery;
+
 function fakeExecutor(result: DiskListQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
@@ -43,5 +62,14 @@ describe("disk_list handler", () => {
     });
 
     expect(firstText(result)).toMatch(/No physical disks/);
+  });
+
+  it("omits the temperature when it is null", async () => {
+    const result = await createDiskListHandler(fakeExecutor(diskNoTemp))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toMatch(/Seagate ST4000/);
+    expect(firstText(result)).not.toMatch(/°C/);
   });
 });

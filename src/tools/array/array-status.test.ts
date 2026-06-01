@@ -46,6 +46,35 @@ const started = {
   },
 } satisfies ArrayStatusQuery;
 
+const stopped = {
+  array: {
+    state: "STOPPED",
+    capacity: { kilobytes: { free: "0", used: "0", total: "0" } },
+    parityCheckStatus: {
+      status: "NEVER_RUN",
+      progress: null,
+      errors: null,
+      running: false,
+      paused: false,
+    },
+    parities: [],
+    disks: [
+      {
+        name: "disk1",
+        status: null,
+        temp: null,
+        fsFree: null,
+        fsUsed: null,
+        fsSize: null,
+        numErrors: null,
+        isSpinning: null,
+        type: "DATA",
+      },
+    ],
+    caches: [],
+  },
+} satisfies ArrayStatusQuery;
+
 function fakeExecutor(result: ArrayStatusQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
@@ -81,5 +110,17 @@ describe("array_status handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/denied/);
+  });
+
+  it("handles a stopped array with zero capacity and null disk fields", async () => {
+    const result = await createArrayStatusHandler(fakeExecutor(stopped))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/STOPPED/);
+    expect(firstText(result)).toMatch(/0%/);
+    expect(firstText(result)).not.toMatch(/NaN/);
+    expect(firstText(result)).toMatch(/0 errors/);
   });
 });
