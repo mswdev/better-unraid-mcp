@@ -1,0 +1,19 @@
+query GetSystemInfo {
+  info {
+    time
+    os {
+      platform
+      distro
+      release
+      kernel
+      uptime
+      hostname
+    }
+    cpu {
+      manufacturer
+      brand
+      cores
+      threads
+    }
+  }
+}

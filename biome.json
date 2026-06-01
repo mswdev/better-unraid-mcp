@@ -9,5 +9,5 @@
   },
   "linter": { "enabled": true, "rules": { "recommended": true } },
   "javascript": { "formatter": { "quoteStyle": "double" } },
-  "files": { "ignore": ["dist", "node_modules", "coverage", "src/types/unraid/**"] }
+  "files": { "ignore": ["dist", "node_modules", "coverage", "schema", "src/types/unraid/**"] }
 }
