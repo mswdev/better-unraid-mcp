@@ -3,6 +3,7 @@ import type { GraphQLExecutor } from "../graphql/client.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
+import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 
 /**
@@ -17,4 +18,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerArrayStatus(server, client);
   registerParityHistory(server, client);
   registerDiskList(server, client);
+  registerShareList(server, client);
 }
