@@ -27,13 +27,13 @@ function fakeServer() {
 const noopClient: GraphQLExecutor = { execute: async () => ({}) as never };
 
 describe("registerAllTools", () => {
-  it("registers get_system_info with a config and handler", () => {
+  it("registers system_info with a config and handler", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
     registerAllTools(server as any, noopClient);
 
-    const info = registrations.find((registration) => registration.name === "get_system_info");
+    const info = registrations.find((registration) => registration.name === "system_info");
     expect(info).toBeDefined();
     expect(info?.hasConfig).toBe(true);
     expect(info?.hasHandler).toBe(true);

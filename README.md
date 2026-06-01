@@ -4,7 +4,19 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early scaffold: the full server framework, the GraphQL type-generation pipeline, and one read-only proof-of-concept tool (`get_system_info`) are in place. Full coverage of the Unraid API surface (array, shares, Docker, VMs, and more) is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, and the first read-only system & storage tools are in place. Full coverage of the Unraid API surface (Docker, VMs, notifications, and more) is in progress and will land in subsequent releases.
+
+### Available tools
+
+All current tools are **read-only**.
+
+| Tool | Description |
+| --- | --- |
+| `system_info` | Returns the Unraid server's OS, distro, release, kernel, uptime, hostname, and a CPU summary. |
+| `array_status` | Returns the array state, capacity, current parity-check status, and a per-disk health summary (data, parity, and cache disks). |
+| `parity_history` | Returns the most recent parity checks (date, status, errors, speed); `limit` controls how many are returned. |
+| `disk_list` | Lists physical disks with model, size, interface, SMART status, temperature, and partitions. |
+| `share_list` | Lists user shares with usage (free/used/total); `name` filters by a share-name substring. |
 
 ## Requirements
 

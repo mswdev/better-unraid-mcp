@@ -1,0 +1,12 @@
+query ShareList {
+  shares {
+    name
+    free
+    used
+    size
+    cache
+    include
+    exclude
+    comment
+  }
+}

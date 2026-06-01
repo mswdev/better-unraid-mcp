@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import type { GetSystemInfoQuery } from "../../types/unraid/graphql.js";
+import type { SystemInfoQuery } from "../../types/unraid/graphql.js";
 import { firstText } from "../_shared/test-support.js";
-import { createGetSystemInfoHandler } from "./get-system-info.js";
+import { createSystemInfoHandler } from "./system-info.js";
 
 const sample = {
   info: {
@@ -17,7 +17,7 @@ const sample = {
     },
     cpu: { manufacturer: "AMD", brand: "Ryzen 9 5950X", cores: 16, threads: 32 },
   },
-} satisfies GetSystemInfoQuery;
+} satisfies SystemInfoQuery;
 
 const allNull = {
   info: {
@@ -32,9 +32,9 @@ const allNull = {
     },
     cpu: { manufacturer: null, brand: null, cores: null, threads: null },
   },
-} satisfies GetSystemInfoQuery;
+} satisfies SystemInfoQuery;
 
-function fakeExecutor(result: GetSystemInfoQuery): GraphQLExecutor {
+function fakeExecutor(result: SystemInfoQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
 
@@ -50,9 +50,9 @@ function rejectingExecutor(reason: unknown): GraphQLExecutor {
   return { execute: () => Promise.reject(reason) };
 }
 
-describe("get_system_info handler", () => {
+describe("system_info handler", () => {
   it("returns a concise summary mentioning the distro and CPU", async () => {
-    const handler = createGetSystemInfoHandler(fakeExecutor(sample));
+    const handler = createSystemInfoHandler(fakeExecutor(sample));
 
     const result = await handler({ response_format: "concise" });
 
@@ -62,7 +62,7 @@ describe("get_system_info handler", () => {
   });
 
   it("returns full JSON for the detailed format", async () => {
-    const handler = createGetSystemInfoHandler(fakeExecutor(sample));
+    const handler = createSystemInfoHandler(fakeExecutor(sample));
 
     const result = await handler({ response_format: "detailed" });
 
@@ -70,7 +70,7 @@ describe("get_system_info handler", () => {
   });
 
   it("uses fallbacks when os and cpu fields are null", async () => {
-    const handler = createGetSystemInfoHandler(fakeExecutor(allNull));
+    const handler = createSystemInfoHandler(fakeExecutor(allNull));
 
     const result = await handler({ response_format: "concise" });
 
@@ -80,7 +80,7 @@ describe("get_system_info handler", () => {
   });
 
   it("returns an error result when the client throws", async () => {
-    const handler = createGetSystemInfoHandler(throwingExecutor("unauthorized"));
+    const handler = createSystemInfoHandler(throwingExecutor("unauthorized"));
 
     const result = await handler({ response_format: "concise" });
 
@@ -89,7 +89,7 @@ describe("get_system_info handler", () => {
   });
 
   it("coerces a non-Error rejection into the error message", async () => {
-    const handler = createGetSystemInfoHandler(rejectingExecutor("boom-string"));
+    const handler = createSystemInfoHandler(rejectingExecutor("boom-string"));
 
     const result = await handler({ response_format: "concise" });
 
