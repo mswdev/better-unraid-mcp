@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early scaffold: the full server framework, the GraphQL type-generation pipeline, and one read-only proof-of-concept tool (`get_system_info`) are in place. Full coverage of the Unraid API surface (array, shares, Docker, VMs, and more) is in progress and will land in subsequent releases.
+This is an early scaffold: the full server framework, the GraphQL type-generation pipeline, and one read-only proof-of-concept tool (`system_info`) are in place. Full coverage of the Unraid API surface (array, shares, Docker, VMs, and more) is in progress and will land in subsequent releases.
 
 ## Requirements
 
