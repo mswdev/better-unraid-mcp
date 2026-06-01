@@ -1,0 +1,222 @@
+name: OpenAI Codex Assistant
+
+# Responds to @codex mentions on issues, PR comments, and PR reviews.
+# Uses the official openai/codex-action@v1 with full repo context.
+# The codex agent reads files, runs git commands, and understands codebase context.
+#
+# Security model: codex job has read-only permissions, posting happens in a
+# separate job with write permissions (following OpenAI's recommended pattern).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+
+# Only one Codex response per comment — using comment/review ID so
+# unrelated comments on the same PR don't cancel each other.
+concurrency:
+  group: codex-assistant-${{ github.event.comment.id || github.event.review.id || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  codex-response:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@codex')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@codex')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@codex'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      final_message: ${{ steps.run_codex.outputs.final-message }}
+      entity_number: ${{ steps.context.outputs.entity_number }}
+      is_pr: ${{ steps.context.outputs.is_pr }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Gather context and build prompt
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REVIEW_BODY_JSON: ${{ toJSON(github.event.review.body) }}
+          REVIEW_USER: ${{ github.event.review.user.login }}
+          COMMENT_BODY_JSON: ${{ toJSON(github.event.comment.body) }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: |
+          # Handle manual workflow_dispatch — no issue/PR context available
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "entity_number=0" >> "$GITHUB_OUTPUT"
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+            {
+              printf '%s\n\n' "You are Codex, an AI assistant for this repository."
+              printf '%s\n\n' "This is a manual invocation via workflow_dispatch. There is no specific issue or PR context."
+              printf '%s\n\n' "Before responding, read .claude/CLAUDE.md and the files in .claude/rules/ to understand the project and its coding standards."
+              printf '%s\n\n' "Review the repository and provide a high-level summary of the codebase."
+            } > .codex-prompt.md
+            exit 0
+          fi
+
+          # Determine if this is a PR or issue context
+          if [ "$EVENT_NAME" = "pull_request_review_comment" ] || \
+             [ "$EVENT_NAME" = "pull_request_review" ]; then
+            IS_PR=true
+            ENTITY_NUMBER="$PR_NUMBER"
+          elif [ "$EVENT_NAME" = "issue_comment" ]; then
+            ENTITY_NUMBER="$ISSUE_NUMBER"
+            # Check if this issue is actually a PR — redirect stdout to /dev/null
+            # so only the exit code determines IS_PR (avoids multiline output bug)
+            if gh pr view "$ENTITY_NUMBER" --repo "$REPO" --json number > /dev/null 2>&1; then
+              IS_PR=true
+            else
+              IS_PR=false
+            fi
+          fi
+
+          echo "entity_number=$ENTITY_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "is_pr=$IS_PR" >> "$GITHUB_OUTPUT"
+
+          # Get the triggering comment (env vars prevent script injection from user content)
+          if [ "$EVENT_NAME" = "pull_request_review" ]; then
+            TRIGGER_BODY=$(echo "$REVIEW_BODY_JSON" | jq -r '.')
+            TRIGGER_USER="$REVIEW_USER"
+          else
+            TRIGGER_BODY=$(echo "$COMMENT_BODY_JSON" | jq -r '.')
+            TRIGGER_USER="$COMMENT_USER"
+          fi
+
+          # Strip the @codex mention to get the actual request
+          REQUEST=$(echo "$TRIGGER_BODY" | sed 's/@codex//g' | xargs)
+
+          # Get entity metadata
+          if [ "$IS_PR" = "true" ]; then
+            TITLE=$(gh pr view "$ENTITY_NUMBER" --repo "$REPO" --json title --jq '.title')
+            BODY=$(gh pr view "$ENTITY_NUMBER" --repo "$REPO" --json body --jq '.body // "No description."')
+          else
+            TITLE=$(gh issue view "$ENTITY_NUMBER" --repo "$REPO" --json title --jq '.title')
+            BODY=$(gh issue view "$ENTITY_NUMBER" --repo "$REPO" --json body --jq '.body // "No description."')
+          fi
+
+          # Get recent conversation (last 10 comments)
+          if [ "$IS_PR" = "true" ]; then
+            CONVERSATION=$(gh pr view "$ENTITY_NUMBER" --repo "$REPO" \
+              --json comments --jq '.comments[-10:][] | "**\(.author.login):** \(.body)"' 2>/dev/null || echo "No prior conversation.")
+          else
+            CONVERSATION=$(gh issue view "$ENTITY_NUMBER" --repo "$REPO" \
+              --json comments --jq '.comments[-10:][] | "**\(.author.login):** \(.body)"' 2>/dev/null || echo "No prior conversation.")
+          fi
+
+          ENTITY_TYPE="issue"
+          [ "$IS_PR" = "true" ] && ENTITY_TYPE="pull request"
+
+          # If this is a PR, get the diff using gh pr diff (works for merged PRs too)
+          PR_DIFF=""
+          if [ "$IS_PR" = "true" ]; then
+            # Fetch refs so codex can also use git commands directly
+            BASE_REF=$(gh pr view "$ENTITY_NUMBER" --repo "$REPO" --json baseRefName --jq '.baseRefName')
+            git fetch --no-tags origin "$BASE_REF" "+refs/pull/${ENTITY_NUMBER}/head" 2>/dev/null || true
+
+            # Capture the PR diff via gh CLI (reliable for both open and merged PRs)
+            PR_DIFF=$(gh pr diff "$ENTITY_NUMBER" --repo "$REPO" 2>/dev/null || echo "Could not retrieve PR diff.")
+          fi
+
+          # Build prompt file safely using printf (avoids heredoc backtick execution)
+          {
+            printf '%s\n\n' "You are Codex, an AI assistant for this repository."
+            printf '%s\n\n' "You are responding to a request on ${ENTITY_TYPE} #${ENTITY_NUMBER}: ${TITLE}"
+
+            printf '%s\n\n' "## Project Context"
+            printf '%s\n' "Before responding, read these files to understand the project and its coding standards:"
+            printf '%s\n' "- .claude/CLAUDE.md — Project overview, engineering philosophy, domain terms, code review checklist"
+            printf '%s\n' "- .claude/rules/code-style.md — Coding standards and hard limits"
+            printf '%s\n' "- .claude/rules/testing.md — Test philosophy and structure"
+            printf '%s\n' "- .claude/rules/security.md — Security requirements"
+            # TODO: Add package-specific rule file references here as needed:
+            # printf '%s\n' "- .claude/rules/backend/api.md — Backend-specific rules"
+            # printf '%s\n' "- .claude/rules/frontend/webapp.md — Frontend-specific rules"
+            printf '%s\n\n' "Apply the relevant package rules based on which files are being discussed."
+
+            printf '%s\n' "### Description"
+            printf '%s\n\n' "$BODY"
+            if [ "$IS_PR" = "true" ] && [ -n "$PR_DIFF" ]; then
+              printf '%s\n' "### PR Diff"
+              printf '%s\n' '```diff'
+              printf '%s\n' "$PR_DIFF"
+              printf '%s\n\n' '```'
+            fi
+            printf '%s\n' "### Recent conversation"
+            printf '%s\n\n' "$CONVERSATION"
+            printf '%s\n' "### Request from @${TRIGGER_USER}"
+            printf '%s\n\n' "$REQUEST"
+
+            # For PR contexts, include the shared review instructions
+            if [ "$IS_PR" = "true" ]; then
+              printf '%s\n\n' "---"
+              printf '%s\n\n' "If asked to review this PR, follow the review instructions below:"
+              cat .github/prompts/review.md
+            fi
+
+            printf '%s\n' "---"
+            printf '%s\n' "Guidelines:"
+            printf '%s\n' "- Be direct and specific. Reference file paths and line numbers when relevant."
+            printf '%s\n' "- You can read any file in the repository to answer questions or understand context."
+            printf '%s\n' "- You can use git commands to examine the repository history."
+            printf '%s\n' "- When asked to review or write code, apply the standards from the .claude/rules/ files."
+            printf '%s\n' "- If you don't have enough context, say so and suggest what info would help."
+            printf '%s\n' "- Keep responses focused. Don't repeat the question back."
+            printf '%s\n' "- Use markdown formatting for readability."
+            printf '%s\n' "- When referencing code, quote the specific lines."
+          } > .codex-prompt.md
+
+      - name: Run Codex
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.2-codex
+          effort: high
+          sandbox: read-only
+          prompt-file: .codex-prompt.md
+
+  post-response:
+    runs-on: ubuntu-latest
+    needs: codex-response
+    if: needs.codex-response.outputs.final_message != ''
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Post response
+        uses: actions/github-script@v8
+        env:
+          CODEX_FINAL_MESSAGE: ${{ needs.codex-response.outputs.final_message }}
+          ENTITY_NUMBER: ${{ needs.codex-response.outputs.entity_number }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const entityNumber = parseInt(process.env.ENTITY_NUMBER);
+            // Skip posting if no valid entity (e.g. manual workflow_dispatch)
+            if (!entityNumber || entityNumber === 0) {
+              core.info('No entity to post to (workflow_dispatch). Output logged only.');
+              core.info(process.env.CODEX_FINAL_MESSAGE);
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: entityNumber,
+              body: process.env.CODEX_FINAL_MESSAGE + '\n\n---\n**Model:** gpt-5.2-codex | **Effort:** high',
+            });

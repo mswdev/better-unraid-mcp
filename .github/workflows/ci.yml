@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify generated types are up to date
+        run: |
+          npm run generate
+          git diff --exit-code src/types/unraid/ \
+            || (echo "::error::Generated types are stale. Run 'npm run generate' and commit." && exit 1)
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run lint
