@@ -1,0 +1,44 @@
+query ArrayStatus {
+  array {
+    state
+    capacity {
+      kilobytes {
+        free
+        used
+        total
+      }
+    }
+    parityCheckStatus {
+      status
+      progress
+      errors
+      running
+      paused
+    }
+    parities {
+      name
+      status
+      temp
+      type
+    }
+    disks {
+      name
+      status
+      temp
+      fsFree
+      fsUsed
+      fsSize
+      numErrors
+      isSpinning
+      type
+    }
+    caches {
+      name
+      status
+      temp
+      fsFree
+      fsUsed
+      type
+    }
+  }
+}
