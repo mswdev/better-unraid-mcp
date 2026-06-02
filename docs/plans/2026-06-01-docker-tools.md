@@ -140,8 +140,10 @@ describe("docker_container_list handler", () => {
   it("summarizes each container by stripped name, state and image", async () => {
     const result = await createDockerContainerListHandler(fakeExecutor(data))({ response_format: "concise" });
 
-    expect(firstText(result)).toMatch(/plex/);
-    expect(firstText(result)).not.toMatch(/\/plex/);
+    // Name is slash-stripped: the container's line starts with "plex", not "/plex".
+    // (A bare /\/plex/ would wrongly match the image "linuxserver/plex" too.)
+    expect(firstText(result)).toMatch(/^plex /m);
+    expect(firstText(result)).not.toMatch(/^\/plex/m);
     expect(firstText(result)).toMatch(/RUNNING/);
     expect(firstText(result)).toMatch(/linuxserver\/plex/);
     expect(firstText(result)).toMatch(/update available/i);
