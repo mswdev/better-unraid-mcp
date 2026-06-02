@@ -4,6 +4,7 @@ import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
 import { registerDockerContainerList } from "./docker/container-list.js";
+import { registerDockerContainerLogs } from "./docker/container-logs.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 
@@ -21,4 +22,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerDiskList(server, client);
   registerShareList(server, client);
   registerDockerContainerList(server, client);
+  registerDockerContainerLogs(server, client);
 }
