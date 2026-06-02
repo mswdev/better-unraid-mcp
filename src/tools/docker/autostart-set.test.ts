@@ -86,6 +86,75 @@ describe("docker_autostart_set handler", () => {
     expect(entries.map((entry) => entry.id)).toEqual(["srv:db", "srv:app"]);
   });
 
+  it("keeps unordered (null autoStartOrder) containers last and stable among themselves", async () => {
+    const withNulls = {
+      docker: {
+        containers: [
+          {
+            id: "srv:idleA",
+            names: ["/idleA"],
+            autoStart: false,
+            autoStartOrder: null,
+            autoStartWait: null,
+          },
+          { id: "srv:db", names: ["/db"], autoStart: true, autoStartOrder: 0, autoStartWait: 10 },
+          {
+            id: "srv:idleB",
+            names: ["/idleB"],
+            autoStart: false,
+            autoStartOrder: null,
+            autoStartWait: null,
+          },
+        ],
+      },
+    } satisfies DockerAutostartStateQuery;
+    const { executor, calls } = sequencedExecutor([withNulls, ok]);
+
+    await createDockerAutostartSetHandler(executor)({
+      changes: [{ id: "srv:db", auto_start: true }],
+      persist: false,
+      confirm: true,
+      response_format: "concise",
+    });
+
+    const { entries } = calls[1].variables as { entries: { id: string }[] };
+    expect(entries.map((entry) => entry.id)).toEqual(["srv:db", "srv:idleA", "srv:idleB"]);
+  });
+
+  it("reports a false mutation result instead of asserting success", async () => {
+    const notOk = {
+      docker: { updateAutostartConfiguration: false },
+    } satisfies DockerSetAutostartMutation;
+    const { executor } = sequencedExecutor([state, notOk]);
+
+    const result = await createDockerAutostartSetHandler(executor)({
+      changes: [{ id: "srv:app", auto_start: false }],
+      persist: false,
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/not updated/i);
+    expect(firstText(result)).not.toMatch(/Autostart updated:/);
+  });
+
+  it("reflects a false mutation result in the detailed payload", async () => {
+    const notOk = {
+      docker: { updateAutostartConfiguration: false },
+    } satisfies DockerSetAutostartMutation;
+    const { executor } = sequencedExecutor([state, notOk]);
+
+    const result = await createDockerAutostartSetHandler(executor)({
+      changes: [{ id: "srv:app", auto_start: false }],
+      persist: false,
+      confirm: true,
+      response_format: "detailed",
+    });
+
+    expect(JSON.parse(firstText(result)).ok).toBe(false);
+  });
+
   it("rejects an unknown id and never calls the mutation", async () => {
     const { executor, calls } = sequencedExecutor([state]);
 

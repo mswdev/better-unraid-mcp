@@ -116,8 +116,19 @@ function detailChanges(
   }));
 }
 
-/** Builds the concise summary of the requested changes. */
-function summarize(changes: Change[], containers: Containers, persist: boolean): string {
+/** Inputs for the concise summary (a parameter object to stay within the 3-param limit). */
+interface SummaryOptions {
+  ok: boolean;
+  changes: Change[];
+  containers: Containers;
+  persist: boolean;
+}
+
+/** Builds the concise summary, reporting a false (no-op) write rather than asserting success. */
+function summarize({ ok, changes, containers, persist }: SummaryOptions): string {
+  if (!ok) {
+    return "Autostart not updated (the API returned false); no boot-time change took effect.";
+  }
   const nameById = buildNameById(containers);
   const parts = changes.map((change) =>
     describeChange(change, nameById.get(change.id) ?? change.id),
@@ -156,16 +167,14 @@ export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
       }
       const entries = buildEntries(docker.containers, changes);
       const result = await client.execute(DockerSetAutostartDocument, { entries, persist });
+      const ok = result.docker.updateAutostartConfiguration;
       const detailed = {
-        ok: result.docker.updateAutostartConfiguration,
+        ok,
         persisted: persist,
         changes: detailChanges(changes, docker.containers),
       };
-      return formatResponse(
-        response_format,
-        summarize(changes, docker.containers, persist),
-        detailed,
-      );
+      const concise = summarize({ ok, changes, containers: docker.containers, persist });
+      return formatResponse(response_format, concise, detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to update Docker autostart: ${message}`);
