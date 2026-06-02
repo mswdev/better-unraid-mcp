@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { SystemInfoQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemInfoHandler } from "./system-info.js";
 
 const sample = {
@@ -36,18 +36,6 @@ const allNull = {
 
 function fakeExecutor(result: SystemInfoQuery): GraphQLExecutor {
   return { execute: async () => result as never };
-}
-
-function throwingExecutor(message: string): GraphQLExecutor {
-  return {
-    execute: async () => {
-      throw new Error(message);
-    },
-  };
-}
-
-function rejectingExecutor(reason: unknown): GraphQLExecutor {
-  return { execute: () => Promise.reject(reason) };
 }
 
 describe("system_info handler", () => {

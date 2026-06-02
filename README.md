@@ -4,11 +4,13 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, and the first read-only system & storage tools are in place. Full coverage of the Unraid API surface (Docker, VMs, notifications, and more) is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, and the Docker tools (reads plus confirm-gated mutations) are in place. Full coverage of the Unraid API surface (VMs, notifications, and more) is in progress and will land in subsequent releases.
 
 ### Available tools
 
-All current tools are **read-only**.
+#### System & storage
+
+These tools are all **read-only**.
 
 | Tool | Description |
 | --- | --- |
@@ -17,6 +19,24 @@ All current tools are **read-only**.
 | `parity_history` | Returns the most recent parity checks (date, status, errors, speed); `limit` controls how many are returned. |
 | `disk_list` | Lists physical disks with model, size, interface, SMART status, temperature, and partitions. |
 | `share_list` | Lists user shares with usage (free/used/total); `name` filters by a share-name substring. |
+
+#### Docker
+
+Four read-only tools and three **destructive** mutations. Every mutation requires `confirm: true` — without it the tool refuses and never touches your server.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `docker_container_list` | read-only | Lists Docker containers with state, image, and whether an update is available; `name` filters by a container-name substring. |
+| `docker_container_logs` | read-only | Returns recent log lines for a container. `id` is the container id from `docker_container_list`; `tail` sets trailing lines (default 200, max 2000); `since` is an inclusive ISO-8601 lower bound (re-pass the returned `cursor` to page). |
+| `docker_network_list` | read-only | Lists Docker networks (driver, scope, IPv6/internal/attachable). |
+| `docker_port_conflicts` | read-only | Reports Docker container/LAN port conflicts. |
+| `docker_container_action` | **destructive** | Changes a container's run state — `action` is one of `start`, `stop`, `pause`, `unpause`. Requires `confirm: true`. |
+| `docker_container_remove` | **destructive** | Permanently deletes a container (force-kills it if running; irreversible). `with_image: true` also attempts a best-effort image delete. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
+| `docker_container_update` | **destructive** | Pulls the latest image(s) and recreates container(s). Provide either `ids` (specific containers) or `all: true` (every container with an available update) — not both. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
+
+> **Not yet verified against a live Unraid server.** The Docker tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. `docker_container_remove` and `docker_container_update` require **Unraid OS 7.3+**. `docker_network_list` and `docker_port_conflicts` are designed strictly to the vendored GraphQL SDL — their runtime behavior is unverified. Treat the destructive Docker tools with care.
+
+> **Planned:** `docker_autostart_set` (toggle container auto-start) is deferred to **PR #3.5** while its merge-safety semantics are worked out.
 
 ## Requirements
 
