@@ -287,6 +287,23 @@ describe("docker_autostart_set handler", () => {
     expect(firstText(result)).not.toMatch(/\/app/);
   });
 
+  it("returns the resolved changes (id, name, autoStart, wait) in detailed format", async () => {
+    const { executor } = sequencedExecutor([state, ok]);
+
+    const result = await createDockerAutostartSetHandler(executor)({
+      changes: [{ id: "srv:app", auto_start: false, wait: 5 }],
+      persist: true,
+      confirm: true,
+      response_format: "detailed",
+    });
+
+    expect(JSON.parse(firstText(result))).toEqual({
+      ok: true,
+      persisted: true,
+      changes: [{ id: "srv:app", name: "app", autoStart: false, wait: 5 }],
+    });
+  });
+
   it("returns an error result when the read throws", async () => {
     const { executor } = sequencedExecutor([new Error("daemon down")]);
 
@@ -418,9 +435,30 @@ function describeChange(change: Change, name: string): string {
   return `${name} ${state}${wait}`;
 }
 
+/** Maps each container id to its slash-stripped display name. */
+function buildNameById(containers: Containers): Map<string, string> {
+  return new Map(
+    containers.map((container) => [container.id, stripLeadingSlash(container.names[0], container.id)]),
+  );
+}
+
+/** Resolves each requested change to a detailed record for the detailed payload. */
+function detailChanges(
+  changes: Change[],
+  containers: Containers,
+): { id: string; name: string; autoStart: boolean; wait: number | null }[] {
+  const nameById = buildNameById(containers);
+  return changes.map((change) => ({
+    id: change.id,
+    name: nameById.get(change.id) ?? change.id,
+    autoStart: change.auto_start,
+    wait: change.wait ?? null,
+  }));
+}
+
 /** Builds the concise summary of the requested changes. */
 function summarize(changes: Change[], containers: Containers, persist: boolean): string {
-  const nameById = new Map(containers.map((c) => [c.id, stripLeadingSlash(c.names[0], c.id)]));
+  const nameById = buildNameById(containers);
   const parts = changes.map((change) => describeChange(change, nameById.get(change.id) ?? change.id));
   const target = persist ? "autostart file + WebGUI prefs" : "autostart file only";
   return `Autostart updated: ${parts.join(", ")} — ${target}; effective next array/Docker start.`;
@@ -456,7 +494,11 @@ export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
       }
       const entries = buildEntries(docker.containers, changes);
       const result = await client.execute(DockerSetAutostartDocument, { entries, persist });
-      const detailed = { ok: result.docker.updateAutostartConfiguration, persisted: persist, changes };
+      const detailed = {
+        ok: result.docker.updateAutostartConfiguration,
+        persisted: persist,
+        changes: detailChanges(changes, docker.containers),
+      };
       return formatResponse(response_format, summarize(changes, docker.containers, persist), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
