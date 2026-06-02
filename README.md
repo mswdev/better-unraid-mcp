@@ -22,7 +22,7 @@ These tools are all **read-only**.
 
 #### Docker
 
-Four read-only tools and three **destructive** mutations. Every mutation requires `confirm: true` — without it the tool refuses and never touches your server.
+Four read-only tools and four **destructive** mutations. Every mutation requires `confirm: true` — without it the tool refuses and never touches your server.
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -33,10 +33,9 @@ Four read-only tools and three **destructive** mutations. Every mutation require
 | `docker_container_action` | **destructive** | Changes a container's run state — `action` is one of `start`, `stop`, `pause`, `unpause`. Requires `confirm: true`. |
 | `docker_container_remove` | **destructive** | Permanently deletes a container (force-kills it if running; irreversible). `with_image: true` also attempts a best-effort image delete. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
 | `docker_container_update` | **destructive** | Pulls the latest image(s) and recreates container(s). Provide either `ids` (specific containers) or `all: true` (every container with an available update) — not both. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
+| `docker_autostart_set` | **destructive** | Sets which containers auto-start on boot (merge-safe; resubmits the full set sorted to preserve boot order). Boot-time only. `persist: true` also updates the WebGUI prefs but reorders the Docker-page list irreversibly. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
 
-> **Not yet verified against a live Unraid server.** The Docker tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. `docker_container_remove` and `docker_container_update` require **Unraid OS 7.3+**. `docker_network_list` and `docker_port_conflicts` are designed strictly to the vendored GraphQL SDL — their runtime behavior is unverified. Treat the destructive Docker tools with care.
-
-> **Planned:** `docker_autostart_set` (toggle container auto-start) is deferred to **PR #3.5** while its merge-safety semantics are worked out.
+> **Not yet verified against a live Unraid server.** The Docker tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. `docker_container_remove`, `docker_container_update`, and `docker_autostart_set` require **Unraid OS 7.3+**. `docker_network_list` and `docker_port_conflicts` are designed strictly to the vendored GraphQL SDL — their runtime behavior is unverified. Treat the destructive Docker tools with care.
 
 ## Requirements
 
