@@ -25,14 +25,15 @@ export interface RecordedCall {
 /**
  * Builds a fake executor that records every `execute` call and returns a canned
  * result. Use it to assert a confirm-gate short-circuited (no calls) or that a
- * tool dispatched the expected typed Document. The result type parameter lets
- * callers pass a `satisfies <Operation>Query`/`<Operation>Mutation` fixture so
- * codegen drift breaks the build.
+ * tool dispatched the expected typed Document. Add a `satisfies <Operation>Query`/
+ * `<Operation>Mutation` clause to the fixture literal at the call site so codegen
+ * drift (a renamed selection field or dropped enum member) breaks the build —
+ * that check happens at the call site and is independent of this signature.
  *
  * @param result - The value every `execute` call resolves to.
  * @returns The fake executor and the array of recorded calls.
  */
-export function recordingExecutor<T>(result: T): {
+export function recordingExecutor(result: unknown): {
   executor: GraphQLExecutor;
   calls: RecordedCall[];
 } {

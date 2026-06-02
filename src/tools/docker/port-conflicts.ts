@@ -20,18 +20,18 @@ type ContainerPortConflict = Conflicts["containerPorts"][number];
 type LanPortConflict = Conflicts["lanPorts"][number];
 
 /** Joins the slash-stripped names of the containers involved in a conflict. */
-function conflictNames(containers: { name: string }[]): string {
+function formatConflictNames(containers: { name: string }[]): string {
   return containers.map((container) => stripLeadingSlash(container.name)).join(", ");
 }
 
 /** Renders one container-port conflict: port/protocol and the offending containers. */
 function formatContainerPort(conflict: ContainerPortConflict): string {
-  return `${conflict.privatePort}/${conflict.type} (${conflictNames(conflict.containers)})`;
+  return `${conflict.privatePort}/${conflict.type} (${formatConflictNames(conflict.containers)})`;
 }
 
 /** Renders one LAN-port conflict: host:port and the offending containers. */
 function formatLanPort(conflict: LanPortConflict): string {
-  return `${conflict.lanIpPort} (${conflictNames(conflict.containers)})`;
+  return `${conflict.lanIpPort} (${formatConflictNames(conflict.containers)})`;
 }
 
 /** Lists the offending container/LAN port conflicts, or notes there are none. */

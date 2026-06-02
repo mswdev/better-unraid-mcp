@@ -72,6 +72,7 @@ describe("docker_network_list handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch Docker networks/);
+    expect(firstText(result)).toMatch(/unauthorized/);
   });
 
   it("reports when there are no networks", async () => {

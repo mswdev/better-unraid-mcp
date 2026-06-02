@@ -56,6 +56,7 @@ describe("docker_port_conflicts handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch Docker port conflicts/);
+    expect(firstText(result)).toMatch(/unauthorized/);
   });
 
   it("reports when there are no port conflicts", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerContainerLogsQuery } from "../../types/unraid/graphql.js";
 import { firstText, throwingExecutor } from "../_shared/test-support.js";
-import { createDockerContainerLogsHandler } from "./container-logs.js";
+import { createDockerContainerLogsHandler, sinceSchema } from "./container-logs.js";
 
 const data = {
   docker: {
@@ -74,5 +74,11 @@ describe("docker_container_logs handler", () => {
     });
 
     expect(firstText(result)).toMatch(/No log lines/);
+  });
+
+  it("re-accepts a returned cursor as a valid `since` and rejects free text", () => {
+    // The documented paging loop re-passes the returned `cursor` as `since`.
+    expect(sinceSchema.safeParse(data.docker.logs.cursor).success).toBe(true);
+    expect(sinceSchema.safeParse("yesterday").success).toBe(false);
   });
 });

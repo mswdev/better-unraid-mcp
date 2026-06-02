@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerContainerListQuery } from "../../types/unraid/graphql.js";
-import { firstText, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerContainerListHandler } from "./container-list.js";
 
 const data = {
@@ -74,5 +74,14 @@ describe("docker_container_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch Docker containers/);
     expect(firstText(result)).toMatch(/unauthorized/);
+  });
+
+  it("coerces a non-Error rejection into the error message", async () => {
+    const result = await createDockerContainerListHandler(rejectingExecutor("boom-string"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/boom-string/);
   });
 });

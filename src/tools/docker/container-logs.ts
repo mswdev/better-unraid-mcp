@@ -12,12 +12,17 @@ const TOOL_NAME = "docker_container_logs";
 const DEFAULT_TAIL = 200;
 const MAX_TAIL = 2000;
 
+/**
+ * Validator for `since`: ISO-8601 with optional offset — matches the DateTime
+ * scalar and a re-passed `cursor` (which may carry a timezone offset), rejecting
+ * free-text up front. Exported so the paging round-trip can be unit-tested.
+ */
+export const sinceSchema = z.string().datetime({ offset: true }).optional();
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   id: z.string(),
-  // ISO-8601 with optional offset — matches the DateTime scalar and a re-passed
-  // `cursor` (which may carry a timezone offset), rejecting free-text up front.
-  since: z.string().datetime({ offset: true }).optional(),
+  since: sinceSchema,
   tail: z.number().int().positive().max(MAX_TAIL).default(DEFAULT_TAIL),
 };
 
