@@ -14,6 +14,6 @@ describe("requireConfirmation", () => {
     // biome-ignore lint/style/noNonNullAssertion: guarded by the assertion above.
     expect(result!.isError).toBe(true);
     // biome-ignore lint/style/noNonNullAssertion: guarded by the assertion above.
-    expect(firstText(result!)).toMatch(/destructive/i);
+    expect(firstText(result!)).toMatch(/requires confirmation/i);
   });
 });

@@ -7,6 +7,7 @@ import {
   type DockerPortConflictsQuery,
 } from "../../types/unraid/graphql.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_port_conflicts";
 
@@ -15,15 +16,38 @@ const inputSchema = {
 };
 
 type Conflicts = DockerPortConflictsQuery["docker"]["portConflicts"];
+type ContainerPortConflict = Conflicts["containerPorts"][number];
+type LanPortConflict = Conflicts["lanPorts"][number];
 
-/** Counts the container-port and LAN-port conflicts, or notes there are none. */
+/** Joins the slash-stripped names of the containers involved in a conflict. */
+function conflictNames(containers: { name: string }[]): string {
+  return containers.map((container) => stripLeadingSlash(container.name)).join(", ");
+}
+
+/** Renders one container-port conflict: port/protocol and the offending containers. */
+function formatContainerPort(conflict: ContainerPortConflict): string {
+  return `${conflict.privatePort}/${conflict.type} (${conflictNames(conflict.containers)})`;
+}
+
+/** Renders one LAN-port conflict: host:port and the offending containers. */
+function formatLanPort(conflict: LanPortConflict): string {
+  return `${conflict.lanIpPort} (${conflictNames(conflict.containers)})`;
+}
+
+/** Lists the offending container/LAN port conflicts, or notes there are none. */
 function summarize(conflicts: Conflicts): string {
-  const containerCount = conflicts.containerPorts.length;
-  const lanCount = conflicts.lanPorts.length;
-  if (containerCount === 0 && lanCount === 0) {
+  const { containerPorts, lanPorts } = conflicts;
+  if (containerPorts.length === 0 && lanPorts.length === 0) {
     return "No port conflicts.";
   }
-  return `${containerCount} container-port conflict(s), ${lanCount} LAN-port conflict(s).`;
+  const lines: string[] = [];
+  if (containerPorts.length > 0) {
+    lines.push(`Container-port conflicts: ${containerPorts.map(formatContainerPort).join("; ")}`);
+  }
+  if (lanPorts.length > 0) {
+    lines.push(`LAN-port conflicts: ${lanPorts.map(formatLanPort).join("; ")}`);
+  }
+  return lines.join("\n");
 }
 
 /**

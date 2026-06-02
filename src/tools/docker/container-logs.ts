@@ -15,7 +15,9 @@ const MAX_TAIL = 2000;
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   id: z.string(),
-  since: z.string().optional(),
+  // ISO-8601 with optional offset — matches the DateTime scalar and a re-passed
+  // `cursor` (which may carry a timezone offset), rejecting free-text up front.
+  since: z.string().datetime({ offset: true }).optional(),
   tail: z.number().int().positive().max(MAX_TAIL).default(DEFAULT_TAIL),
 };
 

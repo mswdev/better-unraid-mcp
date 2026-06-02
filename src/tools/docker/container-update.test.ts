@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { DockerUpdateContainersDocument } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor } from "../_shared/test-support.js";
+import {
+  type DockerUpdateAllMutation,
+  DockerUpdateContainersDocument,
+  type DockerUpdateContainersMutation,
+} from "../../types/unraid/graphql.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerContainerUpdateHandler } from "./container-update.js";
 
 describe("docker_container_update handler", () => {
   it("refuses without confirm and never calls the executor", async () => {
-    const { executor, calls } = recordingExecutor({ docker: { updateContainers: [] } });
+    const { executor, calls } = recordingExecutor({
+      docker: { updateContainers: [] },
+    } satisfies DockerUpdateContainersMutation);
 
     const result = await createDockerContainerUpdateHandler(executor)({
       ids: ["srv:abc"],
@@ -18,7 +24,9 @@ describe("docker_container_update handler", () => {
   });
 
   it("rejects providing both ids and all without calling the executor", async () => {
-    const { executor, calls } = recordingExecutor({ docker: { updateContainers: [] } });
+    const { executor, calls } = recordingExecutor({
+      docker: { updateContainers: [] },
+    } satisfies DockerUpdateContainersMutation);
 
     const result = await createDockerContainerUpdateHandler(executor)({
       ids: ["srv:abc"],
@@ -33,7 +41,9 @@ describe("docker_container_update handler", () => {
   });
 
   it("rejects providing neither ids nor all without calling the executor", async () => {
-    const { executor, calls } = recordingExecutor({ docker: { updateContainers: [] } });
+    const { executor, calls } = recordingExecutor({
+      docker: { updateContainers: [] },
+    } satisfies DockerUpdateContainersMutation);
 
     const result = await createDockerContainerUpdateHandler(executor)({
       confirm: true,
@@ -58,7 +68,7 @@ describe("docker_container_update handler", () => {
           },
         ],
       },
-    });
+    } satisfies DockerUpdateContainersMutation);
 
     const result = await createDockerContainerUpdateHandler(executor)({
       ids: ["srv:abc"],
@@ -74,7 +84,9 @@ describe("docker_container_update handler", () => {
   });
 
   it("reports an empty update-all result as success, not an error", async () => {
-    const { executor } = recordingExecutor({ docker: { updateAllContainers: [] } });
+    const { executor } = recordingExecutor({
+      docker: { updateAllContainers: [] },
+    } satisfies DockerUpdateAllMutation);
 
     const result = await createDockerContainerUpdateHandler(executor)({
       all: true,
@@ -84,5 +96,17 @@ describe("docker_container_update handler", () => {
 
     expect(result.isError).toBeUndefined();
     expect(firstText(result)).toMatch(/No containers had an available update/);
+  });
+
+  it("returns an error result when the mutation throws (after gate and validation pass)", async () => {
+    const result = await createDockerContainerUpdateHandler(throwingExecutor("registry timeout"))({
+      ids: ["srv:abc"],
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to update Docker container\(s\)/);
+    expect(firstText(result)).toMatch(/registry timeout/);
   });
 });

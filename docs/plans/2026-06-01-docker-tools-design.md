@@ -84,7 +84,17 @@ against a live Unraid box** — see *Residual unknowns*.
 |------|------|-----------------|
 | `docker_container_action` | `id`, `action` (`start`\|`stop`\|`pause`\|`unpause`), `confirm` | Dispatches the enum to one of four mutation Documents. Concise uses **past-tense verbs** ("Started container X") — never asserts the (async) returned `state` as confirmed. |
 | `docker_container_remove` | `id`, `with_image?` (default false), `confirm` | `removeContainer(id, withImage)`. Copy: "Permanently deletes the container; force-kills it if running (no graceful shutdown); irreversible." `with_image`: "also attempts to delete the image (best-effort; may report success without deleting a shared/in-use image)." Never claims the image was deleted. **7.3+**. |
-| `docker_container_update` | `ids[]` **+** `all?`, `confirm` | `z.object` with a `refine`: **exactly one** of `ids` (non-empty) or `all: true`. `ids` → `updateContainers(ids)` (a single id is `ids: [one]`); `all` → `updateAllContainers`. Copy: force-pulls regardless of update-available; `all` returning none = "no containers had an available update" (not an error); updating an orphaned container is a silent no-op. **7.3+**. |
+| `docker_container_update` | `ids[]` **+** `all?`, `confirm` | **Exactly one** of `ids` (non-empty) or `all: true`, validated **handler-side** (`resolveTarget`), not via a top-level Zod `refine` — see note below. `ids` → `updateContainers(ids)` (a single id is `ids: [one]`); `all` → `updateAllContainers`. Copy: force-pulls regardless of update-available; `all` returning none = "no containers had an available update" (not an error); updating an orphaned container is a silent no-op. **7.3+**. |
+
+> **`ids`/`all` validation — handler-side, not Zod `refine`.** The MCP SDK's
+> `inputSchema` is a Zod *raw shape* (a map of field schemas), the convention used
+> by all 12 tools in this repo (no `.refine()` appears anywhere in `src/`). The
+> XOR is therefore enforced in `resolveTarget` (returning `toolError` before any
+> `client.execute`) and covered by tests for both/neither. A top-level
+> `z.object().refine(...)` would also be wireable, but Zod refinement predicates
+> do not serialize to the introspected JSON Schema, so a `tools/list` client would
+> see the same two optional fields either way — no client-facing gain for a lone
+> deviation from the repo convention.
 
 ### Annotations rationale
 
@@ -158,8 +168,9 @@ build. Coverage per concern:
   `action` value drives the correct mutation Document; concise past-tense copy.
 - **`container_remove`**: gate-not-called; `with_image` true/false; copy never
   claims image deletion.
-- **`container_update`**: gate-not-called; the `ids` XOR `all` `refine`
-  (both / neither → validation error); `all`-returns-empty is success, not error.
+- **`container_update`**: gate-not-called; the handler-side `ids` XOR `all`
+  validation (both / neither → validation error); `all`-returns-empty is success,
+  not error.
 - **`_shared`**: `stripLeadingSlash` unit tests (with slash, without, empty).
 
 ## Deferred

@@ -16,17 +16,25 @@ const inputSchema = {
 
 type Networks = DockerNetworkListQuery["docker"]["networks"];
 
-/** One line per network: name, driver, scope, and an IPv6 marker when enabled. */
+/** Formats one network with its scope and any active flag markers (IPv6, internal). */
+function formatNetwork(network: Networks[number]): string {
+  const flags: string[] = [];
+  if (network.enableIPv6) {
+    flags.push("IPv6");
+  }
+  if (network.internal) {
+    flags.push("internal");
+  }
+  const suffix = flags.length > 0 ? `, ${flags.join(", ")}` : "";
+  return `${network.name} — ${network.driver} (${network.scope})${suffix}`;
+}
+
+/** One line per network: name, driver, scope, and IPv6/internal flag markers. */
 function summarize(networks: Networks): string {
   if (networks.length === 0) {
     return "No Docker networks.";
   }
-  return networks
-    .map((network) => {
-      const ipv6 = network.enableIPv6 ? ", IPv6" : "";
-      return `${network.name} — ${network.driver} (${network.scope})${ipv6}`;
-    })
-    .join("\n");
+  return networks.map(formatNetwork).join("\n");
 }
 
 /**

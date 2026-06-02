@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerNetworkListQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerNetworkListHandler } from "./network-list.js";
 
 const data = {
@@ -22,7 +22,7 @@ const data = {
         driver: "bridge",
         scope: "local",
         enableIPv6: false,
-        internal: false,
+        internal: true,
         attachable: false,
       },
     ],
@@ -53,6 +53,25 @@ describe("docker_network_list handler", () => {
     // Line-anchored so the v6 network's marker does not leak onto the other line.
     expect(firstText(result)).toMatch(/^br0 .*IPv6/m);
     expect(firstText(result)).not.toMatch(/^bridge .*IPv6/m);
+  });
+
+  it("appends an internal marker only to internal networks", async () => {
+    const result = await createDockerNetworkListHandler(fakeExecutor(data))({
+      response_format: "concise",
+    });
+
+    // bridge is internal:true, br0 is internal:false — line-anchored to avoid leakage.
+    expect(firstText(result)).toMatch(/^bridge .*internal/m);
+    expect(firstText(result)).not.toMatch(/^br0 .*internal/m);
+  });
+
+  it("returns an error result when the client throws", async () => {
+    const result = await createDockerNetworkListHandler(throwingExecutor("unauthorized"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to fetch Docker networks/);
   });
 
   it("reports when there are no networks", async () => {
