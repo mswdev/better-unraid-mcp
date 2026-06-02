@@ -1,0 +1,22 @@
+mutation DockerUpdateContainers($ids: [PrefixedID!]!) {
+  docker {
+    updateContainers(ids: $ids) {
+      id
+      names
+      state
+      status
+      isUpdateAvailable
+    }
+  }
+}
+
+mutation DockerUpdateAll {
+  docker {
+    updateAllContainers {
+      id
+      names
+      state
+      status
+    }
+  }
+}
