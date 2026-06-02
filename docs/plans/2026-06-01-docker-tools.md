@@ -846,7 +846,7 @@ function resolveTarget(ids: string[] | undefined, all: boolean | undefined): { e
 **Test (key cases):**
 - No `confirm` → `isError`, `/confirm/i`, `calls.length === 0`.
 - `ids: []`-equivalent invalid combos (both / neither) with `confirm: true` → `isError`, `/either|provide/i`, `calls.length === 0` (validated before execute).
-- `ids: ["srv:abc"]`, `confirm: true` → dispatches `DockerUpdateContainersDocument` with `{ ids: ["srv:abc"] }`; message `/Updated/`.
+- `ids: ["srv:abc"]`, `confirm: true` → dispatches `DockerUpdateContainersDocument` with `{ ids: ["srv:abc"] }`; message `/Update requested/i`.
 - `all: true`, `confirm: true`, executor returns `{ docker: { updateAllContainers: [] } }` → message `/No containers had an available update/` and **not** `isError` (empty is success, not failure).
 
 **Handler flow:** confirm-gate → `resolveTarget` (return `toolError(error)` on error) → branch: `all` → `execute(DockerUpdateAllDocument)` → `data.docker.updateAllContainers`; `ids` → `execute(DockerUpdateContainersDocument, { ids })` → `data.docker.updateContainers`. Summarize:
@@ -856,9 +856,13 @@ function summarize(containers: { names: string[] }[]): string {
     return "No containers had an available update.";
   }
   const names = containers.map((c) => stripLeadingSlash(c.names[0], "(unnamed)"));
-  return `Updated ${containers.length} container(s): ${names.join(", ")}.`;
+  // "requested", not "Updated": updating an orphaned container is a silent
+  // no-op — the API returns it unchanged. We must not over-claim a result.
+  return `Update requested for ${containers.length} container(s): ${names.join(", ")}.`;
 }
 ```
+
+> **Conscious simplification (orphan detection):** the design said "surface/check `isOrphaned` and warn." This plan does **not** add runtime orphan detection — instead the copy avoids over-claiming ("Update requested for…") and the tool description warns that updating an orphaned (no-template) container is a silent no-op. Runtime per-container orphan warnings can be a follow-up. The `ids` operation still selects `isUpdateAvailable` so detailed output exposes post-update state. The `Updated` → `Update requested` softening updates the test assertion below (`/Update requested/i`).
 
 Annotations: `readOnlyHint: false, destructiveHint: true, openWorldHint: false`.
 Description: "Pulls the latest image(s) and recreates container(s). `ids` updates those containers (force-pull regardless of update-available); `all` updates every container with a known-available update (returns none if the cache is cold — not an error). Updating an orphaned container with no template is a silent no-op. Requires `confirm: true`. Needs Unraid OS 7.3+."
@@ -885,11 +889,17 @@ Match the existing README format (check how PR #2 listed system/storage tools fi
 
 **Step 2 — full gate:** `npm run typecheck && npm run build && npm test && npm run lint` → Expected: all pass.
 
-**Step 3 — stdio `tools/list` smoke:** start the server over stdio and confirm all 7 docker tools register with correct annotations. Minimal check:
+**Step 3 — stdio `tools/list` smoke:** an MCP stdio server requires the `initialize` handshake *before* `tools/list`, so send all three frames. Env vars are `UNRAID_API_URL` (must be a valid URL) and `UNRAID_API_KEY` (non-empty); `tools/list` registers statically and never calls the API, so dummy values are fine. Prefer any existing PR #1/#2 smoke script; otherwise:
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | UNRAID_API_URL=http://x/graphql UNRAID_API_KEY=x node dist/index.js 2>/dev/null | grep -o 'docker_[a-z_]*' | sort -u
+npm run build
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+| UNRAID_API_URL=http://localhost/graphql UNRAID_API_KEY=dummy node dist/index.js 2>/dev/null \
+| grep -o 'docker_[a-z_]*' | sort -u
 ```
-Expected: the 7 `docker_*` names. (Confirm `docker_container_*` mutations show `destructiveHint: true` in the JSON.) If the project has an existing smoke script from PR #1/#2, prefer it.
+Expected: the 7 `docker_*` names. Then eyeball the full `tools/list` JSON to confirm the three `docker_container_action`/`_remove`/`_update` tools carry `destructiveHint: true` and the four reads carry `readOnlyHint: true`. (This smoke is run by the maintainer after the automated build, per the dev workflow — not an automated build task.)
 
 **Step 4 — final commit (if anything changed):** none expected; the gate is a verification, not a code step.
 

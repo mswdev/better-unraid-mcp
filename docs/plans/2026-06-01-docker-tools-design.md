@@ -123,11 +123,14 @@ src/tools/docker/
   network-list.{ts,graphql,test.ts}
   port-conflicts.{ts,graphql,test.ts}
   _shared.ts                                    # stripLeadingSlash + any docker helpers (+ .test.ts)
-  registry.ts                                   # (existing) registers all 7
 ```
 
+Registration happens in the **existing top-level `src/tools/registry.ts`** (one
+`register*` import + call per tool, matching the established pattern) — there is
+no `docker/registry.ts`, which keeps `docker/` at exactly 8 source `.ts` files.
+
 Flat domain dir, matching the existing `array/`/`share/` convention. **Conscious
-file-cap note:** this lands `docker/` at ~8 source `.ts` files (tests excluded)
+file-cap note:** this lands `docker/` at 8 source `.ts` files (tests excluded)
 — under the 10-file cap, but close. The *next* docker PR (stats/exec/inspect)
 will trigger a `docker/container/` subdivision; flat-and-defer is deliberate for
 this PR, not an oversight.
