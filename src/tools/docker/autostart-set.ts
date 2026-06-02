@@ -65,8 +65,16 @@ function mergeEntry(container: Container, change: Change | undefined): MergedEnt
   };
 }
 
-/** Orders entries by autostart position ascending, with unordered ones last. */
-function compareByOrder(a: MergedEntry, b: MergedEntry): number {
+/**
+ * Orders entries by autostart position ascending, with unordered (null) ones
+ * last and stable among themselves (two nulls compare equal). Exported so the
+ * tiebreak contract can be asserted directly.
+ *
+ * @param a - The left entry (only its `order` is read).
+ * @param b - The right entry (only its `order` is read).
+ * @returns Negative if `a` sorts first, positive if `b` sorts first, 0 if equal.
+ */
+export function compareByOrder(a: { order: number | null }, b: { order: number | null }): number {
   if (a.order === null) {
     return b.order === null ? 0 : 1;
   }

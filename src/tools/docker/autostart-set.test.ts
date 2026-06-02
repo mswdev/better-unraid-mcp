@@ -6,7 +6,7 @@ import {
   type DockerSetAutostartMutation,
 } from "../../types/unraid/graphql.js";
 import { firstText, sequencedExecutor } from "../_shared/test-support.js";
-import { createDockerAutostartSetHandler } from "./autostart-set.js";
+import { compareByOrder, createDockerAutostartSetHandler } from "./autostart-set.js";
 
 const state = {
   docker: {
@@ -277,5 +277,21 @@ describe("docker_autostart_set handler", () => {
     expect(calls).toHaveLength(2);
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/flag off/);
+  });
+});
+
+describe("compareByOrder", () => {
+  it("treats two unordered (null) entries as equal", () => {
+    expect(compareByOrder({ order: null }, { order: null })).toBe(0);
+  });
+
+  it("sorts unordered entries after ordered ones", () => {
+    expect(compareByOrder({ order: null }, { order: 0 })).toBe(1);
+    expect(compareByOrder({ order: 0 }, { order: null })).toBe(-1);
+  });
+
+  it("orders by numeric position ascending", () => {
+    expect(compareByOrder({ order: 0 }, { order: 1 })).toBeLessThan(0);
+    expect(compareByOrder({ order: 2 }, { order: 1 })).toBeGreaterThan(0);
   });
 });
