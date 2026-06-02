@@ -3,6 +3,7 @@ import type { GraphQLExecutor } from "../graphql/client.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
+import { registerDockerAutostartSet } from "./docker/autostart-set.js";
 import { registerDockerContainerAction } from "./docker/container-action.js";
 import { registerDockerContainerList } from "./docker/container-list.js";
 import { registerDockerContainerLogs } from "./docker/container-logs.js";
@@ -26,6 +27,7 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerParityHistory(server, client);
   registerDiskList(server, client);
   registerShareList(server, client);
+  registerDockerAutostartSet(server, client);
   registerDockerContainerAction(server, client);
   registerDockerContainerList(server, client);
   registerDockerContainerLogs(server, client);

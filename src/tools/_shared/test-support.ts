@@ -72,3 +72,32 @@ export function throwingExecutor(message: string): GraphQLExecutor {
 export function rejectingExecutor(reason: unknown): GraphQLExecutor {
   return { execute: () => Promise.reject(reason) };
 }
+
+/**
+ * Builds a fake executor that returns canned results in call order (one per
+ * `execute` call) and records every call. A result that is an `Error` is thrown
+ * instead of returned, so a multi-call handler can be exercised through both the
+ * read and the mutate call (e.g. read succeeds, then the mutation throws).
+ *
+ * @param results - Canned results (or `Error`s to throw), consumed in order.
+ * @returns The fake executor and the array of recorded calls.
+ */
+export function sequencedExecutor(results: unknown[]): {
+  executor: GraphQLExecutor;
+  calls: RecordedCall[];
+} {
+  const calls: RecordedCall[] = [];
+  let index = 0;
+  const executor: GraphQLExecutor = {
+    execute: async (document, variables) => {
+      calls.push({ document, variables });
+      const result = results[index];
+      index += 1;
+      if (result instanceof Error) {
+        throw result;
+      }
+      return result as never;
+    },
+  };
+  return { executor, calls };
+}
