@@ -6,6 +6,7 @@ import { registerDiskList } from "./disk/disk-list.js";
 import { registerDockerContainerList } from "./docker/container-list.js";
 import { registerDockerContainerLogs } from "./docker/container-logs.js";
 import { registerDockerNetworkList } from "./docker/network-list.js";
+import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 
@@ -25,4 +26,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerDockerContainerList(server, client);
   registerDockerContainerLogs(server, client);
   registerDockerNetworkList(server, client);
+  registerDockerPortConflicts(server, client);
 }
