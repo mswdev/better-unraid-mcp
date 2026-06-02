@@ -1,0 +1,43 @@
+mutation DockerStart($id: PrefixedID!) {
+  docker {
+    start(id: $id) {
+      id
+      names
+      state
+      status
+    }
+  }
+}
+
+mutation DockerStop($id: PrefixedID!) {
+  docker {
+    stop(id: $id) {
+      id
+      names
+      state
+      status
+    }
+  }
+}
+
+mutation DockerPause($id: PrefixedID!) {
+  docker {
+    pause(id: $id) {
+      id
+      names
+      state
+      status
+    }
+  }
+}
+
+mutation DockerUnpause($id: PrefixedID!) {
+  docker {
+    unpause(id: $id) {
+      id
+      names
+      state
+      status
+    }
+  }
+}
