@@ -151,7 +151,13 @@ git commit -m "feat(notification): add notification GraphQL operations + regener
 ```typescript
 import { describe, expect, it } from "vitest";
 import type { NotificationType } from "../../types/unraid/graphql.js";
-import { IMPORTANCE_TO_API, TYPE_TO_API, formatCounts, summarizeOverview } from "./_shared.js";
+import {
+  IMPORTANCE_TO_API,
+  TYPE_TO_API,
+  formatCounts,
+  summarizeLine,
+  summarizeOverview,
+} from "./_shared.js";
 
 describe("formatCounts", () => {
   it("renders total with the importance breakdown", () => {
@@ -170,6 +176,26 @@ describe("summarizeOverview", () => {
     expect(summarizeOverview(overview)).toBe(
       "Unread: 2 (1 alert / 1 warning / 0 info). Archived: 5 (0 alert / 2 warning / 3 info).",
     );
+  });
+});
+
+describe("summarizeLine", () => {
+  it("renders [IMPORTANCE] title — subject (formattedTimestamp)", () => {
+    expect(
+      summarizeLine({
+        importance: "WARNING",
+        title: "Disk warning",
+        subject: "Disk 1",
+        timestamp: "1700000001",
+        formattedTimestamp: "2023-11-14 12:00",
+      }),
+    ).toBe("[WARNING] Disk warning — Disk 1 (2023-11-14 12:00)");
+  });
+
+  it("falls back to timestamp then a placeholder when formattedTimestamp is null", () => {
+    expect(
+      summarizeLine({ importance: "INFO", title: "t", subject: "s", timestamp: null, formattedTimestamp: null }),
+    ).toBe("[INFO] t — s (no timestamp)");
   });
 });
 
@@ -245,6 +271,29 @@ export function formatCounts(counts: Counts): string {
  */
 export function summarizeOverview(overview: Overview): string {
   return `Unread: ${formatCounts(overview.unread)}. Archived: ${formatCounts(overview.archive)}.`;
+}
+
+/** A notification line item — the fields both list-style reads render. */
+export interface NotificationLineItem {
+  importance: string;
+  title: string;
+  subject: string;
+  timestamp?: string | null;
+  formattedTimestamp?: string | null;
+}
+
+/**
+ * Renders one notification as `[IMPORTANCE] title — subject (when)`, where `when`
+ * prefers the human `formattedTimestamp`, falls back to the raw `timestamp`, then a
+ * placeholder (both are nullable in the SDL). Shared by notification_list and
+ * notification_alerts so the line format has a single definition and test owner.
+ *
+ * @param notification - The notification fields to render.
+ * @returns The single-line summary.
+ */
+export function summarizeLine(notification: NotificationLineItem): string {
+  const when = notification.formattedTimestamp ?? notification.timestamp ?? "no timestamp";
+  return `[${notification.importance}] ${notification.title} — ${notification.subject} (${when})`;
 }
 ```
 
@@ -499,7 +548,13 @@ import {
   type NotificationListQuery,
 } from "../../types/unraid/graphql.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { IMPORTANCE_TO_API, type ImportanceInput, TYPE_TO_API, type TypeInput } from "./_shared.js";
+import {
+  IMPORTANCE_TO_API,
+  type ImportanceInput,
+  TYPE_TO_API,
+  type TypeInput,
+  summarizeLine,
+} from "./_shared.js";
 
 const TOOL_NAME = "notification_list";
 const DEFAULT_OFFSET = 0;
@@ -513,21 +568,17 @@ const inputSchema = {
   limit: z.number().int().positive().default(DEFAULT_LIMIT),
 };
 
+// `offset`/`limit` are optional here even though the Zod schema defaults them: a unit
+// test calls the handler directly (bypassing Zod), so the handler also defaults them.
 interface ListArgs {
   response_format: ResponseFormat;
   type: TypeInput;
   importance?: ImportanceInput;
-  offset: number;
-  limit: number;
+  offset?: number;
+  limit?: number;
 }
 
 type Notifications = NotificationListQuery["notifications"]["list"];
-
-/** Renders one notification as `[IMPORTANCE] title — subject (timestamp)`. */
-function summarizeLine(notification: Notifications[number]): string {
-  const when = notification.formattedTimestamp ?? notification.timestamp ?? "no timestamp";
-  return `[${notification.importance}] ${notification.title} — ${notification.subject} (${when})`;
-}
 
 /** Builds the empty-result message, distinguishing an importance filter from none. */
 function emptyMessage(args: ListArgs): string {
@@ -555,8 +606,8 @@ export function createNotificationListHandler(client: GraphQLExecutor) {
     const filter = {
       type: TYPE_TO_API[args.type],
       ...(args.importance ? { importance: IMPORTANCE_TO_API[args.importance] } : {}),
-      offset: args.offset,
-      limit: args.limit,
+      offset: args.offset ?? DEFAULT_OFFSET,
+      limit: args.limit ?? DEFAULT_LIMIT,
     };
     try {
       const { notifications } = await client.execute(NotificationListDocument, { filter });
@@ -605,7 +656,7 @@ git commit -m "feat(notification): add read-only notification_list tool"
 - Create: `src/tools/notification/notification-alerts.ts`
 - Test: `src/tools/notification/notification-alerts.test.ts`
 
-**Behavior:** zero domain args; reuses `summarizeLine`. Reuse the line formatter from `notification-list.ts` by **exporting it** there (`export function summarizeLine`) and importing it here — that is the genuine shared helper between the two list-style reads (avoids duplication; one definition, one test owner). Empty → `No unread warnings or alerts.`
+**Behavior:** zero domain args; reuses `summarizeLine` from `notification/_shared.ts` (the single owner of the line format — defined and tested in Task 2; `notification_list` imports the same). No sibling-file edit. Empty → `No unread warnings or alerts.`
 
 **Step 1: Write the failing test:**
 ```typescript
@@ -665,26 +716,7 @@ describe("notification_alerts handler", () => {
 
 **Step 2: Run → FAIL.**
 
-**Step 3a:** In `notification-list.ts`, change `function summarizeLine` to `export function summarizeLine` (and add a one-line JSDoc). Keep its `Notifications[number]` param type, or widen its parameter to a structural type so alerts can reuse it:
-```typescript
-/** A notification line item (the fields both list reads render). */
-export interface NotificationLineItem {
-  importance: string;
-  title: string;
-  subject: string;
-  timestamp?: string | null;
-  formattedTimestamp?: string | null;
-}
-
-/** Renders one notification as `[IMPORTANCE] title — subject (timestamp)`. */
-export function summarizeLine(notification: NotificationLineItem): string {
-  const when = notification.formattedTimestamp ?? notification.timestamp ?? "no timestamp";
-  return `[${notification.importance}] ${notification.title} — ${notification.subject} (${when})`;
-}
-```
-(Run the Task 4 test again after this change to confirm no regression.)
-
-**Step 3b: Implement** (`notification-alerts.ts`):
+**Step 3: Implement** (`notification-alerts.ts`) — imports `summarizeLine` from `./_shared.js` (already defined + tested in Task 2; no sibling edit):
 ```typescript
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -692,7 +724,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationAlertsDocument } from "../../types/unraid/graphql.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { summarizeLine } from "./notification-list.js";
+import { summarizeLine } from "./_shared.js";
 
 const TOOL_NAME = "notification_alerts";
 
@@ -741,13 +773,13 @@ export function registerNotificationAlerts(server: McpServer, client: GraphQLExe
 }
 ```
 
-**Step 4: Run → PASS** (both the alerts test and the list test).
-Run: `npx vitest run src/tools/notification/notification-alerts.test.ts src/tools/notification/notification-list.test.ts`
+**Step 4: Run → PASS.**
+Run: `npx vitest run src/tools/notification/notification-alerts.test.ts`
 
 **Step 5: Commit.**
 ```bash
-git add src/tools/notification/notification-alerts.ts src/tools/notification/notification-alerts.test.ts src/tools/notification/notification-list.ts
-git commit -m "feat(notification): add read-only notification_alerts tool + share the line formatter"
+git add src/tools/notification/notification-alerts.ts src/tools/notification/notification-alerts.test.ts
+git commit -m "feat(notification): add read-only notification_alerts tool"
 ```
 
 ---
@@ -1706,7 +1738,7 @@ await client.close();
 if (missing.length || del?.annotations?.destructiveHint !== true) process.exit(1);
 '
 ```
-Expected: `present: 7 /7; missing: []` and `delete destructiveHint: true`; exit 0. (Adjust the env var names to match `src/config/env.ts` if different — check before running.)
+Expected: `present: 7 /7; missing: []` and `delete destructiveHint: true`; exit 0. (Env vars confirmed against `src/config/env.ts`: `UNRAID_API_URL` must be a valid URL, `UNRAID_API_KEY` non-empty — the dummy values above satisfy validation, and `tools/list` registers statically with no network call, so no reachable/mocked endpoint is needed.)
 
 **Step 5: Commit.**
 ```bash
