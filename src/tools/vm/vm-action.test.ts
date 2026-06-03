@@ -226,6 +226,22 @@ describe("vm_action handler", () => {
     expect(calls[1].variables).toEqual({ id: "srv:bbb" });
   });
 
+  it("resolves a name case-insensitively", async () => {
+    const { executor, calls } = sequencedExecutor([
+      resolve,
+      { vm: { start: true } } satisfies VmStartMutation,
+    ]);
+
+    await createVmActionHandler(executor)({
+      vm: "windows 11",
+      action: "start",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(calls[1].variables).toEqual({ id: "srv:win11" });
+  });
+
   it("errors with no match and never calls the mutation", async () => {
     const { executor, calls } = sequencedExecutor([resolve]);
 
@@ -320,6 +336,49 @@ describe("vm_action handler", () => {
       action: "start",
       id: "srv:win11",
       name: "Windows 11",
+    });
+  });
+
+  it("labels a resolved null-name VM by its id in the concise summary", async () => {
+    const nameless = {
+      vms: { domains: [{ id: "srv:uuid", name: null }] },
+    } satisfies VmResolveQuery;
+    const { executor } = sequencedExecutor([
+      nameless,
+      { vm: { start: true } } satisfies VmStartMutation,
+    ]);
+
+    const result = await createVmActionHandler(executor)({
+      vm: "srv:uuid",
+      action: "start",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toBe("Started VM srv:uuid.");
+  });
+
+  it("returns name: null in detailed format for a resolved null-name VM", async () => {
+    const nameless = {
+      vms: { domains: [{ id: "srv:uuid", name: null }] },
+    } satisfies VmResolveQuery;
+    const { executor } = sequencedExecutor([
+      nameless,
+      { vm: { start: true } } satisfies VmStartMutation,
+    ]);
+
+    const result = await createVmActionHandler(executor)({
+      vm: "srv:uuid",
+      action: "start",
+      confirm: true,
+      response_format: "detailed",
+    });
+
+    expect(JSON.parse(firstText(result))).toEqual({
+      ok: true,
+      action: "start",
+      id: "srv:uuid",
+      name: null,
     });
   });
 

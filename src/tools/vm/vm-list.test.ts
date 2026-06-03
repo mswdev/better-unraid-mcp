@@ -42,6 +42,15 @@ describe("vm_list handler", () => {
     expect(firstText(result)).not.toMatch(/Windows 11/);
   });
 
+  it("reports No VMs found when the name filter matches nothing", async () => {
+    const result = await createVmListHandler(fakeExecutor(data))({
+      response_format: "concise",
+      name: "nonexistent",
+    });
+
+    expect(firstText(result)).toMatch(/No VMs found/);
+  });
+
   it("reports when there are no VMs", async () => {
     const result = await createVmListHandler(fakeExecutor({ vms: { domains: [] } }))({
       response_format: "concise",

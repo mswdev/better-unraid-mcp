@@ -110,9 +110,8 @@ function resolveVm(domains: VmDomain[], vm: string): ResolveResult {
     return { domain: byId };
   }
   const needle = vm.toLowerCase();
-  const byName = domains.filter(
-    (domain) => domain.name != null && domain.name.toLowerCase() === needle,
-  );
+  // Optional chaining mirrors vm-list.ts: a null name yields `undefined === needle` → excluded.
+  const byName = domains.filter((domain) => domain.name?.toLowerCase() === needle);
   if (byName.length === 1) {
     return { domain: byName[0] };
   }
