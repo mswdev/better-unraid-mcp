@@ -13,6 +13,7 @@ import { registerDockerNetworkList } from "./docker/network-list.js";
 import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
+import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 
 /**
@@ -37,4 +38,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerDockerNetworkList(server, client);
   registerDockerPortConflicts(server, client);
   registerVmList(server, client);
+  registerVmAction(server, client);
 }
