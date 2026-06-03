@@ -1,6 +1,32 @@
 mutation DeleteNotification($id: PrefixedID!, $type: NotificationType!) {
-  deleteNotification(id: $id, type: $type) { unread { info warning alert total } archive { info warning alert total } }
+  deleteNotification(id: $id, type: $type) {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
 }
 mutation DeleteArchivedNotifications {
-  deleteArchivedNotifications { unread { info warning alert total } archive { info warning alert total } }
+  deleteArchivedNotifications {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
 }

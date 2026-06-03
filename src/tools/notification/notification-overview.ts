@@ -19,10 +19,16 @@ const inputSchema = {
  * @returns An MCP handler returning unread/archive notification counts.
  */
 export function createNotificationOverviewHandler(client: GraphQLExecutor) {
-  return async ({ response_format }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  return async ({
+    response_format,
+  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     try {
       const { notifications } = await client.execute(NotificationOverviewDocument);
-      return formatResponse(response_format, summarizeOverview(notifications.overview), notifications.overview);
+      return formatResponse(
+        response_format,
+        summarizeOverview(notifications.overview),
+        notifications.overview,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch notification overview: ${message}`);

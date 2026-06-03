@@ -16,14 +16,18 @@ const canned = {
 describe("notification_recalculate", () => {
   it("dispatches RecalculateOverview and reports the re-synced counts", async () => {
     const { executor, calls } = recordingExecutor(canned);
-    const result = await createNotificationRecalculateHandler(executor)({ response_format: "concise" });
+    const result = await createNotificationRecalculateHandler(executor)({
+      response_format: "concise",
+    });
     expect(calls[0]?.document).toBe(RecalculateOverviewDocument);
     expect(firstText(result)).toBe("Overview re-synced from disk: 3 unread / 4 archived.");
   });
 
   it("returns the overview in detailed format", async () => {
     const { executor } = recordingExecutor(canned);
-    const result = await createNotificationRecalculateHandler(executor)({ response_format: "detailed" });
+    const result = await createNotificationRecalculateHandler(executor)({
+      response_format: "detailed",
+    });
     expect(JSON.parse(firstText(result))).toEqual(canned.recalculateOverview);
   });
 

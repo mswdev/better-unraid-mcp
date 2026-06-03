@@ -50,7 +50,10 @@ describe("notification_list handler", () => {
 
   it("renders one line per notification", async () => {
     const { executor } = recordingExecutor(data);
-    const result = await createNotificationListHandler(executor)({ response_format: "concise", type: "unread" });
+    const result = await createNotificationListHandler(executor)({
+      response_format: "concise",
+      type: "unread",
+    });
     expect(firstText(result)).toBe("[WARNING] Disk warning — Disk 1 (2023-11-14 12:00)");
   });
 
@@ -72,7 +75,10 @@ describe("notification_list handler", () => {
 
   it("returns the list array in detailed format", async () => {
     const { executor } = recordingExecutor(data);
-    const result = await createNotificationListHandler(executor)({ response_format: "detailed", type: "unread" });
+    const result = await createNotificationListHandler(executor)({
+      response_format: "detailed",
+      type: "unread",
+    });
     expect(JSON.parse(firstText(result))).toEqual(data.notifications.list);
   });
 

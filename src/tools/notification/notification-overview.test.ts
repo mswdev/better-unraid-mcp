@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { NotificationOverviewQuery } from "../../types/unraid/graphql.js";
 import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationOverviewHandler } from "./notification-overview.js";
-import type { GraphQLExecutor } from "../../graphql/client.js";
 
 const data = {
   notifications: {
@@ -19,14 +19,18 @@ const fake = (result: NotificationOverviewQuery): GraphQLExecutor => ({
 
 describe("notification_overview handler", () => {
   it("summarizes unread and archived counts", async () => {
-    const result = await createNotificationOverviewHandler(fake(data))({ response_format: "concise" });
+    const result = await createNotificationOverviewHandler(fake(data))({
+      response_format: "concise",
+    });
     expect(firstText(result)).toBe(
       "Unread: 6 (2 alert / 1 warning / 3 info). Archived: 10 (0 alert / 0 warning / 10 info).",
     );
   });
 
   it("returns the overview object in detailed format", async () => {
-    const result = await createNotificationOverviewHandler(fake(data))({ response_format: "detailed" });
+    const result = await createNotificationOverviewHandler(fake(data))({
+      response_format: "detailed",
+    });
     expect(JSON.parse(firstText(result))).toEqual(data.notifications.overview);
   });
 

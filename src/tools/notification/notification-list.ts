@@ -70,7 +70,11 @@ export function createNotificationListHandler(client: GraphQLExecutor) {
     };
     try {
       const { notifications } = await client.execute(NotificationListDocument, { filter });
-      return formatResponse(args.response_format, summarize(notifications.list, args), notifications.list);
+      return formatResponse(
+        args.response_format,
+        summarize(notifications.list, args),
+        notifications.list,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to list notifications: ${message}`);
