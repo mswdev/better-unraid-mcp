@@ -56,13 +56,13 @@ Three read-only tools and four mutations. `notification_delete` is **destructive
 | --- | --- | --- |
 | `notification_overview` | read-only | Returns notification counts: unread and archived, each broken down by importance (alert / warning / info) plus total. |
 | `notification_list` | read-only | Lists notifications of one `type` (`unread` or `archive`), newest first; optional `importance` filter, with `offset`/`limit` paging. The source of truth for which notifications exist and their ids. |
-| `notification_alerts` | read-only | Returns the deduplicated unread warnings and alerts, newest first — the "needs attention now" view. |
+| `notification_alerts` | read-only | Returns the deduplicated unread warnings and alerts, newest first — the "needs attention now" view (up to 50). |
 | `notification_archive` | mutation | Archives (hides) or unarchives (restores to unread) notifications — reversible. Targets specific `ids` or `all: true` (optionally one `importance`). Ungated. |
 | `notification_create` | mutation | Creates a notification (`mode: always` or `if_unique`). Ungated. |
 | `notification_recalculate` | mutation | Re-syncs the cached overview counts from disk. Ungated. |
 | `notification_delete` | **destructive** | Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived`. Requires `confirm: true`. |
 
-> **Counts come from a cache.** The overview counts read by `notification_overview` (and echoed by some mutations) are served from a cache that can lag; `notification_list` is the source of truth for which notifications exist and their ids. Use `notification_recalculate` to re-sync the overview if it drifts.
+> **Counts come from a cache.** The overview counts read by `notification_overview` (and echoed by some mutations) are served from a cache that can lag; `notification_list` is the source of truth for which notifications exist and their ids. `notification_recalculate` re-syncs the cached overview from disk, but `notification_list` remains the authority — recalculated counts can still differ on installs where a notification was written to both the unread and archive folders.
 
 > **Not yet verified against a live Unraid server.** Like the Docker and VM tools, the notification tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. Treat `notification_delete` with care.
 
