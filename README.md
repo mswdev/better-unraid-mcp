@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the Docker tools (reads plus confirm-gated mutations), and the VM tools (a read plus a confirm-gated mutation) are in place. Full coverage of the Unraid API surface (notifications, and more) is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the Docker tools (reads plus confirm-gated mutations), the VM tools (a read plus a confirm-gated mutation), and the notification tools (reads plus three ungated and one confirm-gated mutation) are in place. Full coverage of the Unraid API surface is in progress and will land in subsequent releases.
 
 ### Available tools
 
@@ -47,6 +47,24 @@ One read-only tool and one **destructive** mutation. The mutation requires `conf
 | `vm_action` | **destructive** | Changes a VM's run state — `action` is one of `start`, `stop`, `pause`, `resume`, `forceStop`, `reboot`, `reset`. `vm` accepts a VM name or id. Requires `confirm: true`; `forceStop` and `reset` additionally require `acknowledge_risk: true` (an ungraceful hard kill that can corrupt the guest filesystem). |
 
 > **Not yet verified against a live Unraid server.** Like the Docker tools, the VM tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. The configured Unraid API key must have VM permission. Treat `vm_action` — especially `forceStop` and `reset` — with care.
+
+#### Notifications
+
+Three read-only tools and four mutations. `notification_delete` is **destructive** and requires `confirm: true` — without it the tool refuses and never touches your server; the other three mutations are reversible or non-destructive and ungated.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `notification_overview` | read-only | Returns notification counts: unread and archived, each broken down by importance (alert / warning / info) plus total. |
+| `notification_list` | read-only | Lists notifications of one `type` (`unread` or `archive`), newest first; optional `importance` filter, with `offset`/`limit` paging. The source of truth for which notifications exist and their ids. |
+| `notification_alerts` | read-only | Returns the deduplicated unread warnings and alerts, newest first — the "needs attention now" view. |
+| `notification_archive` | mutation | Archives (hides) or unarchives (restores to unread) notifications — reversible. Targets specific `ids` or `all: true` (optionally one `importance`). Ungated. |
+| `notification_create` | mutation | Creates a notification (`mode: always` or `if_unique`). Ungated. |
+| `notification_recalculate` | mutation | Re-syncs the cached overview counts from disk. Ungated. |
+| `notification_delete` | **destructive** | Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived`. Requires `confirm: true`. |
+
+> **Counts come from a cache.** The overview counts read by `notification_overview` (and echoed by some mutations) are served from a cache that can lag; `notification_list` is the source of truth for which notifications exist and their ids. Use `notification_recalculate` to re-sync the overview if it drifts.
+
+> **Not yet verified against a live Unraid server.** Like the Docker and VM tools, the notification tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. Treat `notification_delete` with care.
 
 ## Requirements
 
