@@ -62,4 +62,43 @@ describe("registerAllTools", () => {
     expect(action?.hasHandler).toBe(true);
     expect(action?.annotations).toMatchObject({ destructiveHint: true });
   });
+
+  it("registers the three notification reads as read-only", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    for (const name of ["notification_overview", "notification_list", "notification_alerts"]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasHandler).toBe(true);
+      expect(reg?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    }
+  });
+
+  it("registers notification_archive/create/recalculate as ungated non-destructive writes", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    for (const name of [
+      "notification_archive",
+      "notification_create",
+      "notification_recalculate",
+    ]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasHandler).toBe(true);
+      expect(reg?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      });
+    }
+  });
+
+  it("registers notification_delete as destructive", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    const reg = registrations.find((r) => r.name === "notification_delete");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({ destructiveHint: true });
+  });
 });
