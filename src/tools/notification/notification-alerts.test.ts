@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { NotificationAlertsQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationAlertsHandler } from "./notification-alerts.js";
 
 const data = {
@@ -48,7 +48,16 @@ describe("notification_alerts handler", () => {
     expect(JSON.parse(firstText(result))).toEqual(data.notifications.warningsAndAlerts);
   });
 
-  it("coerces a non-Error rejection", async () => {
+  it("returns an error result when the client throws (Error branch)", async () => {
+    const result = await createNotificationAlertsHandler(throwingExecutor("nope"))({
+      response_format: "concise",
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to fetch warnings and alerts/);
+    expect(firstText(result)).toMatch(/nope/);
+  });
+
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
     const result = await createNotificationAlertsHandler(rejectingExecutor("boom"))({
       response_format: "concise",
     });

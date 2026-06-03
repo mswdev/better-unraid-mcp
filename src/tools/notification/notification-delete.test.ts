@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   DeleteArchivedNotificationsDocument,
+  type DeleteArchivedNotificationsMutation,
   DeleteNotificationDocument,
   type DeleteNotificationMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createNotificationDeleteHandler } from "./notification-delete.js";
 
 const overview = {
@@ -67,7 +73,9 @@ describe("notification_delete dispatch + reporting", () => {
   });
 
   it("deletes all archived and reports resulting counts", async () => {
-    const { executor, calls } = recordingExecutor({ deleteArchivedNotifications: overview });
+    const { executor, calls } = recordingExecutor({
+      deleteArchivedNotifications: overview,
+    } satisfies DeleteArchivedNotificationsMutation);
     const result = await createNotificationDeleteHandler(executor)({
       response_format: "concise",
       scope: "all_archived",
@@ -80,13 +88,7 @@ describe("notification_delete dispatch + reporting", () => {
   });
 
   it("returns an error result when the client throws (e.g. wrong type, ENOENT)", async () => {
-    const { executor } = recordingExecutor(cannedOne);
-    const throwing = {
-      execute: async () => {
-        throw new Error("ENOENT");
-      },
-    };
-    const result = await createNotificationDeleteHandler(throwing)({
+    const result = await createNotificationDeleteHandler(throwingExecutor("ENOENT"))({
       response_format: "concise",
       scope: "one",
       id: "srv:missing.notify",
@@ -95,5 +97,16 @@ describe("notification_delete dispatch + reporting", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to delete/);
+    expect(firstText(result)).toMatch(/ENOENT/);
+  });
+
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
+    const result = await createNotificationDeleteHandler(rejectingExecutor("boom"))({
+      response_format: "concise",
+      scope: "all_archived",
+      confirm: true,
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to delete notifications: boom/);
   });
 });

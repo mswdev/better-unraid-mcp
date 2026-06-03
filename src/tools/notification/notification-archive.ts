@@ -113,7 +113,7 @@ export function registerNotificationArchive(server: McpServer, client: GraphQLEx
     {
       title: "Archive or Unarchive Notifications",
       description:
-        "Archive (hide) or unarchive (restore to unread) notifications — reversible. Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action; confirm with notification_list.",
+        "Archive (hide) or unarchive (restore to unread) notifications — reversible. Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action; verify with notification_list.",
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },

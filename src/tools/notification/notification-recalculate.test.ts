@@ -3,7 +3,12 @@ import {
   RecalculateOverviewDocument,
   type RecalculateOverviewMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createNotificationRecalculateHandler } from "./notification-recalculate.js";
 
 const canned = {
@@ -31,11 +36,20 @@ describe("notification_recalculate", () => {
     expect(JSON.parse(firstText(result))).toEqual(canned.recalculateOverview);
   });
 
-  it("returns an error result when the client throws", async () => {
+  it("returns an error result when the client throws (Error branch)", async () => {
     const result = await createNotificationRecalculateHandler(throwingExecutor("refresh failed"))({
       response_format: "concise",
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to recalculate/);
+    expect(firstText(result)).toMatch(/refresh failed/);
+  });
+
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
+    const result = await createNotificationRecalculateHandler(rejectingExecutor("boom"))({
+      response_format: "concise",
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to recalculate notification overview: boom/);
   });
 });

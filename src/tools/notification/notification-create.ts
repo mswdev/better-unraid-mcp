@@ -2,7 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { CreateNotificationDocument, NotifyIfUniqueDocument } from "../../types/unraid/graphql.js";
+import {
+  CreateNotificationDocument,
+  type CreateNotificationMutation,
+  NotifyIfUniqueDocument,
+} from "../../types/unraid/graphql.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
@@ -30,11 +34,13 @@ interface CreateArgs {
   link?: string;
 }
 
-/** A created notification (the shape both create mutations return), or null for a skipped duplicate. */
-interface CreatedNotification {
-  title: string;
-  importance: string;
-}
+/**
+ * A created notification — the full selection both create mutations return (they share
+ * the same fields). Aliased to the generated type so the detailed payload tracks the
+ * `.graphql` selection and the `NotificationImportance` enum automatically; `runCreate`
+ * may still resolve to `null` (notifyIfUnique skipped a duplicate).
+ */
+type CreatedNotification = NonNullable<CreateNotificationMutation["createNotification"]>;
 
 /** Runs the chosen create mutation; `if_unique` may resolve to null (duplicate exists). */
 async function runCreate(

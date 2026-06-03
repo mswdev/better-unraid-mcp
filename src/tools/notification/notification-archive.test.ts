@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   ArchiveAllDocument,
+  type ArchiveAllMutation,
   ArchiveNotificationsDocument,
   type ArchiveNotificationsMutation,
   UnarchiveAllDocument,
+  type UnarchiveAllMutation,
   UnarchiveNotificationsDocument,
+  type UnarchiveNotificationsMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createNotificationArchiveHandler } from "./notification-archive.js";
 
 // An ARBITRARY overview — the handler must NOT echo these numbers (counts are racy).
@@ -65,17 +73,22 @@ describe("notification_archive dispatch", () => {
   });
 
   it("unarchives ids via UnarchiveNotifications", async () => {
-    const { executor, calls } = recordingExecutor({ unarchiveNotifications: overview });
+    const { executor, calls } = recordingExecutor({
+      unarchiveNotifications: overview,
+    } satisfies UnarchiveNotificationsMutation);
     await createNotificationArchiveHandler(executor)({
       response_format: "concise",
       direction: "unarchive",
       ids: ["srv:a.notify"],
     });
     expect(calls[0]?.document).toBe(UnarchiveNotificationsDocument);
+    expect(calls[0]?.variables).toEqual({ ids: ["srv:a.notify"] });
   });
 
   it("archives all of an importance via ArchiveAll", async () => {
-    const { executor, calls } = recordingExecutor({ archiveAll: overview });
+    const { executor, calls } = recordingExecutor({
+      archiveAll: overview,
+    } satisfies ArchiveAllMutation);
     await createNotificationArchiveHandler(executor)({
       response_format: "concise",
       direction: "archive",
@@ -87,7 +100,9 @@ describe("notification_archive dispatch", () => {
   });
 
   it("unarchives all (no importance) via UnarchiveAll with importance omitted", async () => {
-    const { executor, calls } = recordingExecutor({ unarchiveAll: overview });
+    const { executor, calls } = recordingExecutor({
+      unarchiveAll: overview,
+    } satisfies UnarchiveAllMutation);
     await createNotificationArchiveHandler(executor)({
       response_format: "concise",
       direction: "unarchive",
@@ -126,7 +141,7 @@ describe("notification_archive reporting (action-based, never counts)", () => {
   });
 
   it("reports an all+importance action", async () => {
-    const { executor } = recordingExecutor({ archiveAll: overview });
+    const { executor } = recordingExecutor({ archiveAll: overview } satisfies ArchiveAllMutation);
     const result = await createNotificationArchiveHandler(executor)({
       response_format: "concise",
       direction: "archive",
@@ -146,5 +161,29 @@ describe("notification_archive reporting (action-based, never counts)", () => {
       ids: ["srv:a.notify"],
     });
     expect(JSON.parse(firstText(result))).toMatchObject({ serverOverview: overview });
+  });
+});
+
+describe("notification_archive error paths", () => {
+  it("returns an error result when the client throws (Error branch)", async () => {
+    const result = await createNotificationArchiveHandler(throwingExecutor("boom"))({
+      response_format: "concise",
+      direction: "archive",
+      ids: ["srv:a.notify"],
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to archive notifications/);
+    expect(firstText(result)).toMatch(/boom/);
+  });
+
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
+    const result = await createNotificationArchiveHandler(rejectingExecutor("nope"))({
+      response_format: "concise",
+      direction: "unarchive",
+      all: true,
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to unarchive notifications/);
+    expect(firstText(result)).toMatch(/nope/);
   });
 });

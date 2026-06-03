@@ -5,7 +5,12 @@ import {
   NotifyIfUniqueDocument,
   type NotifyIfUniqueMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createNotificationCreateHandler } from "./notification-create.js";
 
 const created = {
@@ -82,14 +87,46 @@ describe("notification_create", () => {
     expect(firstText(result)).not.toMatch(/Created/);
   });
 
-  it("returns an error result when the client throws", async () => {
-    const throwing = {
-      execute: async () => {
-        throw new Error("bad input");
-      },
-    };
-    const result = await createNotificationCreateHandler(throwing)({ ...baseArgs, mode: "always" });
+  it("returns the created notification in detailed format", async () => {
+    const { executor } = recordingExecutor(created);
+    const result = await createNotificationCreateHandler(executor)({
+      ...baseArgs,
+      mode: "always",
+      response_format: "detailed",
+    });
+    expect(JSON.parse(firstText(result))).toEqual({
+      created: true,
+      notification: created.createNotification,
+    });
+  });
+
+  it("returns created:false with a null notification in detailed format for a duplicate", async () => {
+    const canned = { notifyIfUnique: null } satisfies NotifyIfUniqueMutation;
+    const { executor } = recordingExecutor(canned);
+    const result = await createNotificationCreateHandler(executor)({
+      ...baseArgs,
+      mode: "if_unique",
+      response_format: "detailed",
+    });
+    expect(JSON.parse(firstText(result))).toEqual({ created: false, notification: null });
+  });
+
+  it("returns an error result when the client throws (Error branch)", async () => {
+    const result = await createNotificationCreateHandler(throwingExecutor("bad input"))({
+      ...baseArgs,
+      mode: "always",
+    });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to create notification/);
+    expect(firstText(result)).toMatch(/bad input/);
+  });
+
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
+    const result = await createNotificationCreateHandler(rejectingExecutor("boom"))({
+      ...baseArgs,
+      mode: "always",
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to create notification: boom/);
   });
 });
