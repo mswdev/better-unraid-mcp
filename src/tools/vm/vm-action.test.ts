@@ -242,6 +242,21 @@ describe("vm_action handler", () => {
     expect(calls[1].variables).toEqual({ id: "srv:win11" });
   });
 
+  it("requires an exact name (a substring does not match) and never calls the mutation", async () => {
+    const { executor, calls } = sequencedExecutor([resolve]);
+
+    const result = await createVmActionHandler(executor)({
+      vm: "Windows",
+      action: "start",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/No VM matches 'Windows'/);
+    expect(calls).toHaveLength(1);
+  });
+
   it("errors with no match and never calls the mutation", async () => {
     const { executor, calls } = sequencedExecutor([resolve]);
 

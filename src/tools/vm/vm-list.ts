@@ -24,10 +24,14 @@ function filterByName(domains: VmDomains, name: string | undefined): VmDomains {
   return domains.filter((domain) => domain.name?.toLowerCase().includes(needle));
 }
 
-/** One line per VM: `name — state`, falling back to `(id)` for a null name. */
-function summarize(domains: VmDomains): string {
+/**
+ * One line per VM: `name — state`, falling back to `(id)` for a null name. An
+ * empty result distinguishes "nothing matched the filter" from "no VMs at all",
+ * so a filtered caller is not misled into thinking the host has no VMs.
+ */
+function summarize(domains: VmDomains, name: string | undefined): string {
   if (domains.length === 0) {
-    return "No VMs found.";
+    return name ? `No VMs match '${name}'.` : "No VMs found.";
   }
   return domains.map((domain) => `${domain.name ?? `(${domain.id})`} — ${domain.state}`).join("\n");
 }
@@ -46,7 +50,7 @@ export function createVmListHandler(client: GraphQLExecutor) {
     try {
       const { vms } = await client.execute(VmListDocument);
       const domains = filterByName(vms.domains ?? [], name);
-      return formatResponse(response_format, summarize(domains), domains);
+      return formatResponse(response_format, summarize(domains, name), domains);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch VMs: ${message}`);
