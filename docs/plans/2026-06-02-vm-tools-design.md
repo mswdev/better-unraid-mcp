@@ -322,20 +322,20 @@ two-call handler (resolve read + mutation) → use `sequencedExecutor`.
 ## Placement
 
 ```
-src/tools/vm/                         # new domain dir (3 source .ts, under the 10 cap)
+src/tools/vm/                         # new domain dir (2 source .ts, under the 10 cap)
   vm-list.{ts,graphql,test.ts}
   vm-action.{ts,graphql,test.ts}
 src/tools/registry.ts                 # registers vm_list + vm_action
-src/types/unraid/graphql.ts           # regenerated (1 query + 7 mutations + VmResolve)
+src/types/unraid/graphql.ts           # regenerated (VmList + VmResolve + 7 mutations)
 README.md                             # promote VM tools from "planned" to shipped
 ```
 
-`vm/_shared.ts` holds the small pure helpers, each with its own colocated test:
-`vmLabel(name, id)` (the `name ?? id` display label, shared by both tools) and
-`stripServerPrefix(id)` / the tolerant id matcher (the `PrefixedID` colon rule,
-used by `vm_action`'s resolver). Two consumers + pure + testable justify the
-shared module (it is not a one-function file); final split between `_shared.ts`
-and `vm-action.ts` is a build-time call.
+**No `vm/_shared.ts`.** The two tools format their label differently (`vm_list`
+wraps a null-name id in parens, `vm_action` uses a bare `name ?? id`), so there is
+no genuinely-shared label helper. The one pure helper — `stripServerPrefix(id)`
+(the `PrefixedID` colon rule, used only by `vm_action`'s resolver) — is **exported
+from `vm-action.ts` and unit-tested directly**, exactly as `autostart-set.ts`
+exports `compareByOrder`. A single-consumer `_shared.ts` would be premature.
 
 ## Out of scope / residual unknowns
 
