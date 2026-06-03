@@ -11,6 +11,13 @@ import { registerDockerContainerRemove } from "./docker/container-remove.js";
 import { registerDockerContainerUpdate } from "./docker/container-update.js";
 import { registerDockerNetworkList } from "./docker/network-list.js";
 import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
+import { registerNotificationAlerts } from "./notification/notification-alerts.js";
+import { registerNotificationArchive } from "./notification/notification-archive.js";
+import { registerNotificationCreate } from "./notification/notification-create.js";
+import { registerNotificationDelete } from "./notification/notification-delete.js";
+import { registerNotificationList } from "./notification/notification-list.js";
+import { registerNotificationOverview } from "./notification/notification-overview.js";
+import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerVmAction } from "./vm/vm-action.js";
@@ -39,4 +46,11 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerDockerPortConflicts(server, client);
   registerVmList(server, client);
   registerVmAction(server, client);
+  registerNotificationOverview(server, client);
+  registerNotificationList(server, client);
+  registerNotificationAlerts(server, client);
+  registerNotificationArchive(server, client);
+  registerNotificationDelete(server, client);
+  registerNotificationCreate(server, client);
+  registerNotificationRecalculate(server, client);
 }

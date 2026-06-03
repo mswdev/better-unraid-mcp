@@ -1,0 +1,16 @@
+mutation RecalculateOverview {
+  recalculateOverview {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
+}
