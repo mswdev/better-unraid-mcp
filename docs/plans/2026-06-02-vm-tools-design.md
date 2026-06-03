@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-02
 **Author:** Matt White (mswdev)
-**Status:** Approved — pending source-validation reconciliation before implementation planning
+**Status:** Approved + source-validation reconciled — ready for implementation planning
 **Branch:** `feature/vm-tools` → draft PR into `develop`
 
 ## Goal
@@ -18,49 +18,85 @@ The VM mutations (`Mutation.vm: VmMutations`) expose seven lifecycle actions —
 tool with an `action` enum (per the project's "consolidated, not 1:1" tool
 philosophy), and surface VM state via `vm_list`.
 
-## Explicit assumptions — settle in source-validation BEFORE writing-plans
+## Validated semantics (source-read, not live-verified)
 
-These are behavioral facts the SDL does not state. A focused source-validation
-Workflow over `unraid/api` (plus online docs) must settle them; a flip on any of
-the **design-blocking** three must be reconciled into this doc before the plan is
-written, so a stale assumption does not silently invalidate the plan.
+A focused source-validation Workflow over `unraid/api` (`main` @ `264ddf0`,
+v4.35.0) — each design-blocking claim independently re-checked by an adversarial
+verifier — settled the assumptions the SDL does not state. Findings drive the
+design below; **none is live-verified against a real Unraid box** (a moving
+branch + public libvirt docs), flagged here and in the PR.
 
-**Design-blocking:**
+1. **`domains` is canonical; use it.** `vms.resolver.ts`: `domains()` is the real
+   implementation (calls `VmsService.getDomains()`); `domain()` is literally
+   `return this.domains();` — a passthrough alias. Neither is `@deprecated`
+   (whereas `VmDomain.uuid` is), but `domains` is the primary declaration.
+   **Both `.graphql` files select `domains` only**, never `domain`, never both
+   (selecting both runs the libvirt enumeration twice).
 
-1. **`domains` vs `domain` on `type Vms`.** The SDL exposes both
-   `domains: [VmDomain!]` and `domain: [VmDomain!]` (both nullable lists). One is
-   almost certainly an alias/legacy field of the other. Determine the canonical
-   one from the `unraid/api` `Vms` resolver. **Both** `.graphql` files (`VmList`
-   and `VmResolve`) use whichever wins — do not default-and-hope.
-2. **Disabled-VM-service behavior of `Query.vms`.** `vms: Vms!` is non-null but
-   `domains`/`domain` are nullable. When libvirt / the VM service is disabled,
-   does the resolver (a) throw a GraphQL error, (b) return `domains: null`, or
-   (c) return an empty list? This drives whether `vm_list` degrades to a clear
-   `toolError` or a benign "No VMs found (the VM service may be disabled)."
-3. **`Boolean!` semantics — accepted vs completed.** Does `true` mean the
-   operation *completed*, or merely that it was *accepted/issued*? libvirt
-   graceful `stop` (ACPI shutdown) and `reboot` are inherently asynchronous and
-   guest-dependent, so `true` almost certainly means "accepted." This drives the
-   affirmative concise copy (see **Output**): async ops must read "Requested
-   shutdown/reboot of VM X", not "Stopped VM X" (repeating the autostart
-   over-claim the project already learned to avoid).
+2. **Disabled VM service → the `domains` field *throws*** (it does **not** return
+   a benign empty list). `Query.vms` itself always succeeds (returns a hardcoded
+   `{ id: "vms" }`), but the `domains` field resolver runs
+   `getDomains() → ensureHypervisorAvailable() → initializeHypervisor()`; with
+   libvirt down, `isLibvirtRunning()` is false → throws, re-wrapped as
+   `Error("Failed to retrieve VM domains: VMs are not available")`. On the wire:
+   `data.vms.domains = null` **plus an `errors[]` entry**. Our client
+   (`UnraidClient.execute`) **throws `UnraidApiError` on any `errors[]`**
+   (`client.ts:38`), so a disabled service surfaces through `vm_list`'s
+   `catch → toolError` automatically. The benign **"No VMs found."** copy is
+   reserved for the genuinely empty case (libvirt up, zero VMs → `domains: []`,
+   no errors). ⇒ do **not** collapse disabled and empty into one message.
 
-**Non-blocking (informs copy / edge handling, not structure):**
+3. **`Boolean!` is `true`-or-throw; the resolver *awaits to completion*.** Every
+   `VmsService` method `return true` on success or `throw new GraphQLError(...)`
+   on failure — there is **no code path that returns `false`.** Per-action
+   (verified in `vms.service.ts`):
+   - `start` → `domain.create()` (SHUTOFF) / `domain.resume()` (PAUSED).
+   - `stop` → `domain.shutdown()` (graceful ACPI), then **polls** ~10×1s for
+     SHUTOFF, **force-destroying** on timeout. ⇒ `true` = actually reached
+     SHUTOFF. **"Stopped VM X" is accurate** — no "Requested shutdown" hedge.
+   - `pause` → `domain.suspend()`; `resume` → `domain.resume()`.
+   - `forceStop` → `domain.destroy()` (immediate hard kill).
+   - `reboot` → `domain.shutdown()` + ~10s poll; **throws** "Graceful shutdown
+     failed, please force stop the VM and try again" if the guest ignores ACPI
+     (**no force fallback**), else `domain.create()`. ⇒ `true` = shut down and
+     restarted.
+   - `reset` → `domain.destroy()` + `domain.create()` (hard kill + cold boot —
+     **not** a clean `virDomainReset`).
 
-4. **Capability / feature-flag gating on `VmMutations`.** Are any of the seven
-   mutations behind a feature flag (which would omit them from the schema when
-   off, like Docker's `ENABLE_NEXT_DOCKER_RELEASE`)? If so, an older server
-   surfaces a GraphQL field error — copy should note the requirement.
-5. **PrefixedID round-trip.** Confirm the `id` returned by the `vms` read is the
-   exact `PrefixedID` the mutations accept (so resolve-by-id is a faithful
-   round-trip). Note the PrefixedID encoding.
-6. **VM name uniqueness.** Can two VMs share a `name` in Unraid/libvirt? This
-   informs the resolver's ambiguity branch (it errors on duplicate-name matches
-   regardless, but confirms how reachable that path is).
+   ⇒ Use uniform **completed past-tense** copy (the API earns it by awaiting).
+   `false` is unreachable per source, but we **keep a minimal defensive guard**
+   (see Output) — this is defensive `Boolean!`-contract handling for an
+   un-live-verified moving API, **not** the autostart no-op lesson (which does
+   not apply: false-means-no-op is genuinely absent here). The ~10s block for
+   `stop`/`reboot` is safe under undici's ~300s default timeout — no client
+   change.
 
-**None of this is live-verified against a real Unraid box.** All findings come
-from static reads of `unraid/api` (a moving branch) plus public docs — flagged
-here, in the PR, and in residual unknowns.
+4. **No feature flag — runtime RBAC instead.** None of the seven mutations nor
+   `Query.vms` carry `@UseFeatureFlag`, so they are **always in the schema**
+   (unlike Docker's `ENABLE_NEXT_DOCKER_RELEASE`). They are guarded by
+   `@UsePermissions` (nest-authz/Casbin): `vms` needs `READ_ANY` on `VMS`; all
+   mutations need `UPDATE_ANY` on `VMS`. ⇒ **drop any "needs Unraid 7.x / feature
+   flag" copy**; a key lacking `VMS` permission fails at runtime with an
+   authorization error (surfaced via `toolError`). Note in the description that
+   the API key needs VM permission.
+
+5. **`id` round-trips, but tolerate both forms.** `VmDomain.id` is the raw libvirt
+   **UUID**; the `PrefixedID` scalar serializes it on output as `"<serverId>:<uuid>"`
+   (colon-joined, **no** base64/typename) and on input `split(":")` returns the
+   post-colon segment when there are exactly 2 parts, else the value unchanged —
+   so a **bare uuid also round-trips**. The mutations look up by UUID
+   (`domainLookupByUUIDString`), never by name. ⇒ `vm_list` surfaces the prefixed
+   `id`, but `getServerIdentifier()` can be empty on some builds, and a human may
+   paste the **bare** uuid (the Unraid UI / deprecated `uuid` field form). The
+   resolver's id match **must tolerate both** (exact, or post-`:` segment), or our
+   layer is stricter than the API for no reason (see Resolve).
+
+6. **VM names are unique per host.** libvirt enforces domain-name uniqueness per
+   connection (`virDomainDefineXML` rejects a duplicate name), and Unraid uses one
+   `qemu:///system`. ⇒ `vm_action`'s duplicate-name ambiguity branch is
+   **effectively unreachable** on a healthy host. We **keep it as a cheap,
+   documented defensive guard** (with a test) — same category as the defensive
+   `false` guard — but it is not expected to fire in practice.
 
 ## Decisions
 
@@ -93,7 +129,7 @@ The seven actions split by how they affect a running guest:
 | Tier | Actions | Effect |
 |------|---------|--------|
 | restorative | `start`, `resume` | bring a VM up / un-pause |
-| graceful | `stop`, `reboot` | signal the guest OS (ACPI); async |
+| graceful | `stop`, `reboot` | guest-cooperative ACPI shutdown/reboot (server waits ~10s) |
 | safe-pause | `pause` | freeze vCPUs in memory (reversible) |
 | **ungraceful** | **`forceStop`, `reset`** | **hard power-cut / hard reset — can corrupt the guest filesystem like yanking the power cord** |
 
@@ -113,16 +149,25 @@ The mutations require `id: PrefixedID!`, but users think in VM names. `vm_action
 resolves before mutating:
 
 1. Read VMs (own `VmResolve` query, mirroring how `autostart_set` owns its read).
-2. **Exact `id` match** first; else **exact case-insensitive `name` match**.
+2. **Tolerant `id` match** first, then **exact case-insensitive `name` match**.
 3. `0` matches → `toolError` ("No VM matches '<vm>'.").
 4. `>1` name matches → `toolError` listing the candidate ids ("Multiple VMs named
    '<vm>': <ids>. Pass the id to disambiguate.").
-5. Use the resolved id for the mutation.
+5. Use the resolved VM's `id` (the prefixed form, verbatim from the read) for the
+   mutation.
 
-Exact (not substring) matching for the action target prevents acting on the wrong
-VM. **Gate-first-then-resolve** so the confirm refusal echoes the raw `vm` input
-the caller typed (intended — mirrors what they asked for; no wasted network call
-on an unconfirmed request).
+**Tolerant id match (finding #5):** `domain.id === vm` OR
+`stripServerPrefix(domain.id) === stripServerPrefix(vm)`, where `stripServerPrefix`
+mirrors the `PrefixedID` scalar exactly (`split(":")`; return the second part only
+when there are exactly two, else the value). This matches whether the caller pastes
+the prefixed `serverId:uuid` from `vm_list` **or** a bare `uuid` (the Unraid UI /
+deprecated-`uuid` form), and is robust to an empty `getServerIdentifier()`. Without
+it, exact-only matching would be **stricter than the API**, which accepts both.
+
+Exact (not substring) matching for the **name** target prevents acting on the wrong
+VM; a null `name` simply never matches by name. **Gate-first-then-resolve** so the
+confirm refusal echoes the raw `vm` input the caller typed (intended — mirrors what
+they asked for; no wasted network call on an unconfirmed request).
 
 ## Tools
 
@@ -134,11 +179,13 @@ state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substri
 ### `vm_action`
 
 **Description (gated):** "Changes a VM's run state. `action`:
-`start`/`resume` (bring up / un-pause), `stop`/`reboot` (graceful ACPI signal to
-the guest — asynchronous), `pause` (freeze in memory), or `forceStop`/`reset`
-(⚠ ungraceful hard power-cut / hard reset that can corrupt the guest filesystem).
-`vm` accepts a VM name or id. Requires `confirm: true`; `forceStop` and `reset`
-additionally require `acknowledge_risk: true`."
+`start`/`resume` (bring up / un-pause), `stop` (graceful ACPI shutdown — waits up
+to ~10s, then force-kills if the guest doesn't respond), `reboot` (graceful — and
+**fails** if the guest ignores ACPI within ~10s; use `forceStop` then `start`),
+`pause` (freeze in memory), or `forceStop`/`reset` (⚠ ungraceful hard kill /
+hard kill-and-cold-boot that can corrupt the guest filesystem). `vm` accepts a VM
+name or id. Requires `confirm: true`; `forceStop` and `reset` additionally require
+`acknowledge_risk: true`. The configured Unraid API key must have VM permission."
 
 ## Behavior (`vm_action`)
 
@@ -146,13 +193,18 @@ additionally require `acknowledge_risk: true`."
    - ungraceful action (`forceStop`/`reset`): require `confirm:true` AND
      `acknowledge_risk:true`; missing-either → one combined `toolError`.
    - otherwise: `requireConfirmation(confirm, "<action> VM <vm>")`.
-2. **Resolve** `vm` → id via the `VmResolve` read (exact id, else exact
+2. **Resolve** `vm` → id via the `VmResolve` read (tolerant id, else exact
    case-insensitive name; 0 / >1 → `toolError`).
 3. **Dispatch** the typed mutation for `action` (`VmStart` … `VmReset`),
-   variables `{ id }`.
-4. **Branch on the `Boolean!`** result (the autostart lesson — report a false /
-   no-op result, never assert success blindly).
-5. `try/catch → toolError` around the read + mutation.
+   variables `{ id }` (the resolved VM's prefixed id).
+4. On a `true` result → completed past-tense copy. On `false` → the **defensive
+   guard** copy (finding #3: `false` is unreachable per source, kept as
+   `Boolean!`-contract insurance for an un-live-verified API; a code comment cites
+   the true-or-throw finding so the next reader knows it is a deliberate guard,
+   not a live failure mode).
+5. `try/catch → toolError` around the read + mutation. Thrown `GraphQLError`s —
+   invalid state transition, VM not found, permission denied (key lacks `VMS`),
+   reboot ACPI-timeout — all surface here with their upstream message.
 
 ## GraphQL operations
 
@@ -160,7 +212,7 @@ additionally require `acknowledge_risk: true`."
 # vm-list.graphql
 query VmList {
   vms {
-    domains {   # or `domain` — settled in source-validation
+    domains {   # canonical (finding #1); never `domain`, never both
       id
       name
       state
@@ -194,32 +246,39 @@ mutation VmReset($id: PrefixedID!)     { vm { reset(id: $id) } }
 ### `vm_list`
 
 - **Concise:** one line per VM `name — state`; a null-name VM → `(<id>) — state`;
-  empty/null domains → `"No VMs found (the VM service may be disabled)."`
+  empty domains → `"No VMs found."` (a disabled VM service does **not** reach here
+  — it throws and is caught as a `toolError`; see finding #2).
 - **Detailed:** `{ id, name, state }[]`.
 
 ### `vm_action`
 
-- **Concise — pending source-validation #3 (accepted vs completed).** Branch on
-  the bool. Working copy, assuming `true` = "accepted":
-  - immediate ops (`start`, `pause`, `resume`, `forceStop`, `reset`) →
-    `"Started / Paused / Resumed / Force-stopped / Reset VM <label>."`
-  - **async graceful ops (`stop`, `reboot`) → `"Requested shutdown / reboot of VM
-    <label>."`** (NOT "Stopped" — `true` means the ACPI signal was accepted, not
-    that the guest is off; completion is guest-dependent).
-  - `false` → `"VM <label> was not <action>ed (API returned false); no state
-    change took effect."`
+- **Concise.** The resolver awaits to completion and is `true`-or-throw
+  (finding #3), so a returned `true` earns uniform **completed past-tense** copy:
+  - `start → "Started VM <label>."` (note: the guest continues booting)
+  - `stop → "Stopped VM <label>."` (graceful; force-killed after ~10s if needed)
+  - `pause → "Paused VM <label>."`
+  - `resume → "Resumed VM <label>."`
+  - `forceStop → "Force-stopped VM <label>."`
+  - `reboot → "Rebooted VM <label>."`
+  - `reset → "Reset VM <label>."`
   - `<label>` = resolved name, or id when the name is null.
+- **Concise — defensive `false` guard** (finding #3; should be unreachable):
+  `"VM <label>: <action> returned false instead of confirming success. Run
+  vm_list to check the current state."` (states the literal fact + a verification
+  path — deliberately **not** "no state change took effect", which is the
+  autostart meaning that does not hold for VMs).
 - **Detailed:** `{ ok: boolean, action, id, name }`.
-
-If source-validation proves the resolver *blocks until completion*, the async-op
-copy can be promoted to completed phrasing; until then it stays honest-async.
 
 ## Error handling
 
 `try/catch → toolError` around both `execute` calls (resolve read + mutation).
 Gate refusals and resolve failures (0 / >1 match) return `toolError` **before**
-the mutation. A disabled VM service surfaces per assumption #2; a feature-flagged
-mutation (assumption #4) surfaces its GraphQL field error via `toolError`.
+the mutation. A disabled VM service throws on the `domains` field → our client
+re-throws `UnraidApiError` → `toolError` (finding #2). Runtime failures all arrive
+as thrown `GraphQLError`s and surface with their upstream message via `toolError`:
+invalid state transition, VM not found, **permission denied** (key lacks `VMS` —
+finding #4; no version/flag gate), and `reboot`'s ACPI-timeout. No capability
+probe; no "needs 7.x" copy.
 
 ## Testing
 
@@ -238,19 +297,27 @@ two-call handler (resolve read + mutation) → use `sequencedExecutor`.
 - **gate, ungraceful:** `forceStop`/`reset` with `confirm:true` but no
   `acknowledge_risk` → `isError` (combined message), executor never called;
   with both → proceeds.
+- **resolve — tolerant id match (finding #5):** a caller-supplied **bare uuid**
+  matches a VM whose read `id` is the **prefixed** `serverId:uuid`, **and**
+  vice-versa; the resolved prefixed id is what's passed to the mutation. Fixtures
+  cover **both** forms (a prefixed-only fixture would be a false green).
 - **resolve — id-vs-name precedence:** input equal to an id matches that VM even
   if a different VM's name collides.
 - **resolve — exact name match (case-insensitive).**
 - **resolve — zero matches** → `isError`, **mutation never called**
   (`calls.length === 1`, only the `VmResolve` read).
-- **resolve — duplicate names** → `isError` listing ids, mutation never called.
+- **resolve — duplicate names** (defensive, unreachable-per-source) → `isError`
+  listing ids, mutation never called.
 - **resolve — null-name VM** never matches by name (falls through to no-match).
 - **dispatch:** each `action` calls its typed mutation Document with `{ id }`.
-- **bool branch:** `true` → affirmative copy (async ops say "Requested …");
-  `false` → "was not …" no-op copy.
+- **bool branch:** `true` → completed past-tense copy (per-action; e.g. `stop` →
+  "Stopped VM …", `reboot` → "Rebooted VM …"); `false` (defensive,
+  unreachable-per-source) → the "returned false instead of confirming success…
+  Run vm_list…" guard copy.
 - **concise vs detailed.**
 - **error paths:** resolve read throws; mutation throws (`sequencedExecutor`
-  with an `Error` in the second slot).
+  with an `Error` in the second slot) — covers the thrown-`GraphQLError` classes
+  (state transition / not-found / permission / reboot-timeout).
 
 ## Placement
 
@@ -263,22 +330,30 @@ src/types/unraid/graphql.ts           # regenerated (1 query + 7 mutations + VmR
 README.md                             # promote VM tools from "planned" to shipped
 ```
 
-A `vm/_shared.ts` (e.g. a `vmLabel(name, id)` helper) will be added **only if**
-both tools genuinely share logic during implementation; otherwise the label
-helper stays local to avoid a one-function file. Decided at build time, not
-forced here.
+`vm/_shared.ts` holds the small pure helpers, each with its own colocated test:
+`vmLabel(name, id)` (the `name ?? id` display label, shared by both tools) and
+`stripServerPrefix(id)` / the tolerant id matcher (the `PrefixedID` colon rule,
+used by `vm_action`'s resolver). Two consumers + pure + testable justify the
+shared module (it is not a one-function file); final split between `_shared.ts`
+and `vm-action.ts` is a build-time call.
 
 ## Out of scope / residual unknowns
 
 - **Not verified against a live Unraid box.** All semantics from static reads of
-  `unraid/api@main` (a moving branch) + public docs; pin/re-verify against the
-  server's API version.
+  `unraid/api@main` (`264ddf0`, v4.35.0 — a moving branch) + public libvirt docs;
+  pin/re-verify against the server's API version.
+- **Two deliberate defensive guards** for cases the source proves unreachable but
+  we have not live-verified: the `false` `Boolean!` branch (finding #3) and the
+  duplicate-name branch (finding #6). Each is tested and carries a code comment
+  citing the finding, so they read as intentional insurance, not live failure
+  modes.
 - No VM **creation / deletion / editing** (libvirt XML, disks, devices) — v1 is
   lifecycle control only.
-- No **wait-for-state** / polling after an async `stop`/`reboot`; the tool
-  reports the accepted/rejected result, not the eventual settled state.
-- No introspection **capability probe** for any feature flag (graceful error +
-  docs instead, as with Docker autostart).
+- The server already polls `stop`/`reboot` to a settled state (~10s); the tool
+  does **not** add its own post-action polling, and reports the awaited result.
+- No introspection **capability probe**; VM fields are always in-schema
+  (finding #4), so a missing `VMS` permission surfaces as a runtime auth error,
+  not a schema/version error.
 
 ## Quality gate
 
