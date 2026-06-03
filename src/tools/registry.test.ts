@@ -6,6 +6,7 @@ interface Registration {
   name: string;
   hasConfig: boolean;
   hasHandler: boolean;
+  annotations: unknown;
 }
 
 function fakeServer() {
@@ -13,11 +14,12 @@ function fakeServer() {
   return {
     registrations,
     server: {
-      registerTool: (name: string, config: unknown, handler: unknown) => {
+      registerTool: (name: string, config: { annotations?: unknown }, handler: unknown) => {
         registrations.push({
           name,
           hasConfig: typeof config === "object" && config !== null,
           hasHandler: typeof handler === "function",
+          annotations: config?.annotations,
         });
       },
     },
@@ -37,5 +39,27 @@ describe("registerAllTools", () => {
     expect(info).toBeDefined();
     expect(info?.hasConfig).toBe(true);
     expect(info?.hasHandler).toBe(true);
+  });
+
+  it("registers vm_list as read-only", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const list = registrations.find((registration) => registration.name === "vm_list");
+    expect(list?.hasHandler).toBe(true);
+    expect(list?.annotations).toMatchObject({ readOnlyHint: true });
+  });
+
+  it("registers vm_action as destructive", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const action = registrations.find((registration) => registration.name === "vm_action");
+    expect(action?.hasHandler).toBe(true);
+    expect(action?.annotations).toMatchObject({ destructiveHint: true });
   });
 });
