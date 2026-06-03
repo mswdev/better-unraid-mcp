@@ -188,7 +188,7 @@ doc / the PR, NOT in the descriptions.
     ids; unarchive expects archived ids (both from notification_list)."
   - Description (clean): "Archive (hide) or unarchive (restore to unread) notifications
     — reversible. Target `ids` (from notification_list) or `all: true` (optionally one
-    `importance`). Reports the action — confirm with notification_list."
+    `importance`). Reports the action — verify with notification_list."
 - **`notification_delete`** `(response_format?, scope: one|all_archived, id?, type?, confirm?)`:
   - `one` requires `id`+`type`; `all_archived` takes neither. Validate fail-fast.
   - Description: "⚠ Permanently deletes notifications (irreversible). `scope`: `one`

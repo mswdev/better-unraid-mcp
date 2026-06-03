@@ -117,8 +117,7 @@ describe("notification_create", () => {
       mode: "always",
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to create notification/);
-    expect(firstText(result)).toMatch(/bad input/);
+    expect(firstText(result)).toMatch(/Failed to create notification: bad input/);
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {

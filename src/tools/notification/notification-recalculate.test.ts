@@ -41,8 +41,9 @@ describe("notification_recalculate", () => {
       response_format: "concise",
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to recalculate/);
-    expect(firstText(result)).toMatch(/refresh failed/);
+    expect(firstText(result)).toMatch(
+      /Failed to recalculate notification overview: refresh failed/,
+    );
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {

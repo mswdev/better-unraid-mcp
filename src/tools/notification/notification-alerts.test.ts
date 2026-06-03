@@ -53,8 +53,7 @@ describe("notification_alerts handler", () => {
       response_format: "concise",
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to fetch warnings and alerts/);
-    expect(firstText(result)).toMatch(/nope/);
+    expect(firstText(result)).toMatch(/Failed to fetch warnings and alerts: nope/);
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {

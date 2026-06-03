@@ -93,8 +93,7 @@ describe("notification_list handler", () => {
       type: "unread",
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to list notifications/);
-    expect(firstText(result)).toMatch(/nope/);
+    expect(firstText(result)).toMatch(/Failed to list notifications: nope/);
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {

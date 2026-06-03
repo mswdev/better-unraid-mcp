@@ -172,8 +172,7 @@ describe("notification_archive error paths", () => {
       ids: ["srv:a.notify"],
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to archive notifications/);
-    expect(firstText(result)).toMatch(/boom/);
+    expect(firstText(result)).toMatch(/Failed to archive notifications: boom/);
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {

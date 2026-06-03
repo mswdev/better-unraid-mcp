@@ -96,8 +96,7 @@ describe("notification_delete dispatch + reporting", () => {
       confirm: true,
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to delete/);
-    expect(firstText(result)).toMatch(/ENOENT/);
+    expect(firstText(result)).toMatch(/Failed to delete notifications: ENOENT/);
   });
 
   it("coerces a non-Error rejection (String(error) branch)", async () => {
