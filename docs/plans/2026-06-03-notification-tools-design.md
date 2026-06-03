@@ -176,7 +176,7 @@ doc / the PR, NOT in the descriptions.
 | Tool | GraphQL | Gate | Reporting |
 |------|---------|------|-----------|
 | `notification_archive` | `archiveNotifications(ids)` / `unarchiveNotifications(ids)` / `archiveAll(importance?)` / `unarchiveAll(importance?)` | ungated | **action-based** (see Reporting) |
-| `notification_delete` | `deleteNotification(id,type)` / `deleteArchivedNotifications` | **confirm** | **resulting counts** (sync-accurate) |
+| `notification_delete` | `deleteNotification(id,type)` / `deleteArchivedNotifications` | **confirm** | **resulting counts** (race-free) |
 | `notification_create` | `createNotification(input)` / `notifyIfUnique(input)` | ungated | created title (or "already exists") |
 | `notification_recalculate` | `recalculateOverview` | ungated | re-synced counts |
 
@@ -218,7 +218,12 @@ state the API doesn't actually confirm.
     / `Requested unarchive of all WARNING notifications; verify with notification_list.`
   - The summary **must not** derive counts from the returned overview.
   - detailed: `{ requested: {direction, ids?|all, importance?}, serverOverview: <raw returned — may lag> }` (the overview is included verbatim but labeled as the server's running tally).
-- **`notification_delete` — resulting counts** (deletes are sync-accurate, finding #2):
+- **`notification_delete` — resulting counts** (deletes are **race-free**: a synchronous
+  `decrement`/zero with no async watcher catch-up, finding #2 — so unlike the bulk
+  move-race we can report the returned counts. They remain cache-derived, so a legacy
+  dual-write id carries the same cache-vs-list discrepancy noted in residual-unknowns;
+  we do NOT add a "verify with list" pointer here — that would blur the clean
+  race/no-race line):
   - concise: `Deleted 1 notification; now N unread / M archived.` /
     `Deleted all archived notifications; now N unread / 0 archived.`
 - **`notification_create`:** created → `Created notification '<title>' (<importance>).`
@@ -267,7 +272,10 @@ mutation RecalculateOverview { recalculateOverview { unread { info warning alert
 ## Output
 
 - **`notification_overview` — concise:** `Unread: T (a alert / w warning / i info). Archived: T (…).`; **detailed:** the `{ unread, archive }` counts.
-- **`notification_list` / `notification_alerts` — concise:** one line per notification `[IMPORTANCE] <title> — <subject> (<formattedTimestamp>)`; empty distinguishes filter-empty (`No <type> notifications match…` / `notification_list`) from `No unread warnings or alerts.` (`notification_alerts`); **detailed:** the `Notification[]`.
+- **`notification_list` / `notification_alerts` — concise:** one line per notification `[IMPORTANCE] <title> — <subject> (<formattedTimestamp>)`; **detailed:** the `Notification[]`. Empty-result copy distinguishes the cases (mirroring the VM filter-empty-vs-none precedent):
+  - `notification_list`, `importance` set → `No <type> notifications match importance <X>.`
+  - `notification_list`, no `importance` → `No <type> notifications.`
+  - `notification_alerts` → `No unread warnings or alerts.`
 - **mutations:** see Reporting; detailed carries the structured payload.
 
 ## Error handling
@@ -320,7 +328,8 @@ exactly one `execute`), so `sequencedExecutor` is not needed. Every fixture type
 ## Placement
 
 ```
-src/tools/notification/               # new domain dir — 7 source .ts (== under the 10-file cap)
+src/tools/notification/               # new domain dir — 8 source .ts (under the 10-file cap)
+  _shared.{ts,test.ts}                # formatCounts/summarizeOverview + importance mapping
   notification-overview.{ts,graphql,test.ts}
   notification-list.{ts,graphql,test.ts}
   notification-alerts.{ts,graphql,test.ts}
