@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, and the Docker tools (reads plus confirm-gated mutations) are in place. Full coverage of the Unraid API surface (VMs, notifications, and more) is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the Docker tools (reads plus confirm-gated mutations), and the VM tools (a read plus a confirm-gated mutation) are in place. Full coverage of the Unraid API surface (notifications, and more) is in progress and will land in subsequent releases.
 
 ### Available tools
 
@@ -36,6 +36,17 @@ Four read-only tools and four **destructive** mutations. Every mutation requires
 | `docker_autostart_set` | **destructive** | Sets which containers auto-start on boot (merge-safe; resubmits the full set sorted to preserve boot order). Boot-time only. `persist: true` also updates the WebGUI prefs but reorders the Docker-page list irreversibly. Requires `confirm: true`. Needs Unraid OS **7.3+**. |
 
 > **Not yet verified against a live Unraid server.** The Docker tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. `docker_container_remove`, `docker_container_update`, and `docker_autostart_set` require **Unraid OS 7.3+**. `docker_network_list` and `docker_port_conflicts` are designed strictly to the vendored GraphQL SDL — their runtime behavior is unverified. Treat the destructive Docker tools with care.
+
+#### Virtual machines
+
+One read-only tool and one **destructive** mutation. The mutation requires `confirm: true` — without it the tool refuses and never touches your server.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `vm_list` | read-only | Lists virtual machines with their run state (`RUNNING`, `SHUTOFF`, `PAUSED`, …); `name` filters by a VM-name substring. |
+| `vm_action` | **destructive** | Changes a VM's run state — `action` is one of `start`, `stop`, `pause`, `resume`, `forceStop`, `reboot`, `reset`. `vm` accepts a VM name or id. Requires `confirm: true`; `forceStop` and `reset` additionally require `acknowledge_risk: true` (an ungraceful hard kill that can corrupt the guest filesystem). |
+
+> **Not yet verified against a live Unraid server.** Like the Docker tools, the VM tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. The configured Unraid API key must have VM permission. Treat `vm_action` — especially `forceStop` and `reset` — with care.
 
 ## Requirements
 
