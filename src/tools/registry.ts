@@ -13,6 +13,7 @@ import { registerDockerNetworkList } from "./docker/network-list.js";
 import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
+import { registerVmList } from "./vm/vm-list.js";
 
 /**
  * Registers every tool on the server. New tools are added here as the API
@@ -35,4 +36,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerDockerContainerUpdate(server, client);
   registerDockerNetworkList(server, client);
   registerDockerPortConflicts(server, client);
+  registerVmList(server, client);
 }
