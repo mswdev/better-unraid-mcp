@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the Docker tools (reads plus confirm-gated mutations), and the VM tools (a read plus a confirm-gated mutation) are in place. Full coverage of the Unraid API surface (notifications, and more) is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the array-control tools (confirm-gated array power and parity-check mutations), the Docker tools (reads plus confirm-gated mutations), and the VM tools (a read plus a confirm-gated mutation) are in place. Full coverage of the Unraid API surface (notifications, and more) is in progress and will land in subsequent releases.
 
 ### Available tools
 
@@ -19,6 +19,17 @@ These tools are all **read-only**.
 | `parity_history` | Returns the most recent parity checks (date, status, errors, speed); `limit` controls how many are returned. |
 | `disk_list` | Lists physical disks with model, size, interface, SMART status, temperature, and partitions. |
 | `share_list` | Lists user shares with usage (free/used/total); `name` filters by a share-name substring. |
+
+#### Array control
+
+Two **destructive** mutations. Both require `confirm: true` — without it the tool refuses and never touches your server.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `array_action` | **destructive** | Starts or stops the array behind a confirm gate (stop also requires `acknowledge_risk` — Unraid takes every share, Docker container, and VM offline). Reports the request; run `array_status` to confirm. |
+| `parity_check` | **destructive** | Starts (optionally `correct`ing), pauses, resumes, or cancels a parity check behind a confirm gate. Reports the request; run `array_status` to confirm. |
+
+> **Not yet verified against a live Unraid server.** The array-control tools are covered by hermetic unit tests and validated against the Unraid API v4.35.0 source, but have **not** been exercised against a running Unraid box. Both require an Unraid API key with the **ADMIN** role. The mutations cannot report the resulting state — run `array_status` after each call to confirm. Treat `array_action` — especially `stop` — with care.
 
 #### Docker
 

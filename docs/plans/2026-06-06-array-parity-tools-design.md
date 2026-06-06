@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-06
 **Author:** Matt White (mswdev)
-**Status:** Approved + source-validation reconciled — ready for implementation planning
+**Status:** Implemented — see docs/plans/2026-06-06-array-parity-tools.md
 **Branch:** `feature/array-tools` → draft PR into `develop` (PR #6 unmerged at branch time; only
 overlap is `src/tools/registry.ts` — trivial merge)
 
