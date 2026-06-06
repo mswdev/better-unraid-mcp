@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import { registerArrayAction } from "./array/array-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
+import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
 import { registerDockerAutostartSet } from "./docker/autostart-set.js";
@@ -29,6 +30,7 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerArrayStatus(server, client);
   registerArrayAction(server, client);
   registerParityHistory(server, client);
+  registerParityCheck(server, client);
   registerDiskList(server, client);
   registerShareList(server, client);
   registerDockerAutostartSet(server, client);

@@ -77,4 +77,19 @@ describe("registerAllTools", () => {
       openWorldHint: false,
     });
   });
+
+  it("registers parity_check as destructive and not read-only", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const check = registrations.find((registration) => registration.name === "parity_check");
+    expect(check?.hasHandler).toBe(true);
+    expect(check?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    });
+  });
 });
