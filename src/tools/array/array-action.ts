@@ -26,6 +26,32 @@ const REQUESTED_SUMMARY: Record<ArrayAction, string> = {
   stop: "Array stop requested — Unraid is taking every share, Docker container, and VM offline. Run array_status to confirm — state reads may lag a few seconds.",
 };
 
+/**
+ * The API's same-state guard message per action (validated at v4.35.0).
+ * Matching is best-effort: production error masking may rewrite messages, in
+ * which case the generic failure path runs instead.
+ */
+const ALREADY_IN_STATE_MESSAGE: Record<ArrayAction, string> = {
+  start: "The array is already STARTED",
+  stop: "The array is already STOPPED",
+};
+
+/** The API's re-entrancy guard: another state change is still in flight. */
+const CHANGE_IN_FLIGHT_MESSAGE = "Array state is still being updated";
+
+/** Thrown by the post-command read-back AFTER setState already fired. */
+const STATE_NOT_LOADED_MESSAGE = "state was not loaded";
+
+/**
+ * Benign no-op copy per action. The stop copy hedges: the API reports error
+ * states (e.g. TOO_MANY_MISSING_DISKS) with the same "already STOPPED"
+ * message, so it cannot be taken literally.
+ */
+const NO_OP_SUMMARY: Record<ArrayAction, string> = {
+  start: "Unraid reports the array is already STARTED — no action was taken.",
+  stop: "Unraid reports the array is already stopped — or it is in an error state where stop does not apply (the API reports both the same way). Run array_status to see the actual state. No changes were made.",
+};
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   action: z.enum(["start", "stop"]),
@@ -62,6 +88,41 @@ function gateRefusal(args: ArrayActionArgs): CallToolResult | null {
   );
 }
 
+/** Inputs for mapping a thrown message to a known, non-generic result. */
+interface KnownErrorInput {
+  action: ArrayAction;
+  message: string;
+  format: ResponseFormat;
+}
+
+/**
+ * Maps the API's known guard/read-back messages to honest results: same-state
+ * → benign no-op; in-flight → transient failure; state-not-loaded → the
+ * command already fired, so report it as issued-but-unverified rather than a
+ * failure. Returns `null` for unknown messages (generic failure path).
+ *
+ * @param input - The action, the thrown message, and the response format.
+ * @returns A mapped `CallToolResult`, or `null` when the message is unknown.
+ */
+function mapKnownError(input: KnownErrorInput): CallToolResult | null {
+  const { action, message, format } = input;
+  if (message.includes(ALREADY_IN_STATE_MESSAGE[action])) {
+    const detailed = { requested: action, outcome: "already-in-state", apiMessage: message };
+    return formatResponse(format, NO_OP_SUMMARY[action], detailed);
+  }
+  if (message.includes(CHANGE_IN_FLIGHT_MESSAGE)) {
+    return toolError(
+      `Cannot ${action} the array: another array state change is still in progress. Retry shortly. No changes were made.`,
+    );
+  }
+  if (message.includes(STATE_NOT_LOADED_MESSAGE)) {
+    const summary = `The array ${action} command was issued, but the API could not read back the array state. Run array_status to check the result.`;
+    const detailed = { requested: action, outcome: "issued-unverified", apiMessage: message };
+    return formatResponse(format, summary, detailed);
+  }
+  return null;
+}
+
 /**
  * Creates the `array_action` handler bound to a GraphQL executor.
  *
@@ -88,7 +149,10 @@ export function createArrayActionHandler(client: GraphQLExecutor) {
       return formatResponse(response_format, REQUESTED_SUMMARY[action], detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return toolError(`Failed to ${action} the array: ${message}`);
+      return (
+        mapKnownError({ action, message, format: response_format }) ??
+        toolError(`Failed to ${action} the array: ${message}`)
+      );
     }
   };
 }
