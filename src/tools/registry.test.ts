@@ -62,4 +62,19 @@ describe("registerAllTools", () => {
     expect(action?.hasHandler).toBe(true);
     expect(action?.annotations).toMatchObject({ destructiveHint: true });
   });
+
+  it("registers array_action as destructive and not read-only", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const action = registrations.find((registration) => registration.name === "array_action");
+    expect(action?.hasHandler).toBe(true);
+    expect(action?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    });
+  });
 });

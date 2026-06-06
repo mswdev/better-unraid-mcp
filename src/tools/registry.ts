@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
+import { registerArrayAction } from "./array/array-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
@@ -26,6 +27,7 @@ import { registerVmList } from "./vm/vm-list.js";
 export function registerAllTools(server: McpServer, client: GraphQLExecutor): void {
   registerSystemInfo(server, client);
   registerArrayStatus(server, client);
+  registerArrayAction(server, client);
   registerParityHistory(server, client);
   registerDiskList(server, client);
   registerShareList(server, client);
