@@ -77,6 +77,20 @@ const stopped = {
   },
 } satisfies ArrayStatusQuery;
 
+const checking = {
+  array: {
+    ...started.array,
+    parityCheckStatus: {
+      status: "RUNNING",
+      progress: 37,
+      errors: null,
+      running: null,
+      paused: null,
+      speed: "98",
+    },
+  },
+} satisfies ArrayStatusQuery;
+
 function fakeExecutor(result: ArrayStatusQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
@@ -123,6 +137,23 @@ describe("array_status handler", () => {
     expect(firstText(result)).toMatch(/STOPPED/);
     expect(firstText(result)).toMatch(/0%/);
     expect(firstText(result)).not.toMatch(/NaN/);
-    expect(firstText(result)).toMatch(/0 errors/);
+    expect(firstText(result)).toMatch(/Parity: NEVER_RUN/);
+  });
+
+  it("shows progress and speed while a check is active", async () => {
+    const result = await createArrayStatusHandler(fakeExecutor(checking))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toMatch(/Parity check RUNNING: 37% at 98 MB\/s/);
+  });
+
+  it("defers error counts to parity_history instead of asserting 0 errors", async () => {
+    const result = await createArrayStatusHandler(fakeExecutor(started))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toMatch(/Parity: COMPLETED \(errors: see parity_history\)/);
+    expect(firstText(result)).not.toMatch(/0 errors/);
   });
 });
