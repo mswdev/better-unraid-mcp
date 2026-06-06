@@ -14,6 +14,7 @@ const started = {
       errors: 0,
       running: false,
       paused: false,
+      speed: "0",
     },
     parities: [{ name: "parity", status: "DISK_OK", temp: 35, type: "PARITY" }],
     disks: [
@@ -56,6 +57,7 @@ const stopped = {
       errors: null,
       running: false,
       paused: false,
+      speed: null,
     },
     parities: [],
     disks: [
