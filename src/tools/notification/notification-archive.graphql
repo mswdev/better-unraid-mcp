@@ -1,0 +1,64 @@
+mutation ArchiveNotifications($ids: [PrefixedID!]!) {
+  archiveNotifications(ids: $ids) {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
+}
+mutation UnarchiveNotifications($ids: [PrefixedID!]!) {
+  unarchiveNotifications(ids: $ids) {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
+}
+mutation ArchiveAll($importance: NotificationImportance) {
+  archiveAll(importance: $importance) {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
+}
+mutation UnarchiveAll($importance: NotificationImportance) {
+  unarchiveAll(importance: $importance) {
+    unread {
+      info
+      warning
+      alert
+      total
+    }
+    archive {
+      info
+      warning
+      alert
+      total
+    }
+  }
+}
