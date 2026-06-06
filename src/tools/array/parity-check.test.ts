@@ -9,7 +9,12 @@ import {
   ParityCheckStartDocument,
   type ParityCheckStartMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createParityCheckHandler } from "./parity-check.js";
 
 // Upstream returns a stale parity-history array as the JSON! payload
@@ -131,5 +136,63 @@ describe("parity_check happy path", () => {
     expect(firstText(result)).toContain('"requested": "start"');
     expect(firstText(result)).toContain('"correct": false');
     expect(firstText(result)).toContain('"outcome": "requested"');
+  });
+});
+
+describe("parity_check error mapping", () => {
+  it("maps the start-while-running guard to a clear refusal", async () => {
+    const executor = throwingExecutor("Invalid parity check state: start");
+
+    const result = await createParityCheckHandler(executor)({
+      response_format: "concise",
+      action: "start",
+      confirm: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/already running/);
+    expect(firstText(result)).toMatch(/No changes were made/);
+  });
+
+  it("reports the post-command history-read failure as issued-but-unverified", async () => {
+    const executor = throwingExecutor(
+      "Parity history file not found: /boot/config/parity-checks.log",
+    );
+
+    const result = await createParityCheckHandler(executor)({
+      response_format: "concise",
+      action: "start",
+      confirm: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/command was issued/);
+    expect(firstText(result)).toMatch(/array_status/);
+  });
+
+  it("wraps unknown errors in the standard failure form", async () => {
+    const executor = throwingExecutor("Forbidden resource");
+
+    const result = await createParityCheckHandler(executor)({
+      response_format: "concise",
+      action: "cancel",
+      confirm: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to cancel the parity check: Forbidden resource");
+  });
+
+  it("coerces non-Error rejections to strings", async () => {
+    const executor = rejectingExecutor("denied");
+
+    const result = await createParityCheckHandler(executor)({
+      response_format: "concise",
+      action: "pause",
+      confirm: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to pause the parity check: denied");
   });
 });

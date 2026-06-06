@@ -21,6 +21,16 @@ const DEFAULT_CORRECT = false;
 /** Shared pointer copy — no read can confirm these mutations synchronously. */
 const POINT_TO_STATUS = "Run array_status to confirm — status reads may lag a few seconds.";
 
+/**
+ * The API's action guard (validated at v4.35.0: only `start` while a check is
+ * already running is filtered; pause/resume/cancel are always forwarded).
+ * Matching is best-effort under production error masking.
+ */
+const INVALID_STATE_MESSAGE = "Invalid parity check state";
+
+/** Thrown by the post-command history read AFTER the command already fired. */
+const HISTORY_READ_MESSAGE = "Parity history file not found";
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   action: z.enum(["start", "pause", "resume", "cancel"]),
@@ -102,6 +112,37 @@ function summarize(action: ParityAction, correct: boolean): string {
   return `Parity check ${action} requested. ${POINT_TO_STATUS} If no check was running, Unraid may accept this with no effect.`;
 }
 
+/** Inputs for mapping a thrown message to a known, non-generic result. */
+interface KnownErrorInput {
+  action: ParityAction;
+  message: string;
+  format: ResponseFormat;
+}
+
+/**
+ * Maps the API's known messages: the start-while-running guard → a real
+ * refusal; the post-command history-read failure → the command already fired,
+ * so report it as issued-but-unverified rather than a failure. Returns `null`
+ * for unknown messages (generic failure path).
+ *
+ * @param input - The action, the thrown message, and the response format.
+ * @returns A mapped `CallToolResult`, or `null` when the message is unknown.
+ */
+function mapKnownError(input: KnownErrorInput): CallToolResult | null {
+  const { action, message, format } = input;
+  if (message.includes(INVALID_STATE_MESSAGE)) {
+    return toolError(
+      `Unraid refused to ${action} the parity check — a check is already running (run array_status to see it). No changes were made.`,
+    );
+  }
+  if (message.includes(HISTORY_READ_MESSAGE)) {
+    const summary = `The parity check ${action} command was issued, but the API's post-command history read failed. ${POINT_TO_STATUS}`;
+    const detailed = { requested: action, outcome: "issued-unverified", apiMessage: message };
+    return formatResponse(format, summary, detailed);
+  }
+  return null;
+}
+
 /**
  * Creates the `parity_check` handler bound to a GraphQL executor.
  *
@@ -122,7 +163,10 @@ export function createParityCheckHandler(client: GraphQLExecutor) {
       return formatResponse(response_format, summarize(action, correct), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return toolError(`Failed to ${action} the parity check: ${message}`);
+      return (
+        mapKnownError({ action, message, format: response_format }) ??
+        toolError(`Failed to ${action} the parity check: ${message}`)
+      );
     }
   };
 }
