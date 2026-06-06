@@ -209,11 +209,15 @@ git commit -m "fix(array): array_status parity clause — progress/speed when ac
 
 ---
 
-### Task 3: `array_action` core — enum map, gates, happy path (TDD)
+### Task 3: `array_action` — enum map, gates, happy path, registration (TDD)
+
+Registration lives in this task so every symbol (`TOOL_NAME`, `inputSchema`, the `McpServer` import) is consumed at the commit — a deferred register step would fail lint on unused symbols.
 
 **Files:**
 - Create: `src/tools/array/array-action.test.ts`
 - Create: `src/tools/array/array-action.ts`
+- Modify: `src/tools/registry.ts`
+- Modify: `src/tools/registry.test.ts`
 
 **Step 1: Write the failing tests**
 
@@ -331,12 +335,31 @@ describe("array_action happy path", () => {
 });
 ```
 
+Also append the failing registry assertion to `src/tools/registry.test.ts`'s describe block:
+
+```typescript
+  it("registers array_action as destructive and not read-only", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const action = registrations.find((registration) => registration.name === "array_action");
+    expect(action?.hasHandler).toBe(true);
+    expect(action?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    });
+  });
+```
+
 **Step 2: Run tests to verify they fail**
 
-Run: `npx vitest run src/tools/array/array-action.test.ts`
-Expected: FAIL — `./array-action.js` does not exist.
+Run: `npx vitest run src/tools/array/array-action.test.ts src/tools/registry.test.ts`
+Expected: FAIL — `./array-action.js` does not exist; the registry assertion fails (`array_action` not registered).
 
-**Step 3: Implement `src/tools/array/array-action.ts` (core only — no error mapping yet)**
+**Step 3: Implement `src/tools/array/array-action.ts` (no error mapping yet — that is Task 4)**
 
 ```typescript
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -433,13 +456,33 @@ export function createArrayActionHandler(client: GraphQLExecutor) {
     }
   };
 }
+
+/**
+ * Registers the destructive `array_action` tool on the server.
+ *
+ * @param server - The MCP server to register the tool on.
+ * @param client - The GraphQL executor the tool uses.
+ */
+export function registerArrayAction(server: McpServer, client: GraphQLExecutor): void {
+  server.registerTool(
+    TOOL_NAME,
+    {
+      title: "Start or Stop the Unraid Array",
+      description:
+        "Starts or stops the array. ⚠ stop: Unraid takes every share, Docker container, and VM offline (the API does not check for active services first). Requires `confirm: true`; stop additionally requires `acknowledge_risk: true`. The mutation cannot report the resulting state — run array_status afterward to confirm (state reads may lag a few seconds). Requires an Unraid API key with ADMIN role. Encrypted arrays cannot be started by this tool (no decryption inputs) — use the web UI.",
+      inputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    },
+    createArrayActionHandler(client),
+  );
+}
 ```
 
-(`McpServer`/`TOOL_NAME`/`inputSchema` are referenced by Task 5's `registerArrayAction`; if the linter flags unused imports in this intermediate state, add the register function in Task 5 as written — do not delete them, suppress nothing, or run Task 5 immediately after.) If `npm run lint` fails on the unused `McpServer` import in this intermediate commit, omit that import line and `TOOL_NAME` until Task 5.
+Wire the registry: in `src/tools/registry.ts`, add `import { registerArrayAction } from "./array/array-action.js";` (alphabetical with the other array imports) and call `registerArrayAction(server, client);` directly after `registerArrayStatus(server, client);`.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `npx vitest run src/tools/array/array-action.test.ts`
+Run: `npx vitest run src/tools/array/array-action.test.ts src/tools/registry.test.ts`
 Expected: PASS (all).
 
 **Step 5: Quality gates + commit**
@@ -447,8 +490,8 @@ Expected: PASS (all).
 Run: `npm run typecheck && npm run build && npm test && npm run lint`
 
 ```bash
-git add src/tools/array/array-action.ts src/tools/array/array-action.test.ts
-git commit -m "feat(array): array_action core — two-tier stop gate + setState dispatch"
+git add src/tools/array/array-action.ts src/tools/array/array-action.test.ts src/tools/registry.ts src/tools/registry.test.ts
+git commit -m "feat(array): add array_action tool — two-tier stop gate + setState dispatch"
 ```
 
 ---
@@ -683,90 +726,15 @@ git commit -m "feat(array): map setState guard/read-back errors to honest no-op/
 
 ---
 
-### Task 5: `array_action` registration + registry wiring (TDD)
+### Task 5: `parity_check` — validation, gate, dispatch, happy path, registration (TDD)
 
-**Files:**
-- Modify: `src/tools/array/array-action.ts` (add `registerArrayAction`)
-- Modify: `src/tools/registry.ts`
-- Modify: `src/tools/registry.test.ts`
-
-**Step 1: Add the failing registry test**
-
-Append to `registry.test.ts`'s describe block:
-
-```typescript
-  it("registers array_action as destructive and not read-only", () => {
-    const { server, registrations } = fakeServer();
-
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
-
-    const action = registrations.find((registration) => registration.name === "array_action");
-    expect(action?.hasHandler).toBe(true);
-    expect(action?.annotations).toMatchObject({
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: false,
-    });
-  });
-```
-
-**Step 2: Run to verify it fails**
-
-Run: `npx vitest run src/tools/registry.test.ts`
-Expected: FAIL — `array_action` is not registered.
-
-**Step 3: Implement**
-
-Append to `array-action.ts`:
-
-```typescript
-/**
- * Registers the destructive `array_action` tool on the server.
- *
- * @param server - The MCP server to register the tool on.
- * @param client - The GraphQL executor the tool uses.
- */
-export function registerArrayAction(server: McpServer, client: GraphQLExecutor): void {
-  server.registerTool(
-    TOOL_NAME,
-    {
-      title: "Start or Stop the Unraid Array",
-      description:
-        "Starts or stops the array. ⚠ stop: Unraid takes every share, Docker container, and VM offline (the API does not check for active services first). Requires `confirm: true`; stop additionally requires `acknowledge_risk: true`. The mutation cannot report the resulting state — run array_status afterward to confirm (state reads may lag a few seconds). Requires an Unraid API key with ADMIN role. Encrypted arrays cannot be started by this tool (no decryption inputs) — use the web UI.",
-      inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
-    },
-    createArrayActionHandler(client),
-  );
-}
-```
-
-(Restore the `McpServer` import and `TOOL_NAME` if they were omitted in Task 3.)
-
-In `registry.ts`: add `import { registerArrayAction } from "./array/array-action.js";` (alphabetical with the other array imports) and call `registerArrayAction(server, client);` directly after `registerArrayStatus(server, client);`.
-
-**Step 4: Run to verify it passes**
-
-Run: `npx vitest run src/tools/registry.test.ts`
-Expected: PASS.
-
-**Step 5: Quality gates + commit**
-
-Run: `npm run typecheck && npm run build && npm test && npm run lint`
-
-```bash
-git add src/tools/array/array-action.ts src/tools/registry.ts src/tools/registry.test.ts
-git commit -m "feat(array): register array_action tool"
-```
-
----
-
-### Task 6: `parity_check` core — validation, gate, dispatch, happy path (TDD)
+Registration lives in this task for the same reason as Task 3 (no unused symbols at the commit).
 
 **Files:**
 - Create: `src/tools/array/parity-check.test.ts`
 - Create: `src/tools/array/parity-check.ts`
+- Modify: `src/tools/registry.ts`
+- Modify: `src/tools/registry.test.ts`
 
 **Step 1: Write the failing tests**
 
@@ -907,12 +875,31 @@ describe("parity_check happy path", () => {
 });
 ```
 
+Also append the failing registry assertion to `src/tools/registry.test.ts`:
+
+```typescript
+  it("registers parity_check as destructive and not read-only", () => {
+    const { server, registrations } = fakeServer();
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+
+    const check = registrations.find((registration) => registration.name === "parity_check");
+    expect(check?.hasHandler).toBe(true);
+    expect(check?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    });
+  });
+```
+
 **Step 2: Run tests to verify they fail**
 
-Run: `npx vitest run src/tools/array/parity-check.test.ts`
-Expected: FAIL — `./parity-check.js` does not exist.
+Run: `npx vitest run src/tools/array/parity-check.test.ts src/tools/registry.test.ts`
+Expected: FAIL — `./parity-check.js` does not exist; the registry assertion fails.
 
-**Step 3: Implement `src/tools/array/parity-check.ts` (core only)**
+**Step 3: Implement `src/tools/array/parity-check.ts` (no error mapping yet — that is Task 6)**
 
 ```typescript
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -1043,13 +1030,33 @@ export function createParityCheckHandler(client: GraphQLExecutor) {
     }
   };
 }
+
+/**
+ * Registers the destructive `parity_check` tool on the server.
+ *
+ * @param server - The MCP server to register the tool on.
+ * @param client - The GraphQL executor the tool uses.
+ */
+export function registerParityCheck(server: McpServer, client: GraphQLExecutor): void {
+  server.registerTool(
+    TOOL_NAME,
+    {
+      title: "Control the Parity Check",
+      description:
+        'Starts, pauses, resumes, or cancels a parity check. `action: "start"` accepts `correct` (true = write corrections to parity, like the web UI checkbox; default false = read-only check). Requires `confirm: true`. The mutations return no usable status — run array_status afterward to confirm (status reads may lag a few seconds); pause/resume/cancel with no check running may be accepted with no effect. Requires an Unraid API key with ADMIN role. Behavior validated against Unraid API v4.35.0 (upstream marks these mutations WIP).',
+      inputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    },
+    createParityCheckHandler(client),
+  );
+}
 ```
 
-(Same note as Task 3 about the not-yet-used `McpServer`/`TOOL_NAME` — omit until Task 8 if lint complains.)
+Wire the registry: in `src/tools/registry.ts`, add `import { registerParityCheck } from "./array/parity-check.js";` and call `registerParityCheck(server, client);` directly after `registerParityHistory(server, client);`.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `npx vitest run src/tools/array/parity-check.test.ts`
+Run: `npx vitest run src/tools/array/parity-check.test.ts src/tools/registry.test.ts`
 Expected: PASS (all).
 
 **Step 5: Quality gates + commit**
@@ -1057,13 +1064,13 @@ Expected: PASS (all).
 Run: `npm run typecheck && npm run build && npm test && npm run lint`
 
 ```bash
-git add src/tools/array/parity-check.ts src/tools/array/parity-check.test.ts
-git commit -m "feat(array): parity_check core — correct-only-with-start validation, confirm gate, dispatch"
+git add src/tools/array/parity-check.ts src/tools/array/parity-check.test.ts src/tools/registry.ts src/tools/registry.test.ts
+git commit -m "feat(array): add parity_check tool — correct-only-with-start validation, confirm gate, dispatch"
 ```
 
 ---
 
-### Task 7: `parity_check` error mapping (TDD)
+### Task 6: `parity_check` error mapping (TDD)
 
 **Files:**
 - Modify: `src/tools/array/parity-check.ts`
@@ -1215,84 +1222,7 @@ git commit -m "feat(array): map parity guard/history-read errors to refusal/unve
 
 ---
 
-### Task 8: `parity_check` registration + registry wiring (TDD)
-
-**Files:**
-- Modify: `src/tools/array/parity-check.ts` (add `registerParityCheck`)
-- Modify: `src/tools/registry.ts`
-- Modify: `src/tools/registry.test.ts`
-
-**Step 1: Add the failing registry test**
-
-Append to `registry.test.ts`:
-
-```typescript
-  it("registers parity_check as destructive and not read-only", () => {
-    const { server, registrations } = fakeServer();
-
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
-
-    const check = registrations.find((registration) => registration.name === "parity_check");
-    expect(check?.hasHandler).toBe(true);
-    expect(check?.annotations).toMatchObject({
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: false,
-    });
-  });
-```
-
-**Step 2: Run to verify it fails**
-
-Run: `npx vitest run src/tools/registry.test.ts`
-Expected: FAIL — `parity_check` is not registered.
-
-**Step 3: Implement**
-
-Append to `parity-check.ts`:
-
-```typescript
-/**
- * Registers the destructive `parity_check` tool on the server.
- *
- * @param server - The MCP server to register the tool on.
- * @param client - The GraphQL executor the tool uses.
- */
-export function registerParityCheck(server: McpServer, client: GraphQLExecutor): void {
-  server.registerTool(
-    TOOL_NAME,
-    {
-      title: "Control the Parity Check",
-      description:
-        'Starts, pauses, resumes, or cancels a parity check. `action: "start"` accepts `correct` (true = write corrections to parity, like the web UI checkbox; default false = read-only check). Requires `confirm: true`. The mutations return no usable status — run array_status afterward to confirm (status reads may lag a few seconds); pause/resume/cancel with no check running may be accepted with no effect. Requires an Unraid API key with ADMIN role. Behavior validated against Unraid API v4.35.0 (upstream marks these mutations WIP).',
-      inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
-    },
-    createParityCheckHandler(client),
-  );
-}
-```
-
-In `registry.ts`: add `import { registerParityCheck } from "./array/parity-check.js";` and call `registerParityCheck(server, client);` directly after `registerParityHistory(server, client);`.
-
-**Step 4: Run to verify it passes**
-
-Run: `npx vitest run src/tools/registry.test.ts`
-Expected: PASS.
-
-**Step 5: Quality gates + commit**
-
-Run: `npm run typecheck && npm run build && npm test && npm run lint`
-
-```bash
-git add src/tools/array/parity-check.ts src/tools/registry.ts src/tools/registry.test.ts
-git commit -m "feat(array): register parity_check tool"
-```
-
----
-
-### Task 9: README rows + design-doc status
+### Task 7: README rows + design-doc status
 
 **Files:**
 - Modify: `README.md` (tools table — after the `parity_history` row)
@@ -1324,7 +1254,7 @@ git commit -m "docs: promote array_action and parity_check to shipped"
 
 ---
 
-### Task 10: Full verification (no new code)
+### Task 8: Full verification (no new code)
 
 **Step 1: Quality gates from clean**
 
