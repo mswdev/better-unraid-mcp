@@ -170,6 +170,22 @@ describe("parity_check error mapping", () => {
     expect(firstText(result)).toMatch(/array_status/);
   });
 
+  it("exposes the issued-unverified outcome in detailed format", async () => {
+    const executor = throwingExecutor(
+      "Parity history file not found: /boot/config/parity-checks.log",
+    );
+
+    const result = await createParityCheckHandler(executor)({
+      response_format: "detailed",
+      action: "cancel",
+      confirm: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toContain('"outcome": "issued-unverified"');
+    expect(firstText(result)).toContain('"requested": "cancel"');
+  });
+
   it("wraps unknown errors in the standard failure form", async () => {
     const executor = throwingExecutor("Forbidden resource");
 

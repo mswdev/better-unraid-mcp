@@ -198,6 +198,20 @@ describe("array_action error mapping", () => {
     expect(firstText(result)).toContain('"outcome": "already-in-state"');
   });
 
+  it("exposes the issued-unverified outcome in detailed format", async () => {
+    const executor = throwingExecutor("Attempt to get Array Data, but state was not loaded");
+
+    const result = await createArrayActionHandler(executor)({
+      response_format: "detailed",
+      action: "start",
+      confirm: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toContain('"outcome": "issued-unverified"');
+    expect(firstText(result)).toContain('"requested": "start"');
+  });
+
   it("wraps unknown errors in the standard failure form", async () => {
     const executor = throwingExecutor("Forbidden resource");
 
