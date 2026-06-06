@@ -1,0 +1,23 @@
+mutation ParityCheckStart($correct: Boolean!) {
+  parityCheck {
+    start(correct: $correct)
+  }
+}
+
+mutation ParityCheckPause {
+  parityCheck {
+    pause
+  }
+}
+
+mutation ParityCheckResume {
+  parityCheck {
+    resume
+  }
+}
+
+mutation ParityCheckCancel {
+  parityCheck {
+    cancel
+  }
+}

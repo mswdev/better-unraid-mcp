@@ -10,6 +10,24 @@ const TOOL_NAME = "array_status";
 const PERCENT = 100;
 const DISK_OK = "DISK_OK";
 
+/** Parity statuses that indicate a check is actively in progress. */
+const ACTIVE_CHECK_STATUSES: ReadonlySet<string> = new Set(["RUNNING", "PAUSED"]);
+
+/**
+ * Describes the parity clause of the summary. The API never populates
+ * `errors` on this resolver (validated at unraid/api v4.35.0), so error
+ * counts are deferred to `parity_history` instead of asserting "0 errors".
+ *
+ * @param parity - The `parityCheckStatus` selection from the array read.
+ * @returns The parity clause (no trailing period).
+ */
+function describeParity(parity: ArrayStatusQuery["array"]["parityCheckStatus"]): string {
+  if (ACTIVE_CHECK_STATUSES.has(parity.status)) {
+    return `Parity check ${parity.status}: ${parity.progress ?? 0}% at ${parity.speed ?? "?"} MB/s`;
+  }
+  return `Parity: ${parity.status} (errors: see parity_history)`;
+}
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
 };
@@ -22,7 +40,7 @@ function summarize(data: ArrayStatusQuery): string {
   const percent = totalKb > 0 ? Math.round((usedKb / totalKb) * PERCENT) : 0;
   const dataOk = array.disks.filter((disk) => disk.status === DISK_OK).length;
   const parity = array.parityCheckStatus;
-  return `Array ${array.state} — ${humanizeKilobytes(usedKb)} / ${humanizeKilobytes(totalKb)} used (${percent}%). Parity: ${parity.status}, ${parity.errors ?? 0} errors. Disks: ${dataOk}/${array.disks.length} data OK, ${array.parities.length} parity, ${array.caches.length} cache.`;
+  return `Array ${array.state} — ${humanizeKilobytes(usedKb)} / ${humanizeKilobytes(totalKb)} used (${percent}%). ${describeParity(parity)}. Disks: ${dataOk}/${array.disks.length} data OK, ${array.parities.length} parity, ${array.caches.length} cache.`;
 }
 
 /**
