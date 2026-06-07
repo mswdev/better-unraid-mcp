@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SystemMetricsQuery } from "../../types/unraid/graphql.js";
+import type { SystemMetricsQuery, TemperatureUnit } from "../../types/unraid/graphql.js";
 import {
   firstText,
   recordingExecutor,
@@ -226,6 +226,34 @@ describe("system_metrics handler", () => {
 
     expect(firstText(result)).toMatch(/avg 107\.8°F/);
     expect(firstText(result)).toMatch(/hottest: CPU Package 131\.9°F/);
+  });
+
+  it("falls back to a placeholder suffix for a unit newer than the vendored schema", async () => {
+    // Simulates wire-space drift: the client never validates wire enum values,
+    // so a server newer than the vendored SDL can send a unit the generated
+    // union predates. The cast is the only way to express that through the seam.
+    const driftedUnit = "PLANCK" as unknown as TemperatureUnit;
+    const drifted = {
+      metrics: {
+        ...full.metrics,
+        temperature: {
+          sensors: full.metrics.temperature.sensors,
+          summary: {
+            ...full.metrics.temperature.summary,
+            hottest: { name: "CPU Package", current: { value: 55.5, unit: driftedUnit } },
+          },
+        },
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(drifted);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: true,
+    });
+
+    expect(firstText(result)).toMatch(/hottest: CPU Package 55\.5°\?/);
   });
 
   it("reports when no interfaces are listed", async () => {
