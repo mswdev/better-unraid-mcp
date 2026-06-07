@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the array-control tools (confirm-gated array power and parity-check mutations), the Docker tools (reads plus confirm-gated mutations), the VM tools (a read plus a confirm-gated mutation), and the notification tools (reads plus three ungated and one confirm-gated mutation) are in place. Full coverage of the Unraid API surface is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the array-control tools (confirm-gated array power and parity-check mutations), the Docker tools (reads plus confirm-gated mutations), the VM tools (a read plus a confirm-gated mutation), the notification tools (reads plus three ungated and one confirm-gated mutation), and the observability tools (read-only log inventory/windowing plus a system-metrics snapshot) are in place. Full coverage of the Unraid API surface is in progress and will land in subsequent releases.
 
 ### Available tools
 
@@ -76,6 +76,18 @@ Three read-only tools and four mutations. `notification_delete` is **destructive
 > **Counts come from a cache.** The overview counts read by `notification_overview` (and echoed by some mutations) are served from a cache that can lag; `notification_list` is the source of truth for which notifications exist and their ids. `notification_recalculate` re-syncs the cached overview from disk, but `notification_list` remains the authority — recalculated counts can still differ on installs where a notification was written to both the unread and archive folders.
 
 > **Not yet verified against a live Unraid server.** Like the Docker and VM tools, the notification tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. Treat `notification_delete` with care.
+
+#### Observability
+
+These tools are all **read-only**.
+
+| Tool | Description |
+| --- | --- |
+| `log_list` | Lists the server's log files (name, path, size, last modified), most recently modified first. An empty list may also mean the log directory was unreadable — the API does not distinguish. |
+| `log_read` | Returns lines from a log file. `path` is a path or name from `log_list`, validated against that list before reading. Tail by default (`lines` default 100, max 2000); `start_line` (1-indexed) windows from there, and re-call with the hinted values to page. |
+| `system_metrics` | Point-in-time snapshot: CPU load, memory pressure (percent + available bytes), per-interface network rates/errors, and server time (timezone, NTP). `include_temperature=true` adds sensor data (may take seconds on multi-disk servers). Needs a viewer-level key (INFO+VARS read). |
+
+> **Not yet verified against a live Unraid server.** Like the other tool groups, the observability tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box.
 
 ## Requirements
 
