@@ -1138,7 +1138,7 @@ export function registerSystemMetrics(server: McpServer, client: GraphQLExecutor
 **Step 6: Run the test to verify it passes**
 
 Run: `npx vitest run src/tools/system/system-metrics.test.ts`
-Expected: PASS (9 tests). If the memory/network rendering assertions fail on formatting (e.g. `46%` vs `45.9` rounding or `340.0 KB` vs `340 KB`), check `humanizeBytes`/`toFixed` output and fix the TEST expectation to the actual deterministic output — the fixture values are chosen so: `45.9.toFixed(0) === "46"`, `humanizeBytes(18253611008) === "17.0 GB"`, `humanizeBytes(33715179520) === "31.4 GB"`, `humanizeBytes(1258291.2) === "1.2 MB"`, `humanizeBytes(348160) === "340.0 KB"`.
+Expected: PASS (9 tests). The formatting assertions are verified-correct against the fixture values: `(45.9).toFixed(0) === "46"`, `humanizeBytes(18253611008) === "17.0 GB"`, `humanizeBytes(33715179520) === "31.4 GB"`, `humanizeBytes(1258291.2) === "1.2 MB"`, `humanizeBytes(348160) === "340.0 KB"`, busiest core `(45.2).toFixed(0) === "45"`. If one fails, the IMPLEMENTATION is wrong — fix the code, not the test.
 
 **Step 7: Register**
 
