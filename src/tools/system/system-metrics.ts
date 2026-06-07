@@ -33,6 +33,17 @@ const UNIT_SUFFIXES: Record<TemperatureUnit, string> = {
   RANKINE: "R",
 };
 
+/** Fallback suffix when a server newer than the vendored SDL reports an unknown unit. */
+const UNKNOWN_UNIT_SUFFIX = "?";
+
+/** Resolves the display suffix for a unit, tolerating wire values the vendored SDL predates. */
+function unitSuffix(unit: TemperatureUnit): string {
+  // The client never validates wire enum values against the generated union,
+  // so a newer server can send a unit this map (and the type) don't know.
+  const suffix: string | undefined = UNIT_SUFFIXES[unit];
+  return suffix ?? UNKNOWN_UNIT_SUFFIX;
+}
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   include_temperature: z.boolean().default(false),
@@ -84,7 +95,7 @@ function temperatureLine(metrics: Metrics, included: boolean): string | null {
     return "Temperature: unavailable (no sensors or collection disabled)";
   }
   const { summary } = metrics.temperature;
-  const unit = UNIT_SUFFIXES[summary.hottest.current.unit];
+  const unit = unitSuffix(summary.hottest.current.unit);
   const value = summary.hottest.current.value.toFixed(TEMPERATURE_DECIMALS);
   const hottest = `${summary.hottest.name} ${value}°${unit}`;
   const average = summary.average.toFixed(TEMPERATURE_DECIMALS);

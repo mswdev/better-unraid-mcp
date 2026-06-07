@@ -203,7 +203,7 @@ GraphQL observability surface:
   As of 2026-06-06T12:00:08Z (America/New_York, NTP on):
   CPU: 12% total, 24 threads (busiest 45%)
   Memory: 45% used — 17.0 GB available of 31.4 GB (swap 0%)
-  Temperature: avg 42°C — 0 warning, 0 critical (hottest: CPU Package 55°C)
+  Temperature: avg 42.1°C — 0 warning, 0 critical (hottest: CPU Package 55.5°C)
   Network: eth0 up — rx 1.2 MB/s, tx 340.0 KB/s, 0 errors
   ```
 
