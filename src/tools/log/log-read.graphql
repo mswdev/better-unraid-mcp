@@ -1,0 +1,15 @@
+query LogReadAllowlist {
+  logFiles {
+    name
+    path
+  }
+}
+
+query LogReadContent($path: String!, $lines: Int, $startLine: Int) {
+  logFile(path: $path, lines: $lines, startLine: $startLine) {
+    path
+    content
+    totalLines
+    startLine
+  }
+}

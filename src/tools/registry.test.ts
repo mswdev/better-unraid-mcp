@@ -131,4 +131,19 @@ describe("registerAllTools", () => {
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({ destructiveHint: true });
   });
+
+  it("registers the observability reads as read-only", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    for (const name of ["log_list", "log_read", "system_metrics"]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasHandler).toBe(true);
+      expect(reg?.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      });
+    }
+  });
 });

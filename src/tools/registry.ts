@@ -13,6 +13,8 @@ import { registerDockerContainerRemove } from "./docker/container-remove.js";
 import { registerDockerContainerUpdate } from "./docker/container-update.js";
 import { registerDockerNetworkList } from "./docker/network-list.js";
 import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
+import { registerLogList } from "./log/log-list.js";
+import { registerLogRead } from "./log/log-read.js";
 import { registerNotificationAlerts } from "./notification/notification-alerts.js";
 import { registerNotificationArchive } from "./notification/notification-archive.js";
 import { registerNotificationCreate } from "./notification/notification-create.js";
@@ -22,6 +24,7 @@ import { registerNotificationOverview } from "./notification/notification-overvi
 import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
+import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 
@@ -34,6 +37,9 @@ import { registerVmList } from "./vm/vm-list.js";
  */
 export function registerAllTools(server: McpServer, client: GraphQLExecutor): void {
   registerSystemInfo(server, client);
+  registerSystemMetrics(server, client);
+  registerLogList(server, client);
+  registerLogRead(server, client);
   registerArrayStatus(server, client);
   registerArrayAction(server, client);
   registerParityHistory(server, client);
