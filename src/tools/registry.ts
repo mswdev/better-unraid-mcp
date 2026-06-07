@@ -24,6 +24,7 @@ import { registerNotificationOverview } from "./notification/notification-overvi
 import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
+import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 
@@ -36,6 +37,7 @@ import { registerVmList } from "./vm/vm-list.js";
  */
 export function registerAllTools(server: McpServer, client: GraphQLExecutor): void {
   registerSystemInfo(server, client);
+  registerSystemMetrics(server, client);
   registerLogList(server, client);
   registerLogRead(server, client);
   registerArrayStatus(server, client);
