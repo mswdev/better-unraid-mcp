@@ -100,6 +100,9 @@ function summarize(file: Content, lines: number): string {
  *
  * @param client - The GraphQL executor used for the preflight and the read.
  * @returns An MCP handler returning a window of log lines.
+ * @example
+ * const handler = createLogReadHandler(client);
+ * await handler({ response_format: "concise", path: "syslog", lines: 100 });
  */
 export function createLogReadHandler(client: GraphQLExecutor) {
   return async (input: LogReadInput): Promise<CallToolResult> => {

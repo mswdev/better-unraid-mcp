@@ -34,6 +34,9 @@ function summarize(files: LogFiles): string {
  *
  * @param client - The GraphQL executor used to list log files.
  * @returns An MCP handler returning the server's log file inventory.
+ * @example
+ * const handler = createLogListHandler(client);
+ * await handler({ response_format: "concise" });
  */
 export function createLogListHandler(client: GraphQLExecutor) {
   return async ({
