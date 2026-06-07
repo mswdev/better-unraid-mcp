@@ -83,8 +83,8 @@ These tools are all **read-only**.
 
 | Tool | Description |
 | --- | --- |
-| `log_list` | Lists the server's log files (name, path, size, last modified), most recently modified first. An empty list may also mean the log directory was unreadable — the API does not distinguish. |
-| `log_read` | Returns lines from a log file. `path` is a path or name from `log_list`, validated against that list before reading. Tail by default (`lines` default 100, max 2000); `start_line` (1-indexed) windows from there, and re-call with the hinted values to page. |
+| `log_list` | Lists the server's log files (name, path, size, last modified), most recently modified first. An empty list may also mean the log directory was unreadable — the API does not distinguish. Needs a viewer-level key (LOGS read). |
+| `log_read` | Returns lines from a log file. `path` is a path or name from `log_list`, validated against that list before reading. Tail by default (`lines` default 100, max 2000); `start_line` (1-indexed) windows from there, and re-call with the hinted values to page. Needs a viewer-level key (LOGS read). |
 | `system_metrics` | Point-in-time snapshot: CPU load, memory pressure (percent + available bytes), per-interface network rates/errors, and server time (timezone, NTP). `include_temperature=true` adds sensor data (may take seconds on multi-disk servers). Needs a viewer-level key (INFO+VARS read). |
 
 > **Not yet verified against a live Unraid server.** Like the other tool groups, the observability tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box.

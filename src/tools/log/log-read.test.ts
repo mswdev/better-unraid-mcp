@@ -3,6 +3,7 @@ import type { LogReadAllowlistQuery, LogReadContentQuery } from "../../types/unr
 import {
   firstText,
   recordingExecutor,
+  rejectingExecutor,
   sequencedExecutor,
   throwingExecutor,
 } from "../_shared/test-support.js";
@@ -90,7 +91,7 @@ describe("log_read handler", () => {
         startLine: 5,
       },
     } satisfies LogReadContentQuery;
-    const { executor } = sequencedExecutor([allowlist, window]);
+    const { executor, calls } = sequencedExecutor([allowlist, window]);
 
     const result = await createLogReadHandler(executor)({
       response_format: "concise",
@@ -99,9 +100,48 @@ describe("log_read handler", () => {
       start_line: 5,
     });
 
+    expect(calls[1]?.variables).toMatchObject({
+      path: "/var/log/syslog",
+      lines: 2,
+      startLine: 5,
+    });
     expect(firstText(result)).toMatch(/lines 5–6 of 12/);
     expect(firstText(result)).toMatch(/earlier: re-call with start_line=3/);
     expect(firstText(result)).toMatch(/later: re-call with start_line=7/);
+  });
+
+  it("anchors the header at line 1 when the response omits startLine", async () => {
+    const noStart = {
+      logFile: {
+        path: "/var/log/syslog",
+        content: "line one\nline two\n",
+        totalLines: 2,
+        startLine: null,
+      },
+    } satisfies LogReadContentQuery;
+    const { executor } = sequencedExecutor([allowlist, noStart]);
+
+    const result = await createLogReadHandler(executor)({
+      response_format: "concise",
+      path: "syslog",
+      lines: 100,
+    });
+
+    expect(firstText(result)).toMatch(/lines 1–2 of 2/);
+  });
+
+  it("refuses with a placeholder when the allowlist itself is empty", async () => {
+    const { executor, calls } = recordingExecutor({ logFiles: [] } satisfies LogReadAllowlistQuery);
+
+    const result = await createLogReadHandler(executor)({
+      response_format: "concise",
+      path: "syslog",
+      lines: 100,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(firstText(result)).toMatch(/\(none listed\)/);
   });
 
   it("omits the earlier hint at the start of the file", async () => {
@@ -181,6 +221,17 @@ describe("log_read handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/read broke/);
+  });
+
+  it("coerces a non-Error rejection to a string", async () => {
+    const result = await createLogReadHandler(rejectingExecutor("plain refusal"))({
+      response_format: "concise",
+      path: "syslog",
+      lines: 100,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/plain refusal/);
   });
 
   it("returns the raw payload for detailed", async () => {

@@ -2,8 +2,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { SystemMetricsDocument, type SystemMetricsQuery } from "../../types/unraid/graphql.js";
-import { humanizeBytes } from "../_shared/format-bytes.js";
+import {
+  SystemMetricsDocument,
+  type SystemMetricsQuery,
+  type TemperatureUnit,
+} from "../../types/unraid/graphql.js";
+import { humanizeBytes, toNumber } from "../_shared/format-bytes.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_metrics";
@@ -11,16 +15,23 @@ const TOOL_NAME = "system_metrics";
 /** Decimal places used when rendering temperatures. */
 const TEMPERATURE_DECIMALS = 1;
 
-/** Display suffix per API temperature unit. */
-const UNIT_SUFFIXES: Record<string, string> = {
+/** Decimal places used when rendering percentages. */
+const PERCENT_DECIMALS = 0;
+
+/** The operstate value reporting an operational network interface. */
+const OPERSTATE_UP = "up";
+
+/**
+ * Display suffix per API temperature unit. Typed over the generated union so
+ * a schema change that adds a unit fails compilation here instead of
+ * rendering a wrong suffix.
+ */
+const UNIT_SUFFIXES: Record<TemperatureUnit, string> = {
   CELSIUS: "C",
   FAHRENHEIT: "F",
   KELVIN: "K",
   RANKINE: "R",
 };
-
-/** Fallback suffix when the API reports an unrecognized temperature unit. */
-const UNKNOWN_UNIT_SUFFIX = "?";
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
@@ -48,8 +59,9 @@ function cpuLine(cpu: Metrics["cpu"]): string {
   }
   const threads = cpu.cpus.length;
   const busiest = threads > 0 ? Math.max(...cpu.cpus.map((core) => core.percentTotal)) : undefined;
-  const busiestNote = busiest === undefined ? "" : ` (busiest ${busiest.toFixed(0)}%)`;
-  return `CPU: ${cpu.percentTotal.toFixed(0)}% total, ${threads} threads${busiestNote}`;
+  const busiestNote =
+    busiest === undefined ? "" : ` (busiest ${busiest.toFixed(PERCENT_DECIMALS)}%)`;
+  return `CPU: ${cpu.percentTotal.toFixed(PERCENT_DECIMALS)}% total, ${threads} threads${busiestNote}`;
 }
 
 /** Renders memory pressure; pairs percentTotal with available ('used' counts cache and contradicts it). */
@@ -57,10 +69,10 @@ function memoryLine(memory: Metrics["memory"]): string {
   if (!memory) {
     return "Memory: unavailable";
   }
-  const available = humanizeBytes(Number(memory.available));
-  const total = humanizeBytes(Number(memory.total));
-  const swap = memory.percentSwapTotal.toFixed(0);
-  return `Memory: ${memory.percentTotal.toFixed(0)}% used — ${available} available of ${total} (swap ${swap}%)`;
+  const available = humanizeBytes(toNumber(memory.available));
+  const total = humanizeBytes(toNumber(memory.total));
+  const swap = memory.percentSwapTotal.toFixed(PERCENT_DECIMALS);
+  return `Memory: ${memory.percentTotal.toFixed(PERCENT_DECIMALS)}% used — ${available} available of ${total} (swap ${swap}%)`;
 }
 
 /** Renders the temperature line, or null when the section was not requested. */
@@ -72,7 +84,7 @@ function temperatureLine(metrics: Metrics, included: boolean): string | null {
     return "Temperature: unavailable (no sensors or collection disabled)";
   }
   const { summary } = metrics.temperature;
-  const unit = UNIT_SUFFIXES[summary.hottest.current.unit] ?? UNKNOWN_UNIT_SUFFIX;
+  const unit = UNIT_SUFFIXES[summary.hottest.current.unit];
   const value = summary.hottest.current.value.toFixed(TEMPERATURE_DECIMALS);
   const hottest = `${summary.hottest.name} ${value}°${unit}`;
   const average = summary.average.toFixed(TEMPERATURE_DECIMALS);
@@ -81,7 +93,7 @@ function temperatureLine(metrics: Metrics, included: boolean): string | null {
 
 /** Summarizes one up interface: throughput and total error count. */
 function interfaceSummary(iface: Metrics["network"][number]): string {
-  const errors = Number(iface.receiveErrors) + Number(iface.transmitErrors);
+  const errors = toNumber(iface.receiveErrors) + toNumber(iface.transmitErrors);
   return `${iface.name} up — rx ${humanizeBytes(iface.rxSec)}/s, tx ${humanizeBytes(iface.txSec)}/s, ${errors} errors`;
 }
 
@@ -90,7 +102,7 @@ function networkLine(network: Metrics["network"]): string {
   if (network.length === 0) {
     return "Network: no interfaces reported";
   }
-  const up = network.filter((iface) => iface.operstate === "up");
+  const up = network.filter((iface) => iface.operstate === OPERSTATE_UP);
   if (up.length === 0) {
     return `Network: no interfaces up (${network.length} reported)`;
   }

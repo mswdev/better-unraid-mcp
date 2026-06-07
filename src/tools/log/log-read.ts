@@ -141,7 +141,7 @@ export function registerLogRead(server: McpServer, client: GraphQLExecutor): voi
     {
       title: "Read Log File",
       description:
-        "Read-only. Returns lines from a server log file. `path` is a path or name from log_list — validated against that list before reading (reads are limited to filenames the server lists in its log directory; symlinked entries are read as the server resolves them). Omitting `start_line` returns the last `lines` lines (default 100, max 2000); pass `start_line` (1-indexed) to window from there and re-call with the hinted values to page. Counts may drift slightly on rapidly-growing logs; the cap bounds line count, not bytes.",
+        "Read-only. Returns lines from a server log file. `path` is a path or name from log_list — validated against that list before reading (reads are limited to filenames the server lists in its log directory; symlinked entries are read as the server resolves them). Omitting `start_line` returns the last `lines` lines (default 100, max 2000); pass `start_line` (1-indexed) to window from there and re-call with the hinted values to page. Counts may drift slightly on rapidly-growing logs; the cap bounds line count, not bytes. Requires LOGS read permission (any viewer-level key).",
       inputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },

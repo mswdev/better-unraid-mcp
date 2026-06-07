@@ -136,7 +136,7 @@ GraphQL observability surface:
 - **Inputs:** `response_format: concise|detailed` (default concise).
 - **Query (`log-list.graphql`):** `logFiles { name path size modifiedAt }`.
 - **Concise:** sorted `modifiedAt` desc, one line per file:
-  `syslog — 1.2 MiB, modified 2026-06-06T11:58Z` (via `formatBytes`). Empty:
+  `syslog — 1.2 MB, modified 2026-06-06T11:58Z` (via `formatBytes`). Empty:
   "No log files listed (the API returns an empty list when the log directory
   is unreadable, too)." — upstream swallows listing errors, so an empty
   result must not assert an empty directory.
@@ -202,9 +202,9 @@ GraphQL observability surface:
   ```
   As of 2026-06-06T12:00:08Z (America/New_York, NTP on):
   CPU: 12% total, 24 threads (busiest 45%)
-  Memory: 45% used — 17.0 GiB available of 31.4 GiB (swap 0%)
+  Memory: 45% used — 17.0 GB available of 31.4 GB (swap 0%)
   Temperature: avg 42°C — 0 warning, 0 critical (hottest: CPU Package 55°C)
-  Network: eth0 up — rx 1.2 MB/s, tx 340 kB/s, 0 errors
+  Network: eth0 up — rx 1.2 MB/s, tx 340.0 KB/s, 0 errors
   ```
 
   Memory pairs `percentTotal` with `available` (validated: `used` includes

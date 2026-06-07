@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SystemMetricsQuery } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createSystemMetricsHandler } from "./system-metrics.js";
 
 const eth0 = {
@@ -144,6 +149,85 @@ describe("system_metrics handler", () => {
     expect(firstText(result)).toMatch(/Memory: unavailable/);
   });
 
+  it("reports when interfaces exist but none are up", async () => {
+    const allDown = {
+      metrics: {
+        ...full.metrics,
+        network: [
+          { ...eth0, operstate: "down" },
+          { ...eth0, name: "lo", operstate: "unknown" },
+        ],
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(allDown);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: false,
+    });
+
+    expect(firstText(result)).toMatch(/Network: no interfaces up \(2 reported\)/);
+  });
+
+  it("omits the not-up note when every interface is up", async () => {
+    const allUp = {
+      metrics: { ...full.metrics, network: [eth0] },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(allUp);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: false,
+    });
+
+    expect(firstText(result)).toMatch(/Network: eth0 up/);
+    expect(firstText(result)).not.toMatch(/omitted/);
+  });
+
+  it("omits the busiest note when the cpu section has no per-core data", async () => {
+    const noCores = {
+      metrics: { ...full.metrics, cpu: { percentTotal: 3.2, cpus: [] } },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(noCores);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: false,
+    });
+
+    expect(firstText(result)).toMatch(/CPU: 3% total, 0 threads/);
+    expect(firstText(result)).not.toMatch(/busiest/);
+  });
+
+  it("renders the suffix of a non-Celsius temperature unit", async () => {
+    const fahrenheit = {
+      metrics: {
+        ...full.metrics,
+        temperature: {
+          sensors: full.metrics.temperature.sensors,
+          summary: {
+            ...full.metrics.temperature.summary,
+            average: 107.8,
+            hottest: { name: "CPU Package", current: { value: 131.9, unit: "FAHRENHEIT" } },
+          },
+        },
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(fahrenheit);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: true,
+    });
+
+    expect(firstText(result)).toMatch(/avg 107\.8°F/);
+    expect(firstText(result)).toMatch(/hottest: CPU Package 131\.9°F/);
+  });
+
   it("reports when no interfaces are listed", async () => {
     const noNet = {
       metrics: { ...full.metrics, network: [] },
@@ -179,5 +263,15 @@ describe("system_metrics handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch system metrics/);
     expect(firstText(result)).toMatch(/probe failed/);
+  });
+
+  it("coerces a non-Error rejection to a string", async () => {
+    const result = await createSystemMetricsHandler(rejectingExecutor("plain refusal"))({
+      response_format: "concise",
+      include_temperature: false,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/plain refusal/);
   });
 });

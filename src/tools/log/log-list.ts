@@ -65,7 +65,7 @@ export function registerLogList(server: McpServer, client: GraphQLExecutor): voi
     {
       title: "List Log Files",
       description:
-        "Read-only. Lists the server's log files (name, path, size, last modified), most recently modified first. Pass a returned path or name to log_read. An empty list may also mean the log directory was unreadable — the API does not distinguish.",
+        "Read-only. Lists the server's log files (name, path, size, last modified), most recently modified first. Pass a returned path or name to log_read. An empty list may also mean the log directory was unreadable — the API does not distinguish. Requires LOGS read permission (any viewer-level key).",
       inputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
