@@ -58,6 +58,7 @@ export function createLogListHandler(client: GraphQLExecutor) {
  *
  * @param server - The MCP server to register the tool on.
  * @param client - The GraphQL executor the tool uses.
+ * @returns Nothing; registers the tool as a side effect.
  */
 export function registerLogList(server: McpServer, client: GraphQLExecutor): void {
   server.registerTool(

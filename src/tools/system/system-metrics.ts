@@ -94,6 +94,8 @@ function temperatureLine(metrics: Metrics, included: boolean): string | null {
   if (!metrics.temperature) {
     return "Temperature: unavailable (no sensors or collection disabled)";
   }
+  // All sensors share the server's configured default unit (validated at the pin),
+  // so the hottest sensor's unit also labels the unit-less summary average.
   const { summary } = metrics.temperature;
   const unit = unitSuffix(summary.hottest.current.unit);
   const value = summary.hottest.current.value.toFixed(TEMPERATURE_DECIMALS);
@@ -165,6 +167,7 @@ export function createSystemMetricsHandler(client: GraphQLExecutor) {
  *
  * @param server - The MCP server to register the tool on.
  * @param client - The GraphQL executor the tool uses.
+ * @returns Nothing; registers the tool as a side effect.
  */
 export function registerSystemMetrics(server: McpServer, client: GraphQLExecutor): void {
   server.registerTool(

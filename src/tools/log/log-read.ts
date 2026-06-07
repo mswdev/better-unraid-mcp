@@ -78,7 +78,8 @@ function summarize(file: Content, lines: number): string {
     return `${file.path} is empty (0 lines).`;
   }
   if (returned === 0) {
-    return `${file.path}: no lines at or after start_line=${file.startLine} (file has ${file.totalLines} lines).`;
+    // startLine is always populated upstream; the coalesce only satisfies the nullable SDL type.
+    return `${file.path}: no lines at or after start_line=${file.startLine ?? 1} (file has ${file.totalLines} lines).`;
   }
   const first = file.startLine ?? 1;
   const last = first + returned - 1;
@@ -134,6 +135,7 @@ export function createLogReadHandler(client: GraphQLExecutor) {
  *
  * @param server - The MCP server to register the tool on.
  * @param client - The GraphQL executor the tool uses.
+ * @returns Nothing; registers the tool as a side effect.
  */
 export function registerLogRead(server: McpServer, client: GraphQLExecutor): void {
   server.registerTool(
