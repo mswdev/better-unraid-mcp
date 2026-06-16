@@ -1,0 +1,3 @@
+mutation PluginRemove($input: PluginManagementInput!) {
+  removePlugin(input: $input)
+}
