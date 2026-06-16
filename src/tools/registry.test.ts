@@ -132,6 +132,30 @@ describe("registerAllTools", () => {
     expect(reg?.annotations).toMatchObject({ destructiveHint: true });
   });
 
+  it("registers plugin_list as read-only", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    const reg = registrations.find((r) => r.name === "plugin_list");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
+  });
+
+  it("registers plugin_add/plugin_remove as destructive", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    for (const name of ["plugin_add", "plugin_remove"]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasHandler).toBe(true);
+      expect(reg?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    }
+  });
+
   it("registers the observability reads as read-only", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.

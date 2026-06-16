@@ -22,6 +22,9 @@ import { registerNotificationDelete } from "./notification/notification-delete.j
 import { registerNotificationList } from "./notification/notification-list.js";
 import { registerNotificationOverview } from "./notification/notification-overview.js";
 import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
+import { registerPluginAdd } from "./plugin/plugin-add.js";
+import { registerPluginList } from "./plugin/plugin-list.js";
+import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
@@ -63,4 +66,7 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerNotificationDelete(server, client);
   registerNotificationCreate(server, client);
   registerNotificationRecalculate(server, client);
+  registerPluginList(server, client);
+  registerPluginAdd(server, client);
+  registerPluginRemove(server, client);
 }
