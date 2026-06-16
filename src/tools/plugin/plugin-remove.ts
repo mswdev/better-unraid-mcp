@@ -6,10 +6,10 @@ import { requireConfirmation } from "../_shared/confirm.js";
 import { formatResponse, toolError } from "../_shared/respond.js";
 import {
   type PluginNamesInput,
+  buildInvalidNameError,
+  buildRestartReport,
   firstInvalidName,
-  invalidNameError,
   pluginNamesSchema,
-  restartReport,
 } from "./_shared.js";
 
 const TOOL_NAME = "plugin_remove";
@@ -32,7 +32,7 @@ export function createPluginRemoveHandler(client: GraphQLExecutor) {
   return async (input: PluginNamesInput): Promise<CallToolResult> => {
     const invalid = firstInvalidName(input.names);
     if (invalid !== null) {
-      return toolError(invalidNameError("remove", invalid));
+      return toolError(buildInvalidNameError("remove", invalid));
     }
     const refusal = requireConfirmation(
       input.confirm,
@@ -45,7 +45,7 @@ export function createPluginRemoveHandler(client: GraphQLExecutor) {
       const data = await client.execute(PluginRemoveDocument, {
         input: { names: input.names, bundled: BUNDLED, restart: RESTART },
       });
-      const summary = restartReport("remove", input.names, data.removePlugin);
+      const summary = buildRestartReport("remove", input.names, data.removePlugin);
       return formatResponse(input.response_format, summary, data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

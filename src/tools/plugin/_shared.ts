@@ -46,7 +46,7 @@ export function firstInvalidName(names: string[]): string | null {
  * @param name - The rejected entry.
  * @returns A refusal string naming the entry and stating no changes were made.
  */
-export function invalidNameError(action: string, name: string): string {
+export function buildInvalidNameError(action: string, name: string): string {
   return `Refusing to ${action} "${name}": only bare or scoped npm package names are allowed (no URLs, git refs, paths, or version suffixes). No changes were made.`;
 }
 
@@ -65,9 +65,9 @@ function capitalize(word: string): string {
  * @param names - The affected package names.
  * @param manualRestartRequired - The mutation's Boolean result.
  * @returns The concise report-and-point line.
- * @example restartReport("add", ["a"], false); // "Add of a submitted; the Unraid API is restarting..."
+ * @example buildRestartReport("add", ["a"], false); // "Add of a submitted; the Unraid API is restarting..."
  */
-export function restartReport(
+export function buildRestartReport(
   verb: string,
   names: string[],
   manualRestartRequired: boolean,

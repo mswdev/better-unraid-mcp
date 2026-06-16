@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { NAMES_SPEC, firstInvalidName, invalidNameError, restartReport } from "./_shared.js";
+import {
+  NAMES_SPEC,
+  buildInvalidNameError,
+  buildRestartReport,
+  firstInvalidName,
+} from "./_shared.js";
 
 describe("NAMES_SPEC / firstInvalidName", () => {
   it("accepts bare and scoped package names", () => {
@@ -33,22 +38,22 @@ describe("NAMES_SPEC / firstInvalidName", () => {
   });
 });
 
-describe("invalidNameError / restartReport", () => {
+describe("buildInvalidNameError / buildRestartReport", () => {
   it("names the rejected entry and the action", () => {
-    expect(invalidNameError("add", "git+https://e/x")).toMatch(
+    expect(buildInvalidNameError("add", "git+https://e/x")).toMatch(
       /Refusing to add "git\+https:\/\/e\/x"/,
     );
-    expect(invalidNameError("add", "x")).toMatch(/No changes were made/);
+    expect(buildInvalidNameError("add", "x")).toMatch(/No changes were made/);
   });
 
   it("reports an auto-restart when no manual restart is required", () => {
-    expect(restartReport("add", ["a", "b"], false)).toBe(
+    expect(buildRestartReport("add", ["a", "b"], false)).toBe(
       "Add of a, b submitted; the Unraid API is restarting to apply it. Verify with plugin_list once it reconnects.",
     );
   });
 
   it("reports a required manual restart", () => {
-    expect(restartReport("remove", ["a"], true)).toBe(
+    expect(buildRestartReport("remove", ["a"], true)).toBe(
       "Remove of a submitted; a manual API restart is required to apply it. Verify with plugin_list after restarting.",
     );
   });

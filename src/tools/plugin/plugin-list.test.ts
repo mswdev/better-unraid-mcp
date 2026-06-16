@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { PluginListDocument, type PluginListQuery } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, rejectingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createPluginListHandler } from "./plugin-list.js";
 
 const populated = {
@@ -47,11 +52,19 @@ describe("plugin_list", () => {
     expect(JSON.parse(text)).toEqual(populated);
   });
 
-  it("returns an error result when the client throws", async () => {
+  it("coerces a non-Error rejection (String(error) branch)", async () => {
     const result = await createPluginListHandler(rejectingExecutor("boom"))({
       response_format: "concise",
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to list plugins: boom/);
+  });
+
+  it("surfaces a thrown Error's message (instanceof Error branch)", async () => {
+    const result = await createPluginListHandler(throwingExecutor("ENOENT"))({
+      response_format: "concise",
+    });
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/Failed to list plugins: ENOENT/);
   });
 });
