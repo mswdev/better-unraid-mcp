@@ -112,24 +112,40 @@ tools.
 - An under-privileged key throws a nest-authz Forbidden error → surface as
   "requires a key with CONFIG write permission (UPDATE_ANY/DELETE_ANY)".
 
-### Reconciled decision — registry-spec form-allowlist on `names`
+### Reconciled decision — bare/scoped package-name allowlist on `names`
 Because `addPlugin` is an arbitrary-source install primitive, `plugin_add` and
-`plugin_remove` validate each `names` entry **client-side** against an npm
-*registry-spec* form and reject anything else (URLs, `git+`, `file:`/`link:`/
-`workspace:`, absolute/relative paths, `user/repo` shorthand). This narrows the
-prompt-injection blast radius from "install from anywhere" to "install a named
-registry package," mirroring backup's sourcePath-pin reasoning, and satisfies the
-project's no-unknown-passthrough rule. It is a **positive form-allowlist**, not a
-character denylist (a denylist on `/`,`@`,`:` would wrongly reject legitimate
-`@scope/name` and `name@version` specs):
+`plugin_remove` validate each `names` entry **client-side** against a *bare or
+scoped npm package name* and reject anything else (URLs, `git+`, `file:`/`link:`/
+`workspace:`, absolute/relative paths, `user/repo` shorthand, **and version
+suffixes**). It is a **positive form-allowlist**, not a character denylist (a
+denylist on `/`,`@`,`:` would wrongly reject legitimate `@scope/name`):
 
 ```
-NAMES_SPEC = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(@[a-zA-Z0-9][a-zA-Z0-9.\-+~^*x]*)?$/
+NAMES_SPEC = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/
 ```
 
-This does not eliminate supply-chain risk (a malicious *published* package still
-installs) — that residual is inherent to "install a plugin" and is what the confirm
-gate + description own.
+Two reasons, both validated:
+
+1. **Security:** `addPlugin` runs `npm i ...names` with lifecycle scripts enabled and
+   npm resolves *any* spec form. Restricting to package names narrows the
+   prompt-injection blast radius from "install from anywhere" to "install a named
+   registry package," mirroring backup's sourcePath-pin. (Residual: a malicious
+   *published* package still installs — inherent to "install a plugin"; owned by the
+   confirm gate + description.)
+2. **`plugin_list ↔ plugin_remove` round-trip:** `removePlugin` **exact-matches the
+   raw config string** (`removePluginFromConfig` deletes from the `api.plugins` set
+   by string identity), while `plugin_list` reports the `parsePackageArg`-normalized
+   package name. A bare name stored in config equals the name listed, so they
+   compose; a `name@version` add would store `foo@1.2.3` in config but list as `foo`,
+   making `plugin_remove("foo")` a **silent no-op**. Disallowing version suffixes
+   guarantees composition. `npm --save-exact` still pins the resolved version, so no
+   pinning capability is lost for the normal flow.
+
+**Distribution model verified:** the upstream CLI installs api plugins as
+`install <package>` ("a plugin as a peer dependency"); `parsePackageArg` only
+contemplates `pkg` / `pkg@version` / `@scope/pkg`; `--save-peer --save-exact` and the
+`unraid-api-plugin-connect` / `@unraid/shared` naming confirm bare/registry package
+names are the normal form — so this allowlist does not break the real use case.
 
 ## Tool designs
 
@@ -161,8 +177,9 @@ gate + description own.
   restarting to apply. Verify with plugin_list after it reconnects." Does **not**
   assert the plugins are installed (config is written before install with no
   rollback; partial failures throw or leave drift).
-- **Annotations:** `readOnlyHint: false, destructiveHint: false, openWorldHint: true`
-  (fetches packages). Confirm copy states it installs npm code into the API that runs
+- **Annotations:** `readOnlyHint: false, destructiveHint: true, openWorldHint: true`
+  (fetches packages; runs install lifecycle scripts and restarts the API — honestly
+  destructive). Confirm copy states it installs npm code into the API that runs
   lifecycle scripts on install (supply-chain / RCE-class) and restarts the API.
   RBAC: UPDATE_ANY/CONFIG.
 
@@ -214,8 +231,9 @@ Hermetic, `satisfies Query/Mutation` fixtures, fakes from `_shared/test-support.
   selected.
 - **`plugin_add`:** confirm gate refuses with **no execute call** (recording fake
   sees zero calls); **`names` validation rejects non-registry specs** (URL, `git+`,
-  `file:`, `/abs`, `user/repo`) with no execute call, and accepts `name`,
-  `@scope/name`, `name@version`; success path asserts the sent variables carry
+  `file:`, `/abs`, `user/repo`, **and `name@version`** — version suffixes break the
+  remove round-trip) with no execute call, and accepts `name` and `@scope/name`;
+  success path asserts the sent variables carry
   `bundled:false, restart:true` and the requested `names`; report-and-point output
   asserts it surfaces the restart and makes no over-claim ("submitted", not
   "installed"); error path.
