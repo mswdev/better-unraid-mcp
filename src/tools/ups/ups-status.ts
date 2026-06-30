@@ -13,6 +13,32 @@ const SECONDS_PER_MINUTE = 60;
 /** Minutes per hour, for the hour/minute split in humanized runtimes. */
 const MINUTES_PER_HOUR = 60;
 
+/**
+ * Identity the upstream resolver emits when apcaccess reports no device MODEL:
+ * name = MODEL || 'My UPS', model = MODEL || 'APC Back-UPS Pro 1500'. Both
+ * literals can co-occur ONLY when MODEL was absent (a real "APC Back-UPS Pro
+ * 1500" sets name to that string too, never "My UPS"), so the pair is a
+ * source-airtight marker of fabricated placeholder data, not a real UPS.
+ */
+const PLACEHOLDER_NAME = "My UPS";
+const PLACEHOLDER_MODEL = "APC Back-UPS Pro 1500";
+
+/**
+ * The title-case default the resolver substitutes for an absent STATUS
+ * (status = STATUS || 'Online'). Real apcaccess STATUS is uppercase ('ONLINE'),
+ * so this exact value marks the default — suppression is gated on it so a real
+ * alert status (e.g. 'ONBATT') on a MODEL-absent record is never hidden.
+ */
+const DEFAULT_STATUS = "Online";
+
+/** Returned when the device is fabricated placeholder data rather than a real UPS. */
+const NO_DATA_NOTE =
+  "No live UPS data — apcupsd may be stopped or no UPS is attached (the Unraid API returned placeholder values).";
+
+/** Appended when device identity is placeholder but the status is a real, non-default reading. */
+const NO_IDENTITY_CAVEAT =
+  "⚠ apcaccess reported no device identity; model/name and unchanged battery/power values may be upstream defaults — verify the UPS connection.";
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
 };
@@ -55,13 +81,33 @@ function summarize(devices: UpsDevice[]): string {
   return devices.map(deviceLine).join("\n");
 }
 
-/** Renders the UPS status result (placeholder handling added in Task 3). */
+/** True when the device carries the MODEL-absent placeholder identity (fabricated data). */
+function hasPlaceholderIdentity(device: UpsDevice): boolean {
+  return device.name === PLACEHOLDER_NAME && device.model === PLACEHOLDER_MODEL;
+}
+
+/**
+ * Renders the UPS status result. Suppresses fabricated placeholder data, but
+ * only when the status is the safe default — so a real alert status is never
+ * hidden.
+ */
 function renderStatus(format: ResponseFormat, data: UpsStatusQuery): CallToolResult {
   const devices = data.upsDevices;
   if (devices.length === 0) {
     return formatResponse(format, "No UPS devices reported.", data);
   }
-  return formatResponse(format, summarize(devices), data);
+  const device = devices[0];
+  if (hasPlaceholderIdentity(device) && device.status === DEFAULT_STATUS) {
+    return formatResponse(format, NO_DATA_NOTE, {
+      upsDetected: false,
+      note: NO_DATA_NOTE,
+      placeholderPayload: data,
+    });
+  }
+  const concise = hasPlaceholderIdentity(device)
+    ? `${deviceLine(device)}\n${NO_IDENTITY_CAVEAT}`
+    : summarize(devices);
+  return formatResponse(format, concise, data);
 }
 
 /**

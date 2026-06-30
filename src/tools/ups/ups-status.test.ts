@@ -138,4 +138,64 @@ describe("ups_status handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/plain refusal/);
   });
+
+  it("suppresses the fabricated placeholder device (no model + default Online)", async () => {
+    const placeholder = {
+      upsDevices: [
+        {
+          id: "ups1",
+          name: "My UPS",
+          model: "APC Back-UPS Pro 1500",
+          status: "Online",
+          battery: { chargeLevel: 100, estimatedRuntime: 3600 },
+          power: {
+            inputVoltage: 120.5,
+            outputVoltage: 120.5,
+            loadPercentage: 25,
+            nominalPower: null,
+            currentPower: null,
+          },
+        },
+      ],
+    } satisfies UpsStatusQuery;
+    const { executor } = recordingExecutor(placeholder);
+
+    const concise = await createUpsStatusHandler(executor)({ response_format: "concise" });
+    const detailed = await createUpsStatusHandler(executor)({ response_format: "detailed" });
+
+    expect(firstText(concise)).toMatch(/No live UPS data/);
+    expect(firstText(concise)).not.toMatch(/battery 100%/);
+    const parsed = JSON.parse(firstText(detailed));
+    expect(parsed.upsDetected).toBe(false);
+    expect(parsed.placeholderPayload).toEqual(placeholder);
+  });
+
+  it("surfaces a real alert status even when device identity is the placeholder", async () => {
+    const placeholderAlert = {
+      upsDevices: [
+        {
+          id: "ups1",
+          name: "My UPS",
+          model: "APC Back-UPS Pro 1500",
+          status: "ONBATT",
+          battery: { chargeLevel: 100, estimatedRuntime: 3600 },
+          power: {
+            inputVoltage: 120.5,
+            outputVoltage: 120.5,
+            loadPercentage: 25,
+            nominalPower: null,
+            currentPower: null,
+          },
+        },
+      ],
+    } satisfies UpsStatusQuery;
+    const { executor } = recordingExecutor(placeholderAlert);
+
+    const result = await createUpsStatusHandler(executor)({ response_format: "concise" });
+
+    const text = firstText(result);
+    expect(text).toMatch(/ONBATT/);
+    expect(text).not.toMatch(/No live UPS data/);
+    expect(text).toMatch(/no device identity/);
+  });
 });
