@@ -107,7 +107,7 @@ This tool is **read-only**.
 
 | Tool | Description |
 | --- | --- |
-| `ups_status` | Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. `ONLINE`, `ONBATT`, `COMMLOST`), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or apcupsd is not running. When the API returns placeholder values for an absent UPS, the tool reports **"no live UPS data"** rather than a fabricated healthy reading — but a real alert status is always surfaced. Reachable by any authenticated key (no special permission). |
+| `ups_status` | Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. `ONLINE`, `ONBATT`, `LOWBATT`, `COMMLOST`), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or apcupsd is not running. When the API returns placeholder values for an absent UPS, the tool reports **"no live UPS data"** rather than a fabricated healthy reading — but a real alert status is always surfaced. Reachable by any authenticated key (no special permission). |
 
 > **Not yet verified against a live Unraid server.** Like the other tool groups, the UPS tool is covered by hermetic unit tests but has **not** been exercised against a running Unraid box.
 

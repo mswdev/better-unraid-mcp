@@ -76,7 +76,7 @@ but a real alert `STATUS` (e.g. `ONBATT`). Flatly suppressing on the identity pa
 alone would hide the exact *On Battery* signal the tool exists to surface. So:
 - **Full no-data suppression** only when `name === 'My UPS' && model === 'APC Back-UPS
   Pro 1500' && status === 'Online'`. The title-case `'Online'` is itself the default
-  fingerprint — real apcaccess `STATUS` is uppercase (`ONLINE`/`ONBATT`/`COMMLOST`), so
+  fingerprint — real apcaccess `STATUS` is uppercase (`ONLINE`/`ONBATT`/`LOWBATT`/`COMMLOST`), so
   the title-case literal specifically marks the *default*, not a live reading. Reports
   **"no live UPS data — apcupsd may be stopped or no UPS attached; the API returned
   placeholder values"** (a normal result, like `plugin_list`'s empty honesty — *not* an
@@ -115,7 +115,7 @@ a genuine transport error is not mislabeled.
   and carry a description caveat that battery/power values may be upstream defaults when
   apcaccess data is incomplete. We never assert authority over individual scalars.
 - **`status` is a free-form `String`**, not an enum — passthrough; don't validate
-  against the six documented examples (apcaccess can emit `ONLINE`/`ONBATT`/`COMMLOST`/
+  against the six documented examples (apcaccess can emit `ONLINE`/`ONBATT`/`LOWBATT`/`COMMLOST`/
   compound flags). A reported `'Online'` may be the default (see Outcome B).
 - **`nominalPower`/`currentPower` null is the COMMON case** (most consumer/USB UPSes
   don't emit `NOMPOWER`); they are the only nullable selected scalars and move together.
