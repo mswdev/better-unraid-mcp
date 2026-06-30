@@ -198,4 +198,36 @@ describe("ups_status handler", () => {
     expect(text).not.toMatch(/No live UPS data/);
     expect(text).toMatch(/no device identity/);
   });
+
+  it("renders a real UPS whose model is literally the placeholder model (name pins the sentinel)", async () => {
+    // A genuine "APC Back-UPS Pro 1500" sets BOTH name and model to that string,
+    // so name !== "My UPS" and the identity pair does NOT match — it must render
+    // normally. This pins the name operand: dropping it would wrongly suppress.
+    const realApc = {
+      upsDevices: [
+        {
+          id: "APC Back-UPS Pro 1500",
+          name: "APC Back-UPS Pro 1500",
+          model: "APC Back-UPS Pro 1500",
+          status: "ONLINE",
+          battery: { chargeLevel: 100, estimatedRuntime: 1800 },
+          power: {
+            inputVoltage: 121,
+            outputVoltage: 121,
+            loadPercentage: 12,
+            nominalPower: 865,
+            currentPower: 103.8,
+          },
+        },
+      ],
+    } satisfies UpsStatusQuery;
+    const { executor } = recordingExecutor(realApc);
+
+    const result = await createUpsStatusHandler(executor)({ response_format: "concise" });
+
+    const text = firstText(result);
+    expect(text).toMatch(/APC Back-UPS Pro 1500 \(APC Back-UPS Pro 1500\) — ONLINE · battery 100%/);
+    expect(text).not.toMatch(/No live UPS data/);
+    expect(text).not.toMatch(/no device identity/);
+  });
 });

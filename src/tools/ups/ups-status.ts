@@ -62,7 +62,7 @@ function humanizeRuntime(seconds: number): string {
 }
 
 /** Renders the optional watts note, omitted when the UPS does not report wattage. */
-function wattsNote(power: UpsDevice["power"]): string {
+function renderWattsNote(power: UpsDevice["power"]): string {
   if (power.nominalPower === null || power.currentPower === null) {
     return "";
   }
@@ -70,15 +70,15 @@ function wattsNote(power: UpsDevice["power"]): string {
 }
 
 /** Renders one device as a single concise line. */
-function deviceLine(device: UpsDevice): string {
+function renderDeviceLine(device: UpsDevice): string {
   const { battery, power } = device;
   const runtime = humanizeRuntime(battery.estimatedRuntime);
-  return `${device.name} (${device.model}) — ${device.status} · battery ${battery.chargeLevel}% · ~${runtime} left · load ${power.loadPercentage}%${wattsNote(power)}`;
+  return `${device.name} (${device.model}) — ${device.status} · battery ${battery.chargeLevel}% · ~${runtime} left · load ${power.loadPercentage}%${renderWattsNote(power)}`;
 }
 
 /** Builds the concise summary across all reported devices. */
 function summarize(devices: UpsDevice[]): string {
-  return devices.map(deviceLine).join("\n");
+  return devices.map(renderDeviceLine).join("\n");
 }
 
 /** True when the device carries the MODEL-absent placeholder identity (fabricated data). */
@@ -105,7 +105,7 @@ function renderStatus(format: ResponseFormat, data: UpsStatusQuery): CallToolRes
     });
   }
   const concise = hasPlaceholderIdentity(device)
-    ? `${deviceLine(device)}\n${NO_IDENTITY_CAVEAT}`
+    ? `${renderDeviceLine(device)}\n${NO_IDENTITY_CAVEAT}`
     : summarize(devices);
   return formatResponse(format, concise, data);
 }
@@ -144,7 +144,7 @@ export function registerUpsStatus(server: McpServer, client: GraphQLExecutor): v
     {
       title: "Get UPS Status",
       description:
-        "Read-only. Live UPS telemetry from apcupsd: operational status (Online / On Battery / Low Battery / Replace Battery / Overload / Offline), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or the apcupsd service is not running — not a server failure. When apcupsd reports no device, the Unraid API may return placeholder values; this tool reports that as 'no live UPS data' rather than a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
+        "Read-only. Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. ONLINE, ONBATT, LOWBATT, COMMLOST), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or the apcupsd service is not running — not a server failure. When apcupsd reports no device, the Unraid API may return placeholder values; this tool reports that as 'no live UPS data' rather than a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
       inputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
