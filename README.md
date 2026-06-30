@@ -4,7 +4,7 @@ A complete, maintained [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Status
 
-This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the array-control tools (confirm-gated array power and parity-check mutations), the Docker tools (reads plus confirm-gated mutations), the VM tools (a read plus a confirm-gated mutation), the notification tools (reads plus three ungated and one confirm-gated mutation), the observability tools (read-only log inventory/windowing plus a system-metrics snapshot), and the plugin tools (a read plus two confirm-gated lifecycle mutations) are in place. Full coverage of the Unraid API surface is in progress and will land in subsequent releases.
+This is an early but growing server: the full server framework, the GraphQL type-generation pipeline, the read-only system & storage tools, the array-control tools (confirm-gated array power and parity-check mutations), the Docker tools (reads plus confirm-gated mutations), the VM tools (a read plus a confirm-gated mutation), the notification tools (reads plus three ungated and one confirm-gated mutation), the observability tools (read-only log inventory/windowing plus a system-metrics snapshot), the plugin tools (a read plus two confirm-gated lifecycle mutations), and the read-only UPS tool (live power/battery telemetry) are in place. Full coverage of the Unraid API surface is in progress and will land in subsequent releases.
 
 ### Available tools
 
@@ -100,6 +100,16 @@ One read-only tool and two mutations. `plugin_add` and `plugin_remove` are **des
 | `plugin_remove` | **destructive** | ⚠ Uninstalls api plugins by npm package name (`names`, as shown by `plugin_list`) and **restarts the Unraid API** to unload them — your connection drops briefly. Only plugins currently in the API config are affected (unknown names are a no-op). Requires `confirm: true` and CONFIG write (DELETE_ANY). Reports submission; verify with `plugin_list` after reconnect. |
 
 > **Not yet verified against a live Unraid server.** Like the other tool groups, the plugin tools are covered by hermetic unit tests but have **not** been exercised against a running Unraid box. Treat `plugin_add` and `plugin_remove` with care.
+
+#### UPS
+
+This tool is **read-only**.
+
+| Tool | Description |
+| --- | --- |
+| `ups_status` | Live UPS telemetry from apcupsd: operational status (Online / On Battery / Low Battery / etc.), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or apcupsd is not running. When the API returns placeholder values for an absent UPS, the tool reports **"no live UPS data"** rather than a fabricated healthy reading — but a real alert status is always surfaced. Reachable by any authenticated key (no special permission). |
+
+> **Not yet verified against a live Unraid server.** Like the other tool groups, the UPS tool is covered by hermetic unit tests but has **not** been exercised against a running Unraid box.
 
 ## Requirements
 

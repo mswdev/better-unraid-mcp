@@ -130,3 +130,24 @@ export function createUpsStatusHandler(client: GraphQLExecutor) {
     }
   };
 }
+
+/**
+ * Registers the read-only `ups_status` tool on the server.
+ *
+ * @param server - The MCP server to register the tool on.
+ * @param client - The GraphQL executor the tool uses.
+ * @returns Nothing; registers the tool as a side effect.
+ */
+export function registerUpsStatus(server: McpServer, client: GraphQLExecutor): void {
+  server.registerTool(
+    TOOL_NAME,
+    {
+      title: "Get UPS Status",
+      description:
+        "Read-only. Live UPS telemetry from apcupsd: operational status (Online / On Battery / Low Battery / Replace Battery / Overload / Offline), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or the apcupsd service is not running — not a server failure. When apcupsd reports no device, the Unraid API may return placeholder values; this tool reports that as 'no live UPS data' rather than a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
+      inputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    },
+    createUpsStatusHandler(client),
+  );
+}
