@@ -170,4 +170,17 @@ describe("registerAllTools", () => {
       });
     }
   });
+
+  it("registers ups_status as read-only", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient);
+    const reg = registrations.find((r) => r.name === "ups_status");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
+  });
 });

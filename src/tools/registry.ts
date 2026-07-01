@@ -28,6 +28,7 @@ import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
+import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 
@@ -69,4 +70,5 @@ export function registerAllTools(server: McpServer, client: GraphQLExecutor): vo
   registerPluginList(server, client);
   registerPluginAdd(server, client);
   registerPluginRemove(server, client);
+  registerUpsStatus(server, client);
 }
