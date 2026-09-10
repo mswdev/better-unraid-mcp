@@ -17,7 +17,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 35 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 37 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
@@ -27,6 +27,7 @@ The 35 tools cover most of what you would normally do over SSH or in the WebGUI:
 - Triage notifications: read, archive, and clear the alerts you have been putting off
 - Watch the UPS during an outage: battery charge, runtime estimate, load
 - Go past the API when you need to (optional, via SSH): read any file on the host, such as `/boot/logs/syslog-previous`, or run a confirmed one-off command
+- Reach the rest of the API surface with raw `graphql_query` and confirm-gated `graphql_mutation`, so nothing is off limits while dedicated tools catch up
 
 The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM) require a second `acknowledge_risk` flag on top. Every read works with a viewer-level API key.
 
@@ -120,7 +121,7 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 </details>
 
-If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. Using `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.0.1`) if you prefer fully predictable behavior.
+If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To enable the optional host-shell tools (reading files like `/boot/logs/syslog-previous`, running commands, per-container stats), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). Using `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.0.1`) if you prefer fully predictable behavior.
 
 ### 3. Try it
 
@@ -216,7 +217,16 @@ The GraphQL API cannot reach everything (old boot logs under `/boot/logs`, `/pro
 | `file_read` | read-only | Tails any absolute file path on the host (default 200 lines, max 2000). Optional `pattern` greps server-side first, so searching huge logs stays cheap. |
 | `shell_exec` | destructive | Runs an arbitrary command as the SSH user (typically root). Every call requires `confirm: true`; output is capped and timeouts are enforced (default 30s, max 120s). |
 
-> **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 360+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
+### Raw GraphQL (advanced)
+
+Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (users, API keys, registration, share edits, disk operations). Prefer the dedicated tools when one exists: they encode server quirks these passthroughs do not. The full schema ships with the package at `schema/unraid.graphql`.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. |
+| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call; verify results with a follow-up read. |
+
+> **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 370+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
 ## Configuration
 
