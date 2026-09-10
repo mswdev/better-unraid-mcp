@@ -33,7 +33,7 @@ describe("registerAllTools", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
 
     const info = registrations.find((registration) => registration.name === "system_info");
     expect(info).toBeDefined();
@@ -45,7 +45,7 @@ describe("registerAllTools", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
 
     const list = registrations.find((registration) => registration.name === "vm_list");
     expect(list?.hasHandler).toBe(true);
@@ -56,7 +56,7 @@ describe("registerAllTools", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
 
     const action = registrations.find((registration) => registration.name === "vm_action");
     expect(action?.hasHandler).toBe(true);
@@ -67,7 +67,7 @@ describe("registerAllTools", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
 
     const action = registrations.find((registration) => registration.name === "array_action");
     expect(action?.hasHandler).toBe(true);
@@ -82,7 +82,7 @@ describe("registerAllTools", () => {
     const { server, registrations } = fakeServer();
 
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
 
     const check = registrations.find((registration) => registration.name === "parity_check");
     expect(check?.hasHandler).toBe(true);
@@ -96,7 +96,7 @@ describe("registerAllTools", () => {
   it("registers the three notification reads as read-only", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     for (const name of ["notification_overview", "notification_list", "notification_alerts"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -107,7 +107,7 @@ describe("registerAllTools", () => {
   it("registers notification_archive/create/recalculate as ungated non-destructive writes", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     for (const name of [
       "notification_archive",
       "notification_create",
@@ -126,7 +126,7 @@ describe("registerAllTools", () => {
   it("registers notification_delete as destructive", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     const reg = registrations.find((r) => r.name === "notification_delete");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({ destructiveHint: true });
@@ -135,7 +135,7 @@ describe("registerAllTools", () => {
   it("registers plugin_list as read-only", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     const reg = registrations.find((r) => r.name === "plugin_list");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -148,7 +148,7 @@ describe("registerAllTools", () => {
   it("registers plugin_add/plugin_remove as destructive", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     for (const name of ["plugin_add", "plugin_remove"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -159,7 +159,7 @@ describe("registerAllTools", () => {
   it("registers the observability reads as read-only", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     for (const name of ["log_list", "log_read", "system_metrics"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -174,7 +174,7 @@ describe("registerAllTools", () => {
   it("registers ups_status as read-only", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient);
+    registerAllTools(server as any, noopClient, null);
     const reg = registrations.find((r) => r.name === "ups_status");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -182,5 +182,51 @@ describe("registerAllTools", () => {
       destructiveHint: false,
       openWorldHint: false,
     });
+  });
+});
+
+describe("registerAllTools host-level tools", () => {
+  it("registers mover_status as read-only", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient, null);
+    const reg = registrations.find((r) => r.name === "mover_status");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
+  });
+
+  it("registers docker_stats and file_read as read-only even without SSH", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient, null);
+    for (const name of ["docker_stats", "file_read"]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasHandler).toBe(true);
+      expect(reg?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    }
+  });
+
+  it("registers shell_exec as destructive and open-world", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient, null);
+    const reg = registrations.find((r) => r.name === "shell_exec");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  it("registers 35 tools in total", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient, null);
+    expect(registrations).toHaveLength(35);
   });
 });

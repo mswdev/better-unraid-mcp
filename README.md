@@ -17,15 +17,16 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 31 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 35 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
-- Manage Docker: container status and logs, start and stop, image updates, port conflict detection, boot autostart order
+- Manage Docker: container status and logs, per-container resource usage, start and stop, image updates, port conflict detection, boot autostart order
 - Control VMs through libvirt, from a graceful shutdown to a hard reset
-- Run the array: start or stop it, manage parity checks, review parity history
+- Run the array: start or stop it, manage parity checks, review parity history, check the mover
 - Triage notifications: read, archive, and clear the alerts you have been putting off
 - Watch the UPS during an outage: battery charge, runtime estimate, load
+- Go past the API when you need to (optional, via SSH): read any file on the host, such as `/boot/logs/syslog-previous`, or run a confirmed one-off command
 
 The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM) require a second `acknowledge_risk` flag on top. Every read works with a viewer-level API key.
 
@@ -140,6 +141,7 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `parity_history` | read-only | Recent parity checks (date, status, errors, speed). |
 | `disk_list` | read-only | Physical disks with model, size, SMART status, temperature, and partitions. |
 | `share_list` | read-only | User shares with usage; filter by name. |
+| `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
 
 ### Array control
 
@@ -158,6 +160,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `docker_container_logs` | read-only | Recent log lines for a container, with tail and time-based paging. |
 | `docker_network_list` | read-only | Docker networks (driver, scope, IPv6/internal/attachable). |
 | `docker_port_conflicts` | read-only | Container and LAN port conflicts. |
+| `docker_stats` | read-only | Per-container CPU, memory, network, and block IO usage, hungriest first. Needs SSH configured (see Host shell). |
 | `docker_container_action` | destructive | Start, stop, pause, or unpause a container. |
 | `docker_container_remove` | destructive | Permanently deletes a container (irreversible); optionally deletes its image. Needs Unraid 7.3+. |
 | `docker_container_update` | destructive | Pulls the latest image and recreates containers, by id or all with updates. Needs Unraid 7.3+. |
@@ -204,7 +207,16 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | --- | --- | --- |
 | `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. Reports "no live UPS data" instead of a fabricated healthy reading when the API returns placeholder values. |
 
-> **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 300+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
+### Host shell (optional, needs SSH)
+
+The GraphQL API cannot reach everything (old boot logs under `/boot/logs`, `/proc`, one-off commands). These tools close that gap over SSH. They are **off by default**: they activate only when you set the `UNRAID_SSH_*` variables (see Configuration), and without them they refuse with setup guidance. `docker_stats` above also uses this channel.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `file_read` | read-only | Tails any absolute file path on the host (default 200 lines, max 2000). Optional `pattern` greps server-side first, so searching huge logs stays cheap. |
+| `shell_exec` | destructive | Runs an arbitrary command as the SSH user (typically root). Every call requires `confirm: true`; output is capped and timeouts are enforced (default 30s, max 120s). |
+
+> **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 360+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
 ## Configuration
 
@@ -218,6 +230,11 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `MCP_HTTP_ALLOWED_HOSTS` | no | | Comma-separated `Host` allow-list; enables DNS-rebinding protection. |
 | `UNRAID_ALLOW_SELF_SIGNED` | no | `false` | Set `true` only for a self-signed TLS certificate on the LAN. |
 | `LOG_LEVEL` | no | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`. |
+| `UNRAID_SSH_HOST` | no | | Enables the host-shell tools (`file_read`, `shell_exec`, `docker_stats`). Requires a password or key path. |
+| `UNRAID_SSH_PORT` | no | `22` | SSH port. |
+| `UNRAID_SSH_USER` | no | `root` | SSH user. Unraid administration is normally `root`. |
+| `UNRAID_SSH_PASSWORD` | no | | SSH password. Prefer `UNRAID_SSH_KEY_PATH` where possible. |
+| `UNRAID_SSH_KEY_PATH` | no | | Path to an SSH private key file (readable by the MCP server process). |
 
 See [`.env.example`](.env.example) for a copy-paste template.
 
