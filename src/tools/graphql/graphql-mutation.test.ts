@@ -70,3 +70,39 @@ describe("graphql_mutation", () => {
     expect(firstText(result)).toContain("FORBIDDEN");
   });
 });
+
+describe("graphql_mutation risk gate", () => {
+  const STOP_ARRAY = "mutation { array { setState(input: { desiredState: STOP }) { state } } }";
+
+  it("refuses a dangerous mutation without acknowledge_risk and never calls the API", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createGraphqlMutationHandler(executor);
+
+    const result = await handler({ mutation: STOP_ARRAY, confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain('"acknowledge_risk": true');
+    expect(firstText(result)).toContain("setState");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("runs a dangerous mutation when both flags are set", async () => {
+    const { executor, calls } = recordingExecutor({ array: { setState: { state: "STOPPED" } } });
+    const handler = createGraphqlMutationHandler(executor);
+
+    const result = await handler({ mutation: STOP_ARRAY, confirm: true, acknowledge_risk: true });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not demand acknowledge_risk for benign mutations", async () => {
+    const { executor, calls } = recordingExecutor({ archiveAll: { total: 1 } });
+    const handler = createGraphqlMutationHandler(executor);
+
+    const result = await handler({ mutation: ARCHIVE_ALL, confirm: true });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(1);
+  });
+});

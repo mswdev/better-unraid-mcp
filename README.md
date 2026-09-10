@@ -224,7 +224,7 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 | Tool | Type | Description |
 | --- | --- | --- |
 | `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. |
-| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call; verify results with a follow-up read. |
+| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. |
 
 > **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 370+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
