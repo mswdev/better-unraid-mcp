@@ -115,7 +115,7 @@ This tool is **read-only**.
 
 - An Unraid server running **7.2+** (or an older release with the Unraid Connect plugin that ships the GraphQL API).
 - An **Unraid API key** (see [Get an API key](#get-an-api-key)).
-- **Node.js ≥ 20** — only needed if you run from source. Running via `npx` requires nothing beyond Node being installed.
+- **Node.js ≥ 20**.
 
 ## Get an API key
 
@@ -132,7 +132,28 @@ The API key grants control of your server — treat it like a password (see [Sec
 
 ## Install / run
 
-No install step is required. Run the server directly with `npx`, providing your server's GraphQL endpoint and API key as environment variables:
+> **Not yet published to npm.** Until the first npm release, `npx -y better-unraid-mcp` will not work — run from source as shown below. Once the package is published, every `npx` example in this README will work as written.
+
+### Run from source (works today)
+
+```bash
+git clone https://github.com/mswdev/better-unraid-mcp.git
+cd better-unraid-mcp
+npm install
+npm run build
+```
+
+Then start the server with your Unraid GraphQL endpoint and API key as environment variables:
+
+```bash
+UNRAID_API_URL=https://tower.local/graphql \
+UNRAID_API_KEY=your-api-key \
+node /absolute/path/to/better-unraid-mcp/dist/index.js
+```
+
+In the client configurations below, substitute the from-source command for `npx`: use `"command": "node"` with `"args": ["/absolute/path/to/better-unraid-mcp/dist/index.js"]`.
+
+### Run via npx (once published to npm)
 
 ```bash
 UNRAID_API_URL=https://tower.local/graphql \
@@ -159,7 +180,24 @@ See [`.env.example`](.env.example) for a copy-paste template.
 
 ### Claude Desktop
 
-Add an entry to the `mcpServers` object in your `claude_desktop_config.json`:
+Add an entry to the `mcpServers` object in your `claude_desktop_config.json`. From source (works today):
+
+```json
+{
+  "mcpServers": {
+    "better-unraid": {
+      "command": "node",
+      "args": ["/absolute/path/to/better-unraid-mcp/dist/index.js"],
+      "env": {
+        "UNRAID_API_URL": "https://tower.local/graphql",
+        "UNRAID_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Or via `npx` (once published to npm):
 
 ```json
 {
@@ -178,13 +216,16 @@ Add an entry to the `mcpServers` object in your `claude_desktop_config.json`:
 
 ### Claude Code
 
-Add the server with `claude mcp add`:
+Add the server with `claude mcp add`, passing environment variables with `-e`. From source (works today):
 
 ```bash
-claude mcp add better-unraid -- npx -y better-unraid-mcp
+claude mcp add better-unraid \
+  -e UNRAID_API_URL=https://tower.local/graphql \
+  -e UNRAID_API_KEY=your-api-key \
+  -- node /absolute/path/to/better-unraid-mcp/dist/index.js
 ```
 
-Pass environment variables with `-e` (repeat for each variable):
+Or via `npx` (once published to npm):
 
 ```bash
 claude mcp add better-unraid \
