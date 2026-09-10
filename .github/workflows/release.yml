@@ -1,0 +1,74 @@
+# Automated npm release.
+#
+# On every push to main, compares the version in package.json with the
+# version published on npm. When package.json is ahead, it publishes to npm
+# (running the full prepublishOnly quality gate), then tags the commit and
+# creates a GitHub Release. When the versions match, it exits without
+# publishing, so ordinary pushes to main are a no-op.
+#
+# Authentication is npm "trusted publishing" (OIDC): no NPM_TOKEN secret is
+# stored in this repo. One-time setup on npmjs.com, after the package's
+# first manual publish:
+#   package page -> Settings -> Trusted Publisher -> GitHub Actions
+#   repository: mswdev/better-unraid-mcp, workflow: release.yml
+#
+# Bootstrap: while the package has never been published, this workflow
+# skips with a notice instead of failing. Publish the first version by
+# hand (npm login && npm publish), configure the trusted publisher, and
+# every later version bump merged to main releases itself.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # create the version tag and GitHub Release
+  id-token: write # npm trusted publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+      # OIDC publishing needs npm >= 11.5.1; the runner's bundled npm is older.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@11
+      - name: Decide whether this push is a release
+        id: decide
+        run: |
+          LOCAL_VERSION="$(node -p "require('./package.json').version")"
+          PUBLISHED_VERSION="$(npm view better-unraid-mcp version 2>/dev/null || echo "unpublished")"
+          echo "local=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISHED_VERSION" = "unpublished" ]; then
+            echo "::notice::Package has never been published. First publish is manual (see workflow header); skipping."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "$PUBLISHED_VERSION" = "$LOCAL_VERSION" ]; then
+            echo "::notice::Version $LOCAL_VERSION is already on npm; nothing to release."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing $LOCAL_VERSION (npm has $PUBLISHED_VERSION)."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install dependencies
+        if: steps.decide.outputs.publish == 'true'
+        run: npm ci
+      # npm publish runs the prepublishOnly gate (typecheck, build, test, lint)
+      # and attaches provenance automatically under trusted publishing.
+      - name: Publish to npm
+        if: steps.decide.outputs.publish == 'true'
+        run: npm publish
+      - name: Tag and create GitHub Release
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.decide.outputs.local }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --generate-notes
