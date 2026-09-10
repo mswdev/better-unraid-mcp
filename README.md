@@ -13,12 +13,23 @@
 
 Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io) server for the [Unraid](https://unraid.net) GraphQL API. Connect it to Claude Desktop, Claude Code, Codex, Gemini CLI, or any other MCP client and ask things like *"why is my array degraded?"*, *"tail the syslog"*, or *"restart the Plex container"*.
 
-## Highlights
+## Features
 
-- **31 tools** covering system info, storage, array and parity control, Docker, VMs, notifications, logs and metrics, plugins, and UPS telemetry
-- **Safe by default**: every destructive operation refuses to run without `confirm: true`, and the riskiest ones also require `acknowledge_risk: true`
-- **Built for diagnostics**: check alerts, read system metrics, inspect disk health, and grep logs in a single conversation
-- **Zero infrastructure**: one `npx` command and two environment variables
+Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
+
+The 31 tools cover most of what you would normally do over SSH or in the WebGUI:
+
+- Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
+- Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
+- Manage Docker: container status and logs, start and stop, image updates, port conflict detection, boot autostart order
+- Control VMs through libvirt, from a graceful shutdown to a hard reset
+- Run the array: start or stop it, manage parity checks, review parity history
+- Triage notifications: read, archive, and clear the alerts you have been putting off
+- Watch the UPS during an outage: battery charge, runtime estimate, load
+
+The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM) require a second `acknowledge_risk` flag on top. Every read works with a viewer-level API key.
+
+There is nothing to install on the server itself. The MCP server runs on your machine, talks to Unraid's built-in GraphQL API with a single key, and starts with one `npx` command.
 
 ## Quick start
 
