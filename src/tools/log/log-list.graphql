@@ -1,0 +1,8 @@
+query LogList {
+  logFiles {
+    name
+    path
+    size
+    modifiedAt
+  }
+}

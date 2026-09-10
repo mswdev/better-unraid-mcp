@@ -1,0 +1,17 @@
+query DockerAutostartState {
+  docker {
+    containers {
+      id
+      names
+      autoStart
+      autoStartOrder
+      autoStartWait
+    }
+  }
+}
+
+mutation DockerSetAutostart($entries: [DockerAutostartEntryInput!]!, $persist: Boolean) {
+  docker {
+    updateAutostartConfiguration(entries: $entries, persistUserPreferences: $persist)
+  }
+}

@@ -1,0 +1,9 @@
+query PluginList {
+  plugins {
+    name
+    version
+    hasApiModule
+    hasCliModule
+  }
+  installedUnraidPlugins
+}

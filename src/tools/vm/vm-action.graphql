@@ -1,0 +1,50 @@
+query VmResolve {
+  vms {
+    domains {
+      id
+      name
+    }
+  }
+}
+
+mutation VmStart($id: PrefixedID!) {
+  vm {
+    start(id: $id)
+  }
+}
+
+mutation VmStop($id: PrefixedID!) {
+  vm {
+    stop(id: $id)
+  }
+}
+
+mutation VmPause($id: PrefixedID!) {
+  vm {
+    pause(id: $id)
+  }
+}
+
+mutation VmResume($id: PrefixedID!) {
+  vm {
+    resume(id: $id)
+  }
+}
+
+mutation VmForceStop($id: PrefixedID!) {
+  vm {
+    forceStop(id: $id)
+  }
+}
+
+mutation VmReboot($id: PrefixedID!) {
+  vm {
+    reboot(id: $id)
+  }
+}
+
+mutation VmReset($id: PrefixedID!) {
+  vm {
+    reset(id: $id)
+  }
+}

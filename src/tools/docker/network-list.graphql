@@ -1,0 +1,13 @@
+query DockerNetworkList {
+  docker {
+    networks {
+      id
+      name
+      driver
+      scope
+      enableIPv6
+      internal
+      attachable
+    }
+  }
+}

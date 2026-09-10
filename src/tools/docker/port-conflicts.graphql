@@ -1,0 +1,23 @@
+query DockerPortConflicts {
+  docker {
+    portConflicts {
+      containerPorts {
+        privatePort
+        type
+        containers {
+          id
+          name
+        }
+      }
+      lanPorts {
+        lanIpPort
+        publicPort
+        type
+        containers {
+          id
+          name
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify generated types are up to date
+        run: |
+          npm run generate
+          if [ -n "$(git status --porcelain src/types/unraid/)" ]; then
+            echo "::error::Generated types are stale or untracked. Run 'npm run generate' and commit the result."
+            git status --porcelain src/types/unraid/
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run lint

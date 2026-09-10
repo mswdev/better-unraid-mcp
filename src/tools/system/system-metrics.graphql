@@ -1,0 +1,64 @@
+query SystemMetrics($includeTemperature: Boolean!) {
+  metrics {
+    cpu {
+      percentTotal
+      cpus {
+        percentTotal
+      }
+    }
+    memory {
+      total
+      used
+      free
+      available
+      percentTotal
+      swapTotal
+      swapUsed
+      percentSwapTotal
+    }
+    temperature @include(if: $includeTemperature) {
+      sensors {
+        name
+        type
+        current {
+          value
+          unit
+          status
+        }
+        warning
+        critical
+      }
+      summary {
+        average
+        warningCount
+        criticalCount
+        hottest {
+          name
+          current {
+            value
+            unit
+          }
+        }
+      }
+    }
+    network {
+      name
+      operstate
+      rxSec
+      txSec
+      utilizationPercent
+      bytesReceived
+      bytesSent
+      receiveErrors
+      transmitErrors
+      receiveDropped
+      transmitDropped
+      lastUpdated
+    }
+  }
+  systemTime {
+    currentTime
+    timeZone
+    useNtp
+  }
+}
