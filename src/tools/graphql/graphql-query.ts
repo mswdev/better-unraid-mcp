@@ -2,12 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { toolError, toolText } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
-import { parseSingleOperation } from "./_shared.js";
+import { toolError } from "../_shared/respond.js";
+import { parseSingleOperation, renderJsonResult } from "./_shared.js";
 
 const TOOL_NAME = "graphql_query";
-const JSON_INDENT_SPACES = 2;
 
 const inputSchema = {
   query: z.string().min(1),
@@ -40,7 +38,7 @@ export function createGraphqlQueryHandler(client: GraphQLExecutor) {
         );
       }
       const data = await client.execute(parsed.document, input.variables);
-      return toolText(truncateOutput(JSON.stringify(data, null, JSON_INDENT_SPACES)));
+      return renderJsonResult(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`GraphQL query failed: ${message}`);
@@ -61,7 +59,7 @@ export function registerGraphqlQuery(server: McpServer, client: GraphQLExecutor)
     {
       title: "Raw GraphQL Query",
       description:
-        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (users, API keys, registration, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; output is capped.",
+        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (users, API keys, registration, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; oversized results are head-truncated, so narrow the selection or page.",
       inputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
