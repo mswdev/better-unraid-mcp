@@ -1,6 +1,6 @@
 {
   "name": "better-unraid-mcp",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
   "license": "MIT",
   "author": "Matt White (mswdev)",
@@ -34,6 +34,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "graphql": "^16.14.0",
     "pino": "^9.14.0",
+    "ssh2": "^1.17.0",
     "undici": "^6.26.0",
     "zod": "^3.25.76"
   },
@@ -44,9 +45,13 @@
     "@graphql-codegen/typescript": "^6.0.2",
     "@graphql-codegen/typescript-operations": "^6.0.3",
     "@types/node": "^22.19.19",
+    "@types/ssh2": "^1.15.6",
     "tsup": "^8.5.1",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }

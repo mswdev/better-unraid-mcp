@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { GraphQLExecutor } from "../../graphql/client.js";
+import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 
 /**
  * Returns the text of the first content block, asserting it is a text block.
@@ -100,4 +101,47 @@ export function sequencedExecutor(results: unknown[]): {
     },
   };
   return { executor, calls };
+}
+
+/** A single recorded `execute` invocation on a fake shell executor. */
+export interface RecordedShellCall {
+  command: string;
+  timeoutMs: number;
+}
+
+/**
+ * Builds a fake shell executor that records every call and returns a canned
+ * result. Use it to assert the exact command a tool built (quoting included)
+ * and that gates short-circuit before any command runs.
+ *
+ * @param result - The `ShellResult` every `execute` call resolves to.
+ * @returns The fake executor and the array of recorded calls.
+ */
+export function recordingShell(result: ShellResult): {
+  shell: ShellExecutor;
+  calls: RecordedShellCall[];
+} {
+  const calls: RecordedShellCall[] = [];
+  const shell: ShellExecutor = {
+    execute: async (command, timeoutMs) => {
+      calls.push({ command, timeoutMs });
+      return result;
+    },
+  };
+  return { shell, calls };
+}
+
+/**
+ * Builds a fake shell executor whose `execute` always throws an `Error`. Use
+ * it to cover a handler's catch branch (connection/auth/timeout failures).
+ *
+ * @param message - The error message the thrown `Error` carries.
+ * @returns A fake executor that rejects every call.
+ */
+export function throwingShell(message: string): ShellExecutor {
+  return {
+    execute: async () => {
+      throw new Error(message);
+    },
+  };
 }
