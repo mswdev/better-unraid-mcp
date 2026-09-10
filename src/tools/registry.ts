@@ -15,6 +15,8 @@ import { registerDockerContainerUpdate } from "./docker/container-update.js";
 import { registerDockerStats } from "./docker/docker-stats.js";
 import { registerDockerNetworkList } from "./docker/network-list.js";
 import { registerDockerPortConflicts } from "./docker/port-conflicts.js";
+import { registerGraphqlMutation } from "./graphql/graphql-mutation.js";
+import { registerGraphqlQuery } from "./graphql/graphql-query.js";
 import { registerLogList } from "./log/log-list.js";
 import { registerLogRead } from "./log/log-read.js";
 import { registerMoverStatus } from "./mover/mover-status.js";
@@ -87,4 +89,6 @@ export function registerAllTools(
   registerDockerStats(server, shell);
   registerFileRead(server, shell);
   registerShellExec(server, shell);
+  registerGraphqlQuery(server, client);
+  registerGraphqlMutation(server, client);
 }

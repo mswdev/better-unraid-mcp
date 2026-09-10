@@ -223,10 +223,24 @@ describe("registerAllTools host-level tools", () => {
     });
   });
 
-  it("registers 35 tools in total", () => {
+  it("registers 37 tools in total", () => {
     const { server, registrations } = fakeServer();
     // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
     registerAllTools(server as any, noopClient, null);
-    expect(registrations).toHaveLength(35);
+    expect(registrations).toHaveLength(37);
+  });
+});
+
+describe("registerAllTools raw GraphQL tools", () => {
+  it("registers graphql_query as read-only and graphql_mutation as destructive", () => {
+    const { server, registrations } = fakeServer();
+    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+    registerAllTools(server as any, noopClient, null);
+    const query = registrations.find((r) => r.name === "graphql_query");
+    expect(query?.hasHandler).toBe(true);
+    expect(query?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    const mutation = registrations.find((r) => r.name === "graphql_mutation");
+    expect(mutation?.hasHandler).toBe(true);
+    expect(mutation?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
   });
 });
