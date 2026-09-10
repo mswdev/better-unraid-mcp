@@ -5,7 +5,7 @@ import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireConfirmation } from "../_shared/confirm.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { truncateOutput } from "./_shared.js";
+import { truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "shell_exec";
 const DEFAULT_TIMEOUT_SECONDS = 30;

@@ -4,7 +4,8 @@ import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { quoteForShell, truncateOutput } from "./_shared.js";
+import { truncateOutput } from "../_shared/truncate-output.js";
+import { quoteForShell } from "./_shared.js";
 
 const TOOL_NAME = "file_read";
 const DEFAULT_LINES = 200;
