@@ -14,7 +14,12 @@ const inputSchema = {
 
 type Disks = DiskListQuery["disks"];
 
-/** Summarizes each physical disk on one line. */
+/**
+ * Summarizes each physical disk on one line. The API's interfaceType is
+ * excluded here (kept in the detailed payload) because live servers have been
+ * seen reporting SAS for every drive, SATA included; a missing temperature
+ * usually just means the disk is spun down.
+ */
 function summarize(disks: Disks): string {
   if (disks.length === 0) {
     return "No physical disks detected.";
@@ -22,7 +27,7 @@ function summarize(disks: Disks): string {
   return disks
     .map((disk) => {
       const temp = disk.temperature != null ? `, ${disk.temperature}°C` : "";
-      return `${disk.name} (${humanizeBytes(disk.size)}, ${disk.interfaceType}) — SMART ${disk.smartStatus}${temp}`;
+      return `${disk.name} (${humanizeBytes(disk.size)}) — SMART ${disk.smartStatus}${temp}`;
     })
     .join("\n");
 }
