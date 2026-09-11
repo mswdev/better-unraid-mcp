@@ -101,7 +101,7 @@ describe("system_metrics handler", () => {
 
     expect(calls[0]?.variables).toMatchObject({ includeTemperature: true });
     expect(firstText(result)).toMatch(
-      /Temperature: avg 42\.1°C — 0 warning, 0 critical \(hottest: CPU Package 55\.5°C\)/,
+      /Temperature: avg 55\.5°C — 0 warning, 0 critical \(hottest: CPU Package 55\.5°C\)/,
     );
   });
 
@@ -207,7 +207,15 @@ describe("system_metrics handler", () => {
       metrics: {
         ...full.metrics,
         temperature: {
-          sensors: full.metrics.temperature.sensors,
+          sensors: [
+            {
+              name: "CPU Package",
+              type: "CPU_PACKAGE",
+              current: { value: 131.9, unit: "FAHRENHEIT", status: "NORMAL" },
+              warning: 185,
+              critical: 203,
+            },
+          ],
           summary: {
             ...full.metrics.temperature.summary,
             average: 107.8,
@@ -224,7 +232,7 @@ describe("system_metrics handler", () => {
       include_temperature: true,
     });
 
-    expect(firstText(result)).toMatch(/avg 107\.8°F/);
+    expect(firstText(result)).toMatch(/avg 131\.9°F/);
     expect(firstText(result)).toMatch(/hottest: CPU Package 131\.9°F/);
   });
 
@@ -237,7 +245,15 @@ describe("system_metrics handler", () => {
       metrics: {
         ...full.metrics,
         temperature: {
-          sensors: full.metrics.temperature.sensors,
+          sensors: [
+            {
+              name: "CPU Package",
+              type: "CPU_PACKAGE",
+              current: { value: 55.5, unit: driftedUnit, status: "NORMAL" },
+              warning: 85,
+              critical: 95,
+            },
+          ],
           summary: {
             ...full.metrics.temperature.summary,
             hottest: { name: "CPU Package", current: { value: 55.5, unit: driftedUnit } },
@@ -301,5 +317,77 @@ describe("system_metrics handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/plain refusal/);
+  });
+});
+
+describe("system_metrics temperature plausibility filter", () => {
+  const energySensor = {
+    name: "i915-pci-0a00 energy1",
+    type: "GPU",
+    current: { value: 350133.4, unit: "CELSIUS", status: "CRITICAL" },
+    warning: null,
+    critical: null,
+  } as const;
+
+  it("ignores implausible readings and recomputes the summary without them", async () => {
+    const mixed = {
+      metrics: {
+        ...full.metrics,
+        temperature: {
+          sensors: [...full.metrics.temperature.sensors, energySensor],
+          summary: {
+            average: 4033.6,
+            warningCount: 0,
+            criticalCount: 2,
+            hottest: {
+              name: "i915-pci-0a00 energy1",
+              current: { value: 350133.4, unit: "CELSIUS" },
+            },
+          },
+        },
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(mixed);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: true,
+    });
+
+    const text = firstText(result);
+    expect(text).toMatch(/avg 55\.5°C/);
+    expect(text).toMatch(/0 critical/);
+    expect(text).toMatch(/hottest: CPU Package 55\.5°C/);
+    expect(text).toMatch(/1 non-temperature sensor\(s\) ignored/);
+  });
+
+  it("says so when every reading is implausible", async () => {
+    const onlyEnergy = {
+      metrics: {
+        ...full.metrics,
+        temperature: {
+          sensors: [energySensor],
+          summary: {
+            average: 350133.4,
+            warningCount: 0,
+            criticalCount: 1,
+            hottest: {
+              name: "i915-pci-0a00 energy1",
+              current: { value: 350133.4, unit: "CELSIUS" },
+            },
+          },
+        },
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(onlyEnergy);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: true,
+    });
+
+    expect(firstText(result)).toMatch(/no plausible readings/);
   });
 });
