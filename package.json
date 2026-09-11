@@ -3,6 +3,12 @@
   "version": "0.0.2",
   "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mswdev/better-unraid-mcp.git"
+  },
+  "homepage": "https://github.com/mswdev/better-unraid-mcp#readme",
+  "bugs": "https://github.com/mswdev/better-unraid-mcp/issues",
   "author": "Matt White (mswdev)",
   "type": "module",
   "main": "dist/index.js",
