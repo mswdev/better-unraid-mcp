@@ -55,7 +55,7 @@ describe("share_list handler", () => {
     });
 
     expect(firstText(result)).toMatch(/appdata/);
-    expect(firstText(result)).toMatch(/media — 8\.4 TB \/ 9\.3 TB used/);
+    expect(firstText(result)).toMatch(/media — 8\.4 TB used of 9\.3 TB \(953\.7 GB free\)/);
   });
 
   it("filters by name when provided", async () => {

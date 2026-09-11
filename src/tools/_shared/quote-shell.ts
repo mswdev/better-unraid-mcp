@@ -5,7 +5,7 @@ const SINGLE_QUOTE = /'/g;
  * is wrapped in single quotes with embedded single quotes escaped, so shell
  * metacharacters in it are never interpreted.
  *
- * @param value - The raw string (a path or pattern) to quote.
+ * @param value - The raw string (a path, pattern, or container id) to quote.
  * @returns The single-quoted, escape-safe shell token.
  * @example quoteForShell("it's") // "'it'\\''s'"
  */

@@ -24,16 +24,21 @@ function filterByName(shares: Shares, name: string | undefined): Shares {
   return shares.filter((share) => (share.name ?? "").toLowerCase().includes(needle));
 }
 
-/** Summarizes each share's used/total usage. */
+/**
+ * Summarizes each share's usage. Total is computed as used + free because the
+ * API's `size` field is 0 for shares without a size limit (the common case),
+ * which previously rendered as a misleading "/ 0 B used".
+ */
 function summarize(shares: Shares): string {
   if (shares.length === 0) {
     return "No shares found.";
   }
   return shares
-    .map(
-      (share) =>
-        `${share.name ?? "(unnamed)"} — ${humanizeKilobytes(toNumber(share.used))} / ${humanizeKilobytes(toNumber(share.size))} used`,
-    )
+    .map((share) => {
+      const used = toNumber(share.used);
+      const free = toNumber(share.free);
+      return `${share.name ?? "(unnamed)"} — ${humanizeKilobytes(used)} used of ${humanizeKilobytes(used + free)} (${humanizeKilobytes(free)} free)`;
+    })
     .join("\n");
 }
 
