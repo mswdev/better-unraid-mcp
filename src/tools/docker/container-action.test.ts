@@ -95,3 +95,22 @@ describe("docker_container_action handler", () => {
     expect(firstText(result)).toMatch(/daemon down/);
   });
 });
+
+describe("docker_container_action read-back quirk", () => {
+  it("reports issued-but-unverified instead of failure on 'not found after' errors", async () => {
+    const handler = createDockerContainerActionHandler(
+      throwingExecutor("Container Dozzle not found after stopping"),
+    );
+
+    const result = await handler({
+      response_format: "concise",
+      id: "Dozzle",
+      action: "stop",
+      confirm: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/very likely succeeded/);
+    expect(firstText(result)).toMatch(/docker_container_list/);
+  });
+});
