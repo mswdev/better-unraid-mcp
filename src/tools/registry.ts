@@ -67,7 +67,7 @@ export function registerAllTools(
   registerDockerAutostartSet(server, client);
   registerDockerContainerAction(server, client);
   registerDockerContainerList(server, client);
-  registerDockerContainerLogs(server, client);
+  registerDockerContainerLogs(server, client, shell);
   registerDockerContainerRemove(server, client);
   registerDockerContainerUpdate(server, client);
   registerDockerNetworkList(server, client);

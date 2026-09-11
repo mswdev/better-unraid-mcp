@@ -2,10 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
+import { quoteForShell } from "../_shared/quote-shell.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
-import { quoteForShell } from "./_shared.js";
 
 const TOOL_NAME = "file_read";
 const DEFAULT_LINES = 200;
