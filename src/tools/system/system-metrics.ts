@@ -86,6 +86,41 @@ function memoryLine(memory: Metrics["memory"]): string {
   return `Memory: ${memory.percentTotal.toFixed(PERCENT_DECIMALS)}% used — ${available} available of ${total} (swap ${swap}%)`;
 }
 
+/**
+ * Plausible reading range per unit. Live servers feed non-temperature sensors
+ * (e.g. the i915 GPU's energy meter, in microjoules) into this section, which
+ * inflates the API's own summary with six-digit "temperatures" and false
+ * criticals; out-of-range readings are excluded and the summary recomputed.
+ */
+const PLAUSIBLE_RANGES: Record<TemperatureUnit, { min: number; max: number }> = {
+  CELSIUS: { min: -60, max: 150 },
+  FAHRENHEIT: { min: -76, max: 302 },
+  KELVIN: { min: 213, max: 423 },
+  RANKINE: { min: 383, max: 762 },
+};
+
+type Sensor = NonNullable<Metrics["temperature"]>["sensors"][number];
+
+/** True when the reading is a believable temperature for its unit. */
+function isPlausibleTemperature(sensor: Sensor): boolean {
+  const range: { min: number; max: number } | undefined = PLAUSIBLE_RANGES[sensor.current.unit];
+  if (!range) {
+    return true;
+  }
+  return sensor.current.value >= range.min && sensor.current.value <= range.max;
+}
+
+/** Renders the recomputed summary over the plausible sensors. */
+function renderTemperatureSummary(plausible: Sensor[], ignored: number): string {
+  const hottest = plausible.reduce((a, b) => (b.current.value > a.current.value ? b : a));
+  const unit = unitSuffix(hottest.current.unit);
+  const average = plausible.reduce((sum, sensor) => sum + sensor.current.value, 0);
+  const warning = plausible.filter((sensor) => sensor.current.status === "WARNING").length;
+  const critical = plausible.filter((sensor) => sensor.current.status === "CRITICAL").length;
+  const note = ignored > 0 ? ` (${ignored} non-temperature sensor(s) ignored)` : "";
+  return `Temperature: avg ${(average / plausible.length).toFixed(TEMPERATURE_DECIMALS)}°${unit} — ${warning} warning, ${critical} critical (hottest: ${hottest.name} ${hottest.current.value.toFixed(TEMPERATURE_DECIMALS)}°${unit})${note}`;
+}
+
 /** Renders the temperature line, or null when the section was not requested. */
 function temperatureLine(metrics: Metrics, included: boolean): string | null {
   if (!included) {
@@ -94,14 +129,12 @@ function temperatureLine(metrics: Metrics, included: boolean): string | null {
   if (!metrics.temperature) {
     return "Temperature: unavailable (no sensors or collection disabled)";
   }
-  // All sensors share the server's configured default unit (validated at the pin),
-  // so the hottest sensor's unit also labels the unit-less summary average.
-  const { summary } = metrics.temperature;
-  const unit = unitSuffix(summary.hottest.current.unit);
-  const value = summary.hottest.current.value.toFixed(TEMPERATURE_DECIMALS);
-  const hottest = `${summary.hottest.name} ${value}°${unit}`;
-  const average = summary.average.toFixed(TEMPERATURE_DECIMALS);
-  return `Temperature: avg ${average}°${unit} — ${summary.warningCount} warning, ${summary.criticalCount} critical (hottest: ${hottest})`;
+  const sensors = metrics.temperature.sensors;
+  const plausible = sensors.filter(isPlausibleTemperature);
+  if (plausible.length === 0) {
+    return `Temperature: no plausible readings (${sensors.length} sensor(s) reported out-of-range values, likely energy or power meters).`;
+  }
+  return renderTemperatureSummary(plausible, sensors.length - plausible.length);
 }
 
 /** Summarizes one up interface: throughput and total error count. */

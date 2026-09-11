@@ -9,7 +9,7 @@ import {
   DockerUnpauseDocument,
 } from "../../types/unraid/graphql.js";
 import { requireConfirmation } from "../_shared/confirm.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { type ResponseFormat, formatResponse, toolError, toolText } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_container_action";
@@ -84,6 +84,15 @@ export function createDockerContainerActionHandler(client: GraphQLExecutor) {
       return formatResponse(response_format, `${PAST_TENSE[action]} container ${name}.`, container);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // Live-verified API quirk: the mutation performs the action, then fails
+      // its own read-back (especially when addressed by name) and throws
+      // "... not found after <action>". Reporting that as a failure invites a
+      // pointless retry, so surface it as issued-but-unverified instead.
+      if (message.includes("not found after")) {
+        return toolText(
+          `Requested ${action} for container ${id}. The API could not read the container back after the action (a known quirk, most common when addressing by name instead of id); the ${action} very likely succeeded. Verify with docker_container_list.`,
+        );
+      }
       return toolError(`Failed to ${action} container ${id}: ${message}`);
     }
   };
@@ -101,7 +110,7 @@ export function registerDockerContainerAction(server: McpServer, client: GraphQL
     {
       title: "Start/Stop/Pause Docker Container",
       description:
-        "Changes a container's run state (start | stop | pause | unpause). Requires `confirm: true`. stop/pause disrupt a running container; start/unpause are restorative but still gated for consistency.",
+        "Changes a container's run state (start | stop | pause | unpause). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause disrupt a running container; start/unpause are restorative but still gated for consistency.",
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },

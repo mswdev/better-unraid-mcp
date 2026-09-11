@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quoteForShell } from "./_shared.js";
+import { quoteForShell } from "./quote-shell.js";
 
 describe("quoteForShell", () => {
   it("wraps a plain value in single quotes", () => {

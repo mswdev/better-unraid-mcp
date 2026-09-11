@@ -42,10 +42,14 @@ function summarize(conflicts: Conflicts): string {
   }
   const lines: string[] = [];
   if (containerPorts.length > 0) {
-    lines.push(`Container-port conflicts: ${containerPorts.map(formatContainerPort).join("; ")}`);
+    lines.push(
+      `Containers sharing an internal port (often harmless when the containers sit on different Docker networks; not host-port collisions): ${containerPorts.map(formatContainerPort).join("; ")}`,
+    );
   }
   if (lanPorts.length > 0) {
-    lines.push(`LAN-port conflicts: ${lanPorts.map(formatLanPort).join("; ")}`);
+    lines.push(
+      `LAN/host port conflicts (real collisions): ${lanPorts.map(formatLanPort).join("; ")}`,
+    );
   }
   return lines.join("\n");
 }
