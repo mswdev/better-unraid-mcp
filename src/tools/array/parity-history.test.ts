@@ -111,6 +111,38 @@ describe("parity_history handler", () => {
 
     expect(firstText(result)).toMatch(/unknown/);
     expect(firstText(result)).toMatch(/0 errors/);
-    expect(firstText(result)).toMatch(/\? MB\/s/);
+    expect(firstText(result)).toMatch(/unknown speed/);
+  });
+});
+
+describe("parity_history speed rendering", () => {
+  const preFormatted = {
+    parityHistory: [
+      { date: "2026-09-10T18:24:28.000Z", status: "CANCELLED", errors: 0, speed: "48.2 GB/s" },
+      { date: "2026-09-09T01:00:00.000Z", status: "COMPLETED", errors: 0, speed: "180" },
+    ],
+  };
+
+  it("renders pre-formatted speeds verbatim and appends MB/s only to bare numbers", async () => {
+    const result = await createParityHistoryHandler(fakeExecutor(preFormatted as never))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    const text = firstText(result);
+    expect(text).toMatch(/48\.2 GB\/s(?! MB\/s)/);
+    expect(text).toMatch(/180 MB\/s/);
+  });
+
+  it("lists every returned check in concise mode, not just the latest", async () => {
+    const result = await createParityHistoryHandler(fakeExecutor(preFormatted as never))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    const text = firstText(result);
+    expect(text).toMatch(/Recent parity checks \(2\)/);
+    expect(text).toMatch(/CANCELLED/);
+    expect(text).toMatch(/COMPLETED/);
   });
 });

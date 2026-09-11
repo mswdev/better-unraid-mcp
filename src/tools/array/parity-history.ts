@@ -21,13 +21,30 @@ function sortNewestFirst(checks: Checks): Checks {
   return [...checks].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 }
 
-/** Summarizes the most recent parity check. */
+/** Contains any letter, meaning the API already formatted the speed with a unit. */
+const HAS_UNIT = /[a-z]/i;
+
+/**
+ * Renders a parity-check speed. Live servers return pre-formatted strings
+ * like "48.2 GB/s"; append the historical default unit only to bare numbers.
+ */
+function renderSpeed(speed: string | null | undefined): string {
+  if (!speed) {
+    return "unknown speed";
+  }
+  return HAS_UNIT.test(speed) ? speed : `${speed} MB/s`;
+}
+
+/** Renders every returned check (newest first), not just the latest. */
 function summarize(checks: Checks): string {
   if (checks.length === 0) {
     return "No parity checks recorded.";
   }
-  const last = checks[0];
-  return `Last parity check: ${last.status} on ${last.date ?? "unknown"}, ${last.errors ?? 0} errors, ${last.speed ?? "?"} MB/s.`;
+  const lines = checks.map(
+    (check) =>
+      `- ${check.status} on ${check.date ?? "unknown"}: ${check.errors ?? 0} errors, ${renderSpeed(check.speed)}`,
+  );
+  return [`Recent parity checks (${checks.length}):`, ...lines].join("\n");
 }
 
 /**
