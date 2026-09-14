@@ -41,12 +41,27 @@ interface ContainerLogsInput {
   tail: number;
 }
 
+/**
+ * Matches a message that is nothing but an RFC3339 timestamp. Live-verified
+ * API quirk: blank lines inside multi-line log entries come back with the raw
+ * Docker timestamp as the "message" (and the fetch time as the timestamp), so
+ * such a message is really an empty line and is rendered as one.
+ */
+const TIMESTAMP_ONLY_MESSAGE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/;
+
+/** Renders one line, mapping the timestamp-only artifact back to a blank line. */
+function renderLine(line: Logs["lines"][number]): string {
+  const message = TIMESTAMP_ONLY_MESSAGE.test(line.message.trim()) ? "" : line.message;
+  return `[${line.timestamp}] ${message}`.trimEnd();
+}
+
 /** Renders the log lines and, when present, a paging hint for `cursor`. */
 function summarize(logs: Logs): string {
   if (logs.lines.length === 0) {
     return "No log lines.";
   }
-  const body = logs.lines.map((line) => `[${line.timestamp}] ${line.message}`).join("\n");
+  const body = logs.lines.map(renderLine).join("\n");
   const more = logs.cursor
     ? `\n— more available: re-call with since="${logs.cursor}" (the boundary line repeats; de-dupe).`
     : "";
