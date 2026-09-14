@@ -184,3 +184,61 @@ describe("docker_container_logs SSH fallback", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("docker_container_logs timestamp-only artifact", () => {
+  it("renders blank-line artifacts (message is a raw timestamp) as empty lines", async () => {
+    const artifact = {
+      docker: {
+        logs: {
+          containerId: "srv:abc",
+          lines: [
+            { timestamp: "2026-09-14T22:09:19.918Z", message: "Glances starting" },
+            { timestamp: "2026-09-14T22:09:19.918Z", message: "2026-09-14T11:01:30.587230555Z" },
+            { timestamp: "2026-09-14T22:09:19.918Z", message: "ready" },
+          ],
+          cursor: null,
+        },
+      },
+    } satisfies DockerContainerLogsQuery;
+    const result = await createDockerContainerLogsHandler(
+      fakeExecutor(artifact),
+      null,
+    )({
+      id: "Glances",
+      response_format: "concise",
+      tail: 20,
+    });
+
+    const text = firstText(result);
+    expect(text).not.toContain("2026-09-14T11:01:30.587230555Z");
+    expect(text).toContain("Glances starting");
+    expect(text).toContain("ready");
+  });
+
+  it("keeps messages that merely contain a timestamp among other text", async () => {
+    const mixed = {
+      docker: {
+        logs: {
+          containerId: "srv:abc",
+          lines: [
+            {
+              timestamp: "2026-09-14T22:09:19.918Z",
+              message: "backup finished at 2026-09-14T11:01:30Z",
+            },
+          ],
+          cursor: null,
+        },
+      },
+    } satisfies DockerContainerLogsQuery;
+    const result = await createDockerContainerLogsHandler(
+      fakeExecutor(mixed),
+      null,
+    )({
+      id: "Glances",
+      response_format: "concise",
+      tail: 20,
+    });
+
+    expect(firstText(result)).toContain("backup finished at 2026-09-14T11:01:30Z");
+  });
+});
