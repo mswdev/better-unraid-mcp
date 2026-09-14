@@ -72,9 +72,18 @@ acceptance-test prompt and decision log delivered at the end.
   hand-written fakes, colocated tests, zod v3 schemas, vendored SDL + codegen.
   New domains get their own directories under `src/tools/`; the 10-source-file cap
   is honored everywhere (splitting `src/tools/docker/` is a 0.0.4 prerequisite).
-- **SDK/zod upgrades are not a roadmap item.** `@modelcontextprotocol/sdk ^1.29.0`
-  already supports elicitation, resources, prompts, and subscriptions. Upgrade only
-  if a phase hits a missing capability; record it in the decision log.
+- **SDK/zod upgrades are not a roadmap item.** Verified 2026-09-14: SDK 1.29.0
+  (resolving to 1.30.0, fix-only) supports elicitation (`elicitInput` +
+  `getClientCapabilities()`), resources, prompts, subscriptions (low-level
+  `setRequestHandler` + manually declared `resources.subscribe` capability),
+  progress, and `outputSchema`/`structuredContent`. Zod stays v3. The v2 SDK
+  packages (protocol 2026-07-28, zod v4-only) are a post-roadmap migration.
+- **Server-initiated traffic needs stdio or stateful HTTP.** Verified against SDK
+  source: the current stateless + JSON-response HTTP mode silently drops
+  elicitation requests, progress notifications, and resource-updated
+  notifications. All of these work over stdio today; over HTTP they require the
+  Phase 2 session mode (sessions + SSE). Docs and tool behavior must degrade
+  gracefully on stateless HTTP.
 
 ## 5. Release Train and Status
 
@@ -127,17 +136,25 @@ the `/goal` evaluator uses it plus `npm view better-unraid-mcp version` as evide
    `token`, `secret`, `authorization`) plus value matching for the configured
    `UNRAID_API_KEY` and `UNRAID_SSH_PASSWORD` values and JWT-shaped strings.
 7. Rate limiting: client-side token bucket in `src/graphql/` modeling Unraid's
-   100 requests / 10 s API limit (named constants), waiting up to a bounded time
-   before erroring; backoff-and-retry once on HTTP 429.
+   configured 100 requests / 10 s limit (named constants, with headroom like
+   dinglebear's 90-token bucket), waiting up to a bounded time before erroring;
+   backoff-and-retry once on HTTP 429. Note (verified 2026-09-14): unraid/api
+   configures this throttle but its guard is currently unbound on main — treat
+   429 handling as defensive, not a documented server contract.
 
 **Daily-driver tools:**
 
 8. `docker_container_action` gains `restart` — composed GraphQL stop → start
    (the API has no restart mutation), reporting each step's outcome.
-9. `mover_action` (new, `src/tools/mover/`) — start/stop via SSH (`mover start`,
-   `mover stop`), tier-1 confirm. No competitor has this.
-10. `system_power` (new, `src/tools/system/`) — reboot / shutdown via SSH
-    (no GraphQL mutation exists), tier-2 gate (confirm + acknowledge_risk).
+9. `mover_action` (new, `src/tools/mover/`) — start/stop via SSH using
+   `/usr/local/sbin/mover start` / `mover stop` (always with the explicit
+   argument — bare `mover` prints usage on current builds), tier-1 confirm.
+   The stop path warns that interrupting the mover can leave partial files on
+   the destination. No competitor has this.
+10. `system_power` (new, `src/tools/system/`) — reboot / shutdown via SSH using
+    `/sbin/reboot` and `/sbin/poweroff` (Unraid's modified rc.6 performs the
+    clean array stop; `/usr/local/sbin/powerdown` is a deprecated shim — do not
+    use it), tier-2 gate (confirm + acknowledge_risk).
 11. `system_health` (new) — one severity-scored rollup (OK/WARN/CRITICAL per
     subsystem: array, parity, disks/SMART/temps, capacity vs. named thresholds,
     UPS, unread alerts, container update backlog; overall = worst). Concise =
@@ -164,10 +181,15 @@ on npm.
    (`system_metrics`, `array_status`, `docker_container_list`), keyed by document +
    variables, with `data_age_ms` included in served-from-cache responses.
 4. **Progress notifications.** Long `shell_exec` runs and `docker_container_update`
-   emit MCP progress notifications when the client supplies a progress token.
+   emit MCP progress notifications when the client supplies a progress token
+   (via `extra._meta.progressToken` / `extra.sendNotification`). These reach
+   stdio clients and session-mode HTTP clients; stateless JSON-mode HTTP drops
+   them (see §4), which is acceptable degradation.
 5. **HTTP session mode.** `MCP_HTTP_SESSIONS=true` enables stateful streamable-HTTP
-   sessions (server instance reused across a session, idle expiry) — prerequisite
-   for subscriptions over HTTP in Phase 6. Default remains stateless.
+   sessions (SDK `sessionIdGenerator`, session map with idle expiry, DELETE
+   teardown, SSE responses instead of `enableJsonResponse`) — prerequisite for
+   elicitation and progress over HTTP (Phases 2–3) and subscriptions over HTTP
+   (Phase 6). Default remains stateless for backward compatibility.
 
 **Acceptance:** an SSH-backed tool called twice reuses one connection (proven via
 fake/spy); no GraphQL call can hang forever; cache serves within TTL and reports
@@ -176,9 +198,13 @@ age; 0.0.5 on npm.
 ### Phase 3 — 0.0.6 "Modern MCP"
 
 1. **Elicitation.** Shared helper: when the connected client declares elicitation
-   capability, tier-1/tier-2 gates present a real confirmation prompt (with the
-   action description) instead of failing; `confirm`/`acknowledge_risk` args remain
-   the non-interactive path and the fallback. All gated tools migrate to the helper.
+   capability (`getClientCapabilities()?.elicitation`), tier-1/tier-2 gates
+   present a real confirmation prompt (with the action description) instead of
+   failing; `confirm`/`acknowledge_risk` args remain the non-interactive path and
+   the fallback. All gated tools migrate to the helper. Implementation notes:
+   pass an explicit request timeout well above the SDK's 60 s default (humans
+   read prompts slowly); elicitation only functions over stdio or session-mode
+   HTTP, so on stateless HTTP the helper always takes the argument fallback.
 2. **Resources.** `unraid://schema` (vendored SDL), `unraid://health` (the
    system_health rollup), `unraid://doctor` (connection self-test).
 3. **Prompts.** 3–5 guided workflows: `triage-array-problem`, `find-resource-hog`,
@@ -186,7 +212,10 @@ age; 0.0.5 on npm.
 4. **Annotations audit.** `idempotentHint` set on every tool; a registry test
    asserts every tool declares the full annotation set. `outputSchema` +
    `structuredContent` for `system_health`, `system_metrics`, `array_status`,
-   `docker_container_list`.
+   `docker_container_list`. Note: once a tool declares `outputSchema`, the SDK
+   requires `structuredContent` on every non-error result — these tools return
+   it in both concise and detailed modes, keeping the text block as the human
+   summary (the spec's recommended backward-compatible shape).
 
 **Acceptance:** elicitation path and fallback both unit-tested through the seam;
 resources/prompts listed and readable; annotation test passes; 0.0.6 on npm.
@@ -218,16 +247,35 @@ All SSH-backed (`requireShell` pattern); each tool probes command availability
 (`command -v`) and returns a clear "not available on this server" error; reads are
 ungated, mutations gated as noted.
 
-1. **ZFS** (new `src/tools/zfs/`) — `zfs_status` (pools, health, capacity, ARC
-   stats), `zfs_dataset_list`, `zfs_snapshot_list`, `zfs_snapshot_action`
-   (create/destroy/rollback; tier-2).
-2. **GPU metrics** — `gpu_metrics` with nvidia-smi / intel_gpu_top detection.
+1. **ZFS** (new `src/tools/zfs/`) — `zfs_status` (pools, health, capacity; ARC
+   stats read from `/proc/spl/kstat/zfs/arcstats` — the `arcstat` script is
+   Python, which stock Unraid lacks), `zfs_dataset_list`, `zfs_snapshot_list`,
+   `zfs_snapshot_action` (create/destroy/rollback; tier-2). ZFS is built into
+   Unraid 6.12+.
+2. **GPU metrics** — `gpu_metrics` with nvidia-smi / intel_gpu_top detection
+   (each ships only with its driver plugin; probe and report absence clearly).
 3. **Processes** — `process_list`: top processes by CPU/memory with totals.
-4. **Disk spin** — `disk_spin` up/down via sdspin (fallback hdparm); tier-1.
+4. **Disk spin** — `disk_spin` up/down; tier-1. For array/pool disks use
+   `emcmd cmdSpinup=diskN` / `cmdSpindown=diskN` so emhttpd performs the spin
+   and its tracked spin state stays consistent (calling sdspin directly leaves
+   stale UI state); use `sdspin` only for unassigned devices, noting it is an
+   hdparm wrapper (ATA only — SAS needs the community plugin).
 5. **User Scripts** — `user_script_list` (read), `user_script_run` (tier-2;
-   arbitrary code by design, description says so).
-6. **VM snapshots** — `vm_snapshot_list`, `vm_snapshot_action`
-   (create/revert/delete via virsh; tier-2). Not available in GraphQL.
+   arbitrary code by design, description says so). Scripts live at
+   `/boot/config/plugins/user.scripts/scripts/<name>/script` but the flash is
+   mounted non-executable (fmask=177 since Unraid 6.8) — replicate the plugin's
+   runner: copy to a tmp location, strip CR characters, ensure a shebang, run
+   via `bash`. Direct execution of the flash path fails by design.
+6. **VM snapshots** — `vm_snapshot_list`, `vm_snapshot_action`; tier-2. Not
+   available in GraphQL. MUST use **external** snapshots mirroring Unraid 7's
+   own flow (`virsh snapshot-create-as --atomic` with
+   `--diskspec <dev>,snapshot=external` / `--disk-only` when stopped; delete
+   via `blockcommit --pivot`): internal snapshots fail on raw disks and are
+   refused outright for OVMF-firmware VMs, which is the typical Unraid setup,
+   and bare `snapshot-revert` would corrupt Unraid 7's snapshot chains. This is
+   Phase 5's highest-complexity item; if implementation risk proves too high,
+   descoping revert/delete (keeping list + create) is a pre-authorized
+   decision-log call.
 7. **SMART deep report** — `disk_smart_report`: full smartctl attributes for one
    disk (read).
 
@@ -236,11 +284,15 @@ ungated, mutations gated as noted.
 
 ### Phase 6 — 0.0.9 "Live + Launch"
 
-1. **Subscription client.** `graphql-ws` over WebSocket to the Unraid API,
-   authenticated with the same API key, feeding the snapshot cache. Confirmed
-   available subscriptions: `dockerContainerStats`, `logFile(path)`,
-   `systemMetricsCpu/Memory/Network/Temperature`, `arraySubscription`,
-   `parityHistorySubscription`, `upsUpdates`, `notificationAdded`.
+1. **Subscription client.** `graphql-ws` over WebSocket to the same `/graphql`
+   endpoint (verified: unraid/api configures Apollo with the modern graphql-ws
+   library, wire subprotocol `graphql-transport-ws`), authenticated by sending
+   `{"x-api-key": "<key>"}` in the `connection_init` payload (the API's auth
+   guard merges connectionParams into request headers), feeding the snapshot
+   cache. Confirmed available subscriptions: `dockerContainerStats`,
+   `logFile(path)`, `systemMetricsCpu/Memory/Network/Temperature`,
+   `arraySubscription`, `parityHistorySubscription`, `upsUpdates`,
+   `notificationAdded`.
 2. **MCP resource subscriptions.** Subscribable resources for parity progress,
    docker stats, system metrics, and log follow (`unraid://logs/{path}`), with
    `listChanged` notifications. Requires HTTP session mode when on HTTP transport.
@@ -337,3 +389,11 @@ Explicitly deferred, in suggested order:
 - Claude Code `/goal` documentation: https://code.claude.com/docs/en/goal
   (verified 2026-09-14: evaluator-judged completion, session persistence, no
   auto-merge, permission-mode interaction).
+- MCP SDK verification (2026-09-14): @modelcontextprotocol/sdk 1.29.0/1.30.0
+  tarballs + docs — elicitation/resources/prompts/subscriptions/progress all
+  present in 1.x (protocol 2025-11-25); stateless JSON-mode HTTP drops
+  server-initiated messages; v2 SDK packages are post-roadmap.
+- Unraid verification (2026-09-14): unraid/api and unraid/webgui sources —
+  graphql-ws on /graphql with connection_init auth; mover/reboot/spin/User
+  Scripts/virsh command corrections captured in Phases 1 and 5; the API's
+  100 req/10 s throttle is configured but its guard is unbound on main.
