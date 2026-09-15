@@ -219,10 +219,10 @@ describe("registerAllTools host-level tools", () => {
     });
   });
 
-  it("registers 44 tools in total", () => {
+  it("registers 46 tools in total", () => {
     const { server, registrations } = fakeServer();
     registerAll(server);
-    expect(registrations).toHaveLength(44);
+    expect(registrations).toHaveLength(46);
   });
 });
 

@@ -31,7 +31,9 @@ import { registerNotificationDelete } from "./notification/notification-delete.j
 import { registerNotificationList } from "./notification/notification-list.js";
 import { registerNotificationOverview } from "./notification/notification-overview.js";
 import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
+import { registerNotificationUnread } from "./notification/notification-unread.js";
 import { registerPluginAdd } from "./plugin/plugin-add.js";
+import { registerPluginInstallPlg } from "./plugin/plugin-install-plg.js";
 import { registerPluginList } from "./plugin/plugin-list.js";
 import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
@@ -125,6 +127,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   },
   {
     isMutating: true,
+    register: (server, { client }) => registerNotificationUnread(server, client),
+  },
+  {
+    isMutating: true,
     register: (server, { client }) => registerNotificationDelete(server, client),
   },
   {
@@ -138,6 +144,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerPluginList(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginAdd(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginRemove(server, client) },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerPluginInstallPlg(server, client),
+  },
   { isMutating: false, register: (server, { client }) => registerApiKeyList(server, client) },
   { isMutating: true, register: (server, { client }) => registerApiKeyManage(server, client) },
   { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
