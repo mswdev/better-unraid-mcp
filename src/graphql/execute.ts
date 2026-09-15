@@ -35,6 +35,21 @@ function defaultFetch(allowSelfSigned: boolean): FetchLike {
     }) as unknown as Promise<Response>;
 }
 
+/** A non-2xx HTTP response from the Unraid endpoint, carrying its status. */
+export class HttpStatusError extends Error {
+  /**
+   * @param status - The HTTP status code.
+   * @param message - Human-readable failure description.
+   */
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "HttpStatusError";
+  }
+}
+
 /**
  * POSTs a typed GraphQL operation to the Unraid endpoint over native fetch.
  *
@@ -56,7 +71,10 @@ export async function executeGraphQL<TData, TVariables>(
     body: JSON.stringify({ query: print(document), variables: variables ?? undefined }),
   });
   if (!response.ok) {
-    throw new Error(`Unraid API HTTP ${response.status} ${response.statusText}`);
+    throw new HttpStatusError(
+      response.status,
+      `Unraid API HTTP ${response.status} ${response.statusText}`,
+    );
   }
   return (await response.json()) as GraphQLResponse<TData>;
 }

@@ -1,0 +1,11 @@
+query ConnectionDoctor {
+  online
+  info {
+    versions {
+      core {
+        unraid
+        api
+      }
+    }
+  }
+}

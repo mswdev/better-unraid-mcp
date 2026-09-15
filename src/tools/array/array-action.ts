@@ -3,7 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ArraySetStateDocument, type ArrayStateInputState } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_action";
@@ -68,22 +68,19 @@ interface ArrayActionArgs {
 }
 
 /**
- * Two-tier gate. `stop` needs both `confirm` and `acknowledge_risk` (one
- * combined refusal naming both — the risk axis is blast radius, not
- * corruption); `start` uses the shared `requireConfirmation`.
+ * Two-tier gate via the shared helpers. `stop` needs both `confirm` and
+ * `acknowledge_risk` (one combined refusal naming both — the risk axis is
+ * blast radius, not corruption); `start` uses the shared `requireConfirmation`.
  *
  * @param args - The action and both gate flags.
  * @returns `null` when gated through, otherwise an error `CallToolResult`.
  */
 function gateRefusal(args: ArrayActionArgs): CallToolResult | null {
-  const { action, confirm, acknowledge_risk } = args;
-  if (action !== "stop") {
-    return requireConfirmation(confirm, `${action} the array`);
+  if (args.action !== "stop") {
+    return requireConfirmation(args.confirm, `${args.action} the array`);
   }
-  if (confirm === true && acknowledge_risk === true) {
-    return null;
-  }
-  return toolError(
+  return requireRiskAcknowledgement(
+    args,
     'Refusing to stop the array: Unraid will take every share, Docker container, and VM offline until the array is started again. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
   );
 }

@@ -27,7 +27,16 @@ const EnvSchema = z
     MCP_HTTP_PORT: z.coerce.number().int().positive().default(DEFAULT_HTTP_PORT),
     MCP_HTTP_HOST: z.string().min(1).default(DEFAULT_HTTP_HOST),
     MCP_HTTP_ALLOWED_HOSTS: z.string().optional().transform(parseAllowedHosts),
+    MCP_HTTP_BEARER_TOKEN: z.string().min(1).optional(),
+    MCP_HTTP_ALLOW_UNAUTHENTICATED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     UNRAID_ALLOW_SELF_SIGNED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    MCP_READ_ONLY: z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
@@ -44,6 +53,18 @@ const EnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ["UNRAID_SSH_HOST"],
         message: "UNRAID_SSH_HOST requires UNRAID_SSH_PASSWORD or UNRAID_SSH_KEY_PATH",
+      });
+    }
+    if (
+      env.MCP_TRANSPORT === "http" &&
+      !env.MCP_HTTP_BEARER_TOKEN &&
+      !env.MCP_HTTP_ALLOW_UNAUTHENTICATED
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MCP_HTTP_BEARER_TOKEN"],
+        message:
+          "MCP_TRANSPORT=http requires MCP_HTTP_BEARER_TOKEN, or MCP_HTTP_ALLOW_UNAUTHENTICATED=true to explicitly run an open endpoint on a trusted network",
       });
     }
   });

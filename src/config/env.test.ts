@@ -29,6 +29,46 @@ describe("loadEnv", () => {
   it("throws when the URL is not a valid URL", () => {
     expect(() => loadEnv({ ...valid, UNRAID_API_URL: "tower.local" })).toThrow(/UNRAID_API_URL/);
   });
+
+  it("defaults MCP_READ_ONLY to false", () => {
+    const env = loadEnv(valid);
+
+    expect(env.MCP_READ_ONLY).toBe(false);
+  });
+
+  it("parses MCP_READ_ONLY=true", () => {
+    const env = loadEnv({ ...valid, MCP_READ_ONLY: "true" });
+
+    expect(env.MCP_READ_ONLY).toBe(true);
+  });
+});
+
+describe("loadEnv HTTP authentication", () => {
+  it("rejects http transport without a bearer token", () => {
+    expect(() => loadEnv({ ...valid, MCP_TRANSPORT: "http" })).toThrow(/MCP_HTTP_BEARER_TOKEN/);
+  });
+
+  it("accepts http transport with a bearer token", () => {
+    const env = loadEnv({ ...valid, MCP_TRANSPORT: "http", MCP_HTTP_BEARER_TOKEN: "secret-token" });
+
+    expect(env.MCP_HTTP_BEARER_TOKEN).toBe("secret-token");
+  });
+
+  it("accepts http transport with explicit unauthenticated opt-in", () => {
+    const env = loadEnv({
+      ...valid,
+      MCP_TRANSPORT: "http",
+      MCP_HTTP_ALLOW_UNAUTHENTICATED: "true",
+    });
+
+    expect(env.MCP_HTTP_ALLOW_UNAUTHENTICATED).toBe(true);
+  });
+
+  it("keeps stdio transport free of the bearer requirement", () => {
+    const env = loadEnv(valid);
+
+    expect(env.MCP_HTTP_BEARER_TOKEN).toBeUndefined();
+  });
 });
 
 describe("loadEnv SSH configuration", () => {

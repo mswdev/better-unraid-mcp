@@ -110,3 +110,57 @@ describe("routeRequest", () => {
     expect(calls.status).toBe(413);
   });
 });
+
+/** Builds a fake IncomingMessage with headers, yielding `body` as one chunk. */
+function fakeAuthedRequest(headers: Record<string, string>, body = "{}"): IncomingMessage {
+  const request = fakeRequest("POST", "/mcp", body) as IncomingMessage & {
+    headers: Record<string, string>;
+  };
+  request.headers = headers;
+  return request;
+}
+
+describe("routeRequest bearer auth", () => {
+  const authedOptions: HttpTransportOptions = { ...options, bearerToken: "expected-token" };
+
+  it("rejects a request with no Authorization header", async () => {
+    const { response, calls } = fakeResponse();
+
+    await routeRequest(fakeAuthedRequest({}), response, authedOptions);
+
+    expect(calls.status).toBe(401);
+    expect(calls.body).toContain("Unauthorized");
+  });
+
+  it("rejects a wrong token", async () => {
+    const { response, calls } = fakeResponse();
+
+    await routeRequest(
+      fakeAuthedRequest({ authorization: "Bearer wrong-token" }),
+      response,
+      authedOptions,
+    );
+
+    expect(calls.status).toBe(401);
+  });
+
+  it("rejects a non-bearer scheme", async () => {
+    const { response, calls } = fakeResponse();
+
+    await routeRequest(fakeAuthedRequest({ authorization: "Basic abc" }), response, authedOptions);
+
+    expect(calls.status).toBe(401);
+  });
+
+  it("passes a correct token through to the MCP handler", async () => {
+    const { response, calls } = fakeResponse();
+
+    await routeRequest(
+      fakeAuthedRequest({ authorization: "Bearer expected-token" }),
+      response,
+      authedOptions,
+    );
+
+    expect(calls.status).not.toBe(401);
+  });
+});

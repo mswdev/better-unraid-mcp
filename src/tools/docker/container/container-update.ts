@@ -1,14 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { GraphQLExecutor } from "../../graphql/client.js";
+import type { GraphQLExecutor } from "../../../graphql/client.js";
 import {
   DockerUpdateAllDocument,
   DockerUpdateContainersDocument,
-} from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { stripLeadingSlash } from "./_shared.js";
+} from "../../../types/unraid/graphql.js";
+import { requireConfirmation } from "../../_shared/confirm.js";
+import { type ResponseFormat, formatResponse, toolError } from "../../_shared/respond.js";
+import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_update";
 

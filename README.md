@@ -133,6 +133,8 @@ Ask your client:
 
 Read-only tools never change anything. Destructive tools always require `confirm: true`; without it they refuse and never touch your server.
 
+**Cautious by default.** Set `MCP_READ_ONLY=true` and the server registers only read-only tools — state-changing tools are structurally absent from the listing, not merely rejected. All tool output passes through secret redaction (your configured API key, SSH password, bearer token, credential-shaped key/values, and JWTs are replaced with `[redacted]`), a client-side rate limiter keeps request bursts inside the Unraid API's configured throttle, and oversized JSON results are truncated into an envelope that always survives `JSON.parse`.
+
 ### System and storage
 
 | Tool | Type | Description |
@@ -143,6 +145,10 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `disk_list` | read-only | Physical disks with model, size, SMART status, temperature, and partitions. |
 | `share_list` | read-only | User shares with usage; filter by name. |
 | `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
+| `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks/temps, parity, notifications, UPS, and pending container updates. Start here. |
+| `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves. |
+| `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
+| `system_power` | destructive | Reboots or shuts down the whole server over SSH. Requires `confirm: true` and `acknowledge_risk: true`. |
 
 ### Array control
 
@@ -162,7 +168,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `docker_network_list` | read-only | Docker networks (driver, scope, IPv6/internal/attachable). |
 | `docker_port_conflicts` | read-only | Container and LAN port conflicts. |
 | `docker_stats` | read-only | Per-container CPU, memory, network, and block IO usage, hungriest first. Needs SSH configured (see Host shell). |
-| `docker_container_action` | destructive | Start, stop, pause, or unpause a container. |
+| `docker_container_action` | destructive | Start, stop, pause, unpause, or restart a container (restart is composed stop-then-start; the API has no restart mutation). |
 | `docker_container_remove` | destructive | Permanently deletes a container (irreversible); optionally deletes its image. Needs Unraid 7.3+. |
 | `docker_container_update` | destructive | Pulls the latest image and recreates containers, by id or all with updates. Needs Unraid 7.3+. |
 | `docker_autostart_set` | destructive | Sets which containers auto-start on boot, merge-safely preserving boot order. Needs Unraid 7.3+. |
@@ -239,6 +245,9 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 | `MCP_HTTP_HOST` | no | `127.0.0.1` | Bind address for the `http` transport. |
 | `MCP_HTTP_ALLOWED_HOSTS` | no | | Comma-separated `Host` allow-list; enables DNS-rebinding protection. |
 | `UNRAID_ALLOW_SELF_SIGNED` | no | `false` | Set `true` only for a self-signed TLS certificate on the LAN. |
+| `MCP_READ_ONLY` | no | `false` | Set `true` to hide every state-changing tool — the server registers read-only tools only. |
+| `MCP_HTTP_BEARER_TOKEN` | http | | Required for the `http` transport: clients must send `Authorization: Bearer <token>`. |
+| `MCP_HTTP_ALLOW_UNAUTHENTICATED` | no | `false` | Explicit opt-in to run the `http` transport with no auth (trusted networks only). |
 | `LOG_LEVEL` | no | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`. |
 | `UNRAID_SSH_HOST` | no | | Enables the host-shell tools (`file_read`, `shell_exec`, `docker_stats`). Requires a password or key path. |
 | `UNRAID_SSH_PORT` | no | `22` | SSH port. |
@@ -254,14 +263,24 @@ For remote or hosted clients, run over Streamable HTTP instead of stdio:
 
 ```bash
 MCP_TRANSPORT=http \
+MCP_HTTP_BEARER_TOKEN=some-long-random-token \
 UNRAID_API_URL=https://tower.local/graphql \
 UNRAID_API_KEY=your-api-key \
 npx -y better-unraid-mcp@latest
 ```
 
-The MCP endpoint is then `POST http://host:3000/mcp`.
+The MCP endpoint is then `POST http://host:3000/mcp`, and every request must carry the token:
 
-> **Warning:** the HTTP transport performs no authentication of inbound requests, and every request uses your privileged Unraid API key upstream. It binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), put it behind a reverse proxy that adds authentication and TLS, and set `MCP_HTTP_ALLOWED_HOSTS`. Never expose the raw endpoint to an untrusted network.
+```bash
+curl -X POST http://host:3000/mcp \
+  -H "Authorization: Bearer some-long-random-token" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To deliberately run an open endpoint on a trusted network, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` (a warning is logged at startup). Requests without a matching token get a 401; token comparison is constant-time.
+
+> **Warning:** every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), add TLS via a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
 
 ## Security
 

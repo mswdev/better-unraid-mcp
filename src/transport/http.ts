@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -5,12 +6,15 @@ import type { Logger } from "pino";
 
 const MCP_PATH = "/mcp";
 const STATUS_BAD_REQUEST = 400;
+const STATUS_UNAUTHORIZED = 401;
 const STATUS_NOT_FOUND = 404;
 const STATUS_PAYLOAD_TOO_LARGE = 413;
 const STATUS_SERVER_ERROR = 500;
 const JSON_RPC_PARSE_ERROR = -32700;
 const JSON_RPC_INTERNAL_ERROR = -32603;
+const JSON_RPC_UNAUTHORIZED = -32001;
 const MAX_BODY_BYTES = 1_000_000;
+const BEARER_PREFIX = "Bearer ";
 
 /** Options controlling the stateless Streamable HTTP server. */
 export interface HttpTransportOptions {
@@ -18,6 +22,11 @@ export interface HttpTransportOptions {
   port: number;
   host: string;
   allowedHosts?: string[];
+  /**
+   * Static token every request must present as `Authorization: Bearer <token>`;
+   * omit only for an explicitly unauthenticated server.
+   */
+  bearerToken?: string;
   logger: Logger;
 }
 
@@ -75,6 +84,49 @@ function writeJsonRpcError(
   response.writeHead(details.status, { "content-type": "application/json" }).end(body);
 }
 
+/** Constant-time token comparison over fixed-length digests (no length leak). */
+function tokensMatch(provided: string, expected: string): boolean {
+  const providedDigest = createHash("sha256").update(provided).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
+
+/** Extracts the bearer token from the Authorization header, if present. */
+function extractBearerToken(request: IncomingMessage): string | undefined {
+  const header = request.headers?.authorization;
+  if (typeof header !== "string" || !header.startsWith(BEARER_PREFIX)) {
+    return undefined;
+  }
+  return header.slice(BEARER_PREFIX.length);
+}
+
+/** True when no token is required, or the request presents the right one. */
+function isAuthorized(request: IncomingMessage, expectedToken: string | undefined): boolean {
+  if (expectedToken === undefined) {
+    return true;
+  }
+  const provided = extractBearerToken(request);
+  return provided !== undefined && tokensMatch(provided, expectedToken);
+}
+
+/** Writes a 401 with a WWW-Authenticate challenge, JSON-RPC shaped. */
+function writeUnauthorized(response: ServerResponse): void {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    error: {
+      code: JSON_RPC_UNAUTHORIZED,
+      message: "Unauthorized: missing or invalid bearer token",
+    },
+    id: null,
+  });
+  response
+    .writeHead(STATUS_UNAUTHORIZED, {
+      "content-type": "application/json",
+      "www-authenticate": "Bearer",
+    })
+    .end(body);
+}
+
 /** Writes a plain 404 with a diagnostic hint. */
 function writeNotFound(response: ServerResponse): void {
   const body = JSON.stringify({ error: "Not found. POST JSON-RPC to /mcp." });
@@ -124,6 +176,10 @@ export async function routeRequest(
 ): Promise<void> {
   if (request.method !== "POST" || requestPath(request) !== MCP_PATH) {
     writeNotFound(response);
+    return;
+  }
+  if (!isAuthorized(request, options.bearerToken)) {
+    writeUnauthorized(response);
     return;
   }
   try {

@@ -2,7 +2,7 @@ import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { type DocumentNode, Kind, type OperationTypeNode, parse, visit } from "graphql";
 import { toolText } from "../_shared/respond.js";
-import { truncateOutputKeepingHead } from "../_shared/truncate-output.js";
+import { truncateJsonPayload } from "../_shared/truncate-output.js";
 
 const JSON_INDENT_SPACES = 2;
 
@@ -66,12 +66,13 @@ export function findRiskyFields(document: DocumentNode): string[] {
 }
 
 /**
- * Renders a raw GraphQL data payload as pretty-printed JSON, head-truncated
- * so oversized results keep their top-level structure.
+ * Renders a raw GraphQL data payload as pretty-printed JSON. Oversized
+ * payloads are replaced by a parseable truncation envelope carrying the head
+ * of the serialization, so the output always survives JSON.parse.
  *
  * @param data - The operation's data payload.
- * @returns A successful tool result carrying the (possibly capped) JSON.
+ * @returns A successful tool result carrying the (possibly enveloped) JSON.
  */
 export function renderJsonResult(data: unknown): CallToolResult {
-  return toolText(truncateOutputKeepingHead(JSON.stringify(data, null, JSON_INDENT_SPACES)));
+  return toolText(truncateJsonPayload(JSON.stringify(data, null, JSON_INDENT_SPACES)));
 }

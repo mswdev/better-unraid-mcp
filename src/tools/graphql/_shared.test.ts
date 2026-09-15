@@ -55,12 +55,14 @@ describe("findRiskyFields", () => {
 });
 
 describe("renderJsonResult", () => {
-  it("head-truncates oversized JSON so the top-level structure survives", () => {
+  it("replaces oversized JSON with a parseable truncation envelope", () => {
     const result = renderJsonResult({ content: "x".repeat(40_000) });
 
-    const text = firstText(result);
-    expect(text.startsWith("{")).toBe(true);
-    expect(text).toContain("truncated");
-    expect(text).toContain("narrow the selection");
+    const envelope = JSON.parse(firstText(result)) as {
+      truncated: boolean;
+      partial_json_head: string;
+    };
+    expect(envelope.truncated).toBe(true);
+    expect(envelope.partial_json_head.startsWith("{")).toBe(true);
   });
 });

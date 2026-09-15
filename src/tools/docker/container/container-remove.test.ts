@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   DockerRemoveContainerDocument,
   type DockerRemoveContainerMutation,
-} from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+} from "../../../types/unraid/graphql.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerRemoveHandler } from "./container-remove.js";
 
 describe("docker_container_remove handler", () => {
