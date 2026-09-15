@@ -9,6 +9,7 @@ import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
+import { registerDiskSpin } from "./disk/disk-spin.js";
 import { registerDockerAutostartSet } from "./docker/autostart-set.js";
 import { registerDockerContainerAction } from "./docker/container/container-action.js";
 import { registerDockerContainerList } from "./docker/container/container-list.js";
@@ -47,6 +48,8 @@ import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerSystemPower } from "./system/system-power.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
+import { registerUserScriptList } from "./userscripts/user-script-list.js";
+import { registerUserScriptRun } from "./userscripts/user-script-run.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 import { registerZfsDatasetList } from "./zfs/zfs-dataset-list.js";
@@ -161,6 +164,9 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
+  { isMutating: true, register: (server, { shell }) => registerDiskSpin(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerUserScriptList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerUserScriptRun(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerGpuMetrics(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerProcessList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsStatus(server, shell) },
