@@ -3,6 +3,16 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 /** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
+export type AddPermissionInput = {
+  actions: Array<AuthAction>;
+  resource: Resource;
+};
+
+export type AddRoleForApiKeyInput = {
+  apiKeyId: string;
+  role: Role;
+};
+
 export type ArrayDiskInput = {
   /** Disk ID */
   id: string;
@@ -50,6 +60,25 @@ export type ArrayStateInputState =
   | 'START'
   | 'STOP';
 
+/** Authentication actions with possession (e.g., create:any, read:own) */
+export type AuthAction =
+  /** Create any resource */
+  | 'CREATE_ANY'
+  /** Create own resource */
+  | 'CREATE_OWN'
+  /** Delete any resource */
+  | 'DELETE_ANY'
+  /** Delete own resource */
+  | 'DELETE_OWN'
+  /** Read any resource */
+  | 'READ_ANY'
+  /** Read own resource */
+  | 'READ_OWN'
+  /** Update any resource */
+  | 'UPDATE_ANY'
+  /** Update own resource */
+  | 'UPDATE_OWN';
+
 export type ContainerPortType =
   | 'TCP'
   | 'UDP';
@@ -58,6 +87,19 @@ export type ContainerState =
   | 'EXITED'
   | 'PAUSED'
   | 'RUNNING';
+
+export type CreateApiKeyInput = {
+  description?: string | null | undefined;
+  name: string;
+  /** This will replace the existing key if one already exists with the same name, otherwise returns the existing key */
+  overwrite?: boolean | null | undefined;
+  permissions?: Array<AddPermissionInput> | null | undefined;
+  roles?: Array<Role> | null | undefined;
+};
+
+export type DeleteApiKeyInput = {
+  ids: Array<string>;
+};
 
 /** The type of filesystem on the disk partition */
 export type DiskFsType =
@@ -131,6 +173,54 @@ export type PluginManagementInput = {
   restart?: boolean;
 };
 
+export type RemoveRoleFromApiKeyInput = {
+  apiKeyId: string;
+  role: Role;
+};
+
+/** Available resources for permissions */
+export type Resource =
+  | 'ACTIVATION_CODE'
+  | 'API_KEY'
+  | 'ARRAY'
+  | 'CLOUD'
+  | 'CONFIG'
+  | 'CONNECT'
+  | 'CONNECT__REMOTE_ACCESS'
+  | 'CUSTOMIZATIONS'
+  | 'DASHBOARD'
+  | 'DISK'
+  | 'DISPLAY'
+  | 'DOCKER'
+  | 'FLASH'
+  | 'INFO'
+  | 'LOGS'
+  | 'ME'
+  | 'NETWORK'
+  | 'NOTIFICATIONS'
+  | 'ONLINE'
+  | 'OS'
+  | 'OWNER'
+  | 'PERMISSION'
+  | 'REGISTRATION'
+  | 'SERVERS'
+  | 'SERVICES'
+  | 'SHARE'
+  | 'VARS'
+  | 'VMS'
+  | 'WELCOME';
+
+/** Available roles for API keys and users */
+export type Role =
+  /** Full administrative access to all resources */
+  | 'ADMIN'
+  /** Internal Role for Unraid Connect */
+  | 'CONNECT'
+  /** Basic read access to user profile only */
+  | 'GUEST'
+  /** Read-only access to all resources */
+  | 'VIEWER';
+
 /** Type of temperature sensor */
 export type SensorType =
   | 'AMBIENT'
@@ -156,6 +246,14 @@ export type TemperatureUnit =
   | 'KELVIN'
   | 'RANKINE';
 
+export type UpdateApiKeyInput = {
+  description?: string | null | undefined;
+  id: string;
+  name?: string | null | undefined;
+  permissions?: Array<AddPermissionInput> | null | undefined;
+  roles?: Array<Role> | null | undefined;
+};
+
 /** The state of a virtual machine */
 export type VmState =
   | 'CRASHED'
@@ -166,6 +264,46 @@ export type VmState =
   | 'RUNNING'
   | 'SHUTDOWN'
   | 'SHUTOFF';
+
+export type ApiKeyListQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ApiKeyListQuery = { apiKeys: Array<{ id: string, name: string, description: string | null, roles: Array<Role>, createdAt: string, permissions: Array<{ resource: Resource, actions: Array<AuthAction> }> }> };
+
+export type ApiKeyCreateMutationVariables = Exact<{
+  input: CreateApiKeyInput;
+}>;
+
+
+export type ApiKeyCreateMutation = { apiKey: { create: { id: string, name: string, key: string, roles: Array<Role> } } };
+
+export type ApiKeyUpdateMutationVariables = Exact<{
+  input: UpdateApiKeyInput;
+}>;
+
+
+export type ApiKeyUpdateMutation = { apiKey: { update: { id: string, name: string, description: string | null, roles: Array<Role> } } };
+
+export type ApiKeyAddRoleMutationVariables = Exact<{
+  input: AddRoleForApiKeyInput;
+}>;
+
+
+export type ApiKeyAddRoleMutation = { apiKey: { addRole: boolean } };
+
+export type ApiKeyRemoveRoleMutationVariables = Exact<{
+  input: RemoveRoleFromApiKeyInput;
+}>;
+
+
+export type ApiKeyRemoveRoleMutation = { apiKey: { removeRole: boolean } };
+
+export type ApiKeyDeleteMutationVariables = Exact<{
+  input: DeleteApiKeyInput;
+}>;
+
+
+export type ApiKeyDeleteMutation = { apiKey: { delete: boolean } };
 
 export type ArraySetStateMutationVariables = Exact<{
   input: ArrayStateInput;
@@ -548,6 +686,12 @@ export type VmListQueryVariables = Exact<{ [key: string]: never; }>;
 export type VmListQuery = { vms: { domains: Array<{ id: string, name: string | null, state: VmState }> | null } };
 
 
+export const ApiKeyListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ApiKeyList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resource"}},{"kind":"Field","name":{"kind":"Name","value":"actions"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyListQuery, ApiKeyListQueryVariables>;
+export const ApiKeyCreateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyCreate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"create"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyCreateMutation, ApiKeyCreateMutationVariables>;
+export const ApiKeyUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"update"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyUpdateMutation, ApiKeyUpdateMutationVariables>;
+export const ApiKeyAddRoleDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyAddRole"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddRoleForApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addRole"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyAddRoleMutation, ApiKeyAddRoleMutationVariables>;
+export const ApiKeyRemoveRoleDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyRemoveRole"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RemoveRoleFromApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeRole"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyRemoveRoleMutation, ApiKeyRemoveRoleMutationVariables>;
+export const ApiKeyDeleteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyDelete"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeleteApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"delete"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyDeleteMutation, ApiKeyDeleteMutationVariables>;
 export const ArraySetStateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArraySetState"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ArrayStateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setState"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]}}]} as unknown as DocumentNode<ArraySetStateMutation, ArraySetStateMutationVariables>;
 export const ArrayStateProbeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ArrayStateProbe"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]} as unknown as DocumentNode<ArrayStateProbeQuery, ArrayStateProbeQueryVariables>;
 export const ArrayDiskAddDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskAdd"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ArrayDiskInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addDiskToArray"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayDiskAddMutation, ArrayDiskAddMutationVariables>;

@@ -1,6 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import type { ShellExecutor } from "../shell/executor.js";
+import { registerApiKeyList } from "./apikey/apikey-list.js";
+import { registerApiKeyManage } from "./apikey/apikey-manage.js";
 import { registerArrayAction } from "./array/array-action.js";
 import { registerArrayDiskAction } from "./array/array-disk-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
@@ -136,6 +138,8 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerPluginList(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginAdd(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginRemove(server, client) },
+  { isMutating: false, register: (server, { client }) => registerApiKeyList(server, client) },
+  { isMutating: true, register: (server, { client }) => registerApiKeyManage(server, client) },
   { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
   { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
