@@ -1,5 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
+import type { LiveSnapshotStore } from "../graphql/live-store.js";
+import type { SubscriptionFeed } from "../graphql/subscription-feed.js";
 import type { ShellExecutor } from "../shell/executor.js";
 import { registerApiKeyList } from "./apikey/apikey-list.js";
 import { registerApiKeyManage } from "./apikey/apikey-manage.js";
@@ -65,6 +67,10 @@ export interface RegistryOptions {
   client: GraphQLExecutor;
   shell: ShellExecutor | null;
   readOnly: boolean;
+  /** Live subscription feed (WebSocket); absent in minimal setups/tests. */
+  feed?: SubscriptionFeed | null;
+  /** Latest live samples, shared between resources and tools. */
+  liveStore?: LiveSnapshotStore | null;
 }
 
 /** One tool's registry entry: whether it mutates server state, and how to register it. */
@@ -179,7 +185,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { shell }) => registerZfsDatasetList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
-  { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
+  {
+    isMutating: false,
+    register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),
+  },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
   { isMutating: false, register: (server, { client }) => registerGraphqlQuery(server, client) },
