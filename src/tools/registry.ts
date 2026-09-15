@@ -9,6 +9,8 @@ import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
+import { registerDiskSmartReport } from "./disk/disk-smart-report.js";
+import { registerDiskSpin } from "./disk/disk-spin.js";
 import { registerDockerAutostartSet } from "./docker/autostart-set.js";
 import { registerDockerContainerAction } from "./docker/container/container-action.js";
 import { registerDockerContainerList } from "./docker/container/container-list.js";
@@ -40,13 +42,23 @@ import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
 import { registerConnectionDoctor } from "./system/connection-doctor.js";
+import { registerGpuMetrics } from "./system/gpu-metrics.js";
+import { registerProcessList } from "./system/process-list.js";
 import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerSystemPower } from "./system/system-power.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
+import { registerUserScriptList } from "./userscripts/user-script-list.js";
+import { registerUserScriptRun } from "./userscripts/user-script-run.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
+import { registerVmSnapshotCreate } from "./vm/vm-snapshot-create.js";
+import { registerVmSnapshotList } from "./vm/vm-snapshot-list.js";
+import { registerZfsDatasetList } from "./zfs/zfs-dataset-list.js";
+import { registerZfsSnapshotAction } from "./zfs/zfs-snapshot-action.js";
+import { registerZfsSnapshotList } from "./zfs/zfs-snapshot-list.js";
+import { registerZfsStatus } from "./zfs/zfs-status.js";
 
 /** Dependencies and mode shared by every tool registration. */
 export interface RegistryOptions {
@@ -155,6 +167,18 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
+  { isMutating: true, register: (server, { shell }) => registerDiskSpin(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerDiskSmartReport(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerVmSnapshotList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerVmSnapshotCreate(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerUserScriptList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerUserScriptRun(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerGpuMetrics(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerProcessList(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerZfsStatus(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerZfsDatasetList(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
