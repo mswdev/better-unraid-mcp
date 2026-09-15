@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
+import { cacheAgeMs } from "../../../graphql/snapshot-cache.js";
 import {
   DockerContainerListDocument,
   type DockerContainerListQuery,
@@ -57,7 +58,8 @@ export function createDockerContainerListHandler(client: GraphQLExecutor) {
     try {
       const data = await client.execute(DockerContainerListDocument);
       const containers = filterByName(data.docker.containers, name);
-      return formatResponse(response_format, summarize(containers), containers);
+      const detailed = { containers, data_age_ms: cacheAgeMs(data) ?? 0 };
+      return formatResponse(response_format, summarize(containers), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch Docker containers: ${message}`);

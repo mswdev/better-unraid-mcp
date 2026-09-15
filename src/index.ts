@@ -1,10 +1,12 @@
 import type { Logger } from "pino";
 import { type Env, loadEnv } from "./config/env.js";
 import { UnraidClient } from "./graphql/client.js";
+import { CachingExecutor } from "./graphql/snapshot-cache.js";
 import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
+import { SessionStore } from "./transport/http-sessions.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
 
@@ -30,6 +32,7 @@ function buildShellExecutor(env: Env): ShellExecutor | null {
     username: env.UNRAID_SSH_USER,
     password: env.UNRAID_SSH_PASSWORD,
     privateKeyPath: env.UNRAID_SSH_KEY_PATH,
+    idleSeconds: env.UNRAID_SSH_IDLE_SECONDS,
   });
 }
 
@@ -45,7 +48,8 @@ async function main(): Promise<void> {
     allowSelfSigned: env.UNRAID_ALLOW_SELF_SIGNED,
   });
   const shell = buildShellExecutor(env);
-  const registryOptions = { client, shell, readOnly: env.MCP_READ_ONLY };
+  const executor = new CachingExecutor(client);
+  const registryOptions = { client: executor, shell, readOnly: env.MCP_READ_ONLY };
 
   if (env.MCP_TRANSPORT === "http") {
     if (!env.MCP_HTTP_BEARER_TOKEN) {
@@ -53,12 +57,21 @@ async function main(): Promise<void> {
         "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
       );
     }
+    const buildForRequest = () => buildServer(registryOptions);
+    const sessionStore = env.MCP_HTTP_SESSIONS
+      ? new SessionStore({
+          buildServer: buildForRequest,
+          allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+          logger,
+        })
+      : undefined;
     await startHttp({
-      buildServer: () => buildServer(registryOptions),
+      buildServer: buildForRequest,
       port: env.MCP_HTTP_PORT,
       host: env.MCP_HTTP_HOST,
       allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
       bearerToken: env.MCP_HTTP_BEARER_TOKEN,
+      sessionStore,
       logger,
     });
     return;

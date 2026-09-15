@@ -41,6 +41,18 @@ describe("loadEnv", () => {
 
     expect(env.MCP_READ_ONLY).toBe(true);
   });
+
+  it("defaults UNRAID_SSH_IDLE_SECONDS to 90", () => {
+    const env = loadEnv(valid);
+
+    expect(env.UNRAID_SSH_IDLE_SECONDS).toBe(90);
+  });
+
+  it("parses a custom UNRAID_SSH_IDLE_SECONDS", () => {
+    const env = loadEnv({ ...valid, UNRAID_SSH_IDLE_SECONDS: "300" });
+
+    expect(env.UNRAID_SSH_IDLE_SECONDS).toBe(300);
+  });
 });
 
 describe("loadEnv HTTP authentication", () => {
@@ -62,6 +74,11 @@ describe("loadEnv HTTP authentication", () => {
     });
 
     expect(env.MCP_HTTP_ALLOW_UNAUTHENTICATED).toBe(true);
+  });
+
+  it("defaults MCP_HTTP_SESSIONS to false and parses true", () => {
+    expect(loadEnv(valid).MCP_HTTP_SESSIONS).toBe(false);
+    expect(loadEnv({ ...valid, MCP_HTTP_SESSIONS: "true" }).MCP_HTTP_SESSIONS).toBe(true);
   });
 
   it("keeps stdio transport free of the bearer requirement", () => {

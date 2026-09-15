@@ -133,6 +133,8 @@ Ask your client:
 
 Read-only tools never change anything. Destructive tools always require `confirm: true`; without it they refuse and never touch your server.
 
+**Fast by default.** The SSH channel is a single kept-alive connection (lazy connect, keepalive probes, auto-reconnect, idle disconnect after `UNRAID_SSH_IDLE_SECONDS`) instead of a handshake per command. GraphQL requests reuse a keep-alive HTTP agent, carry a hard 30 s timeout, and idempotent queries get a small jittered retry on transient failures. The hottest reads (`system_metrics`, `array_status`, `docker_container_list`) are served from a 5-second snapshot cache — detailed output includes `data_age_ms` so you always know how fresh the data is. Long-running `shell_exec` and `docker_container_update` calls emit MCP progress notifications when the client requests them (stdio or session-mode HTTP).
+
 **Cautious by default.** Set `MCP_READ_ONLY=true` and the server registers only read-only tools — state-changing tools are structurally absent from the listing, not merely rejected. All tool output passes through secret redaction (your configured API key, SSH password, bearer token, credential-shaped key/values, and JWTs are replaced with `[redacted]`), a client-side rate limiter keeps request bursts inside the Unraid API's configured throttle, and oversized JSON results are truncated into an envelope that always survives `JSON.parse`.
 
 ### System and storage
@@ -254,6 +256,8 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 | `UNRAID_SSH_USER` | no | `root` | SSH user. Unraid administration is normally `root`. |
 | `UNRAID_SSH_PASSWORD` | no | | SSH password. Prefer `UNRAID_SSH_KEY_PATH` where possible. |
 | `UNRAID_SSH_KEY_PATH` | no | | Path to an SSH private key file (readable by the MCP server process). |
+| `UNRAID_SSH_IDLE_SECONDS` | no | `90` | Idle seconds before the persistent SSH connection is closed (it reconnects lazily). |
+| `MCP_HTTP_SESSIONS` | no | `false` | Set `true` for stateful HTTP sessions (SSE responses). Enables server-initiated messages — progress notifications now, elicitation and subscriptions in later releases. |
 
 See [`.env.example`](.env.example) for a copy-paste template.
 
@@ -277,6 +281,8 @@ curl -X POST http://host:3000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+By default the endpoint is stateless: each POST gets a complete JSON response, and server-initiated messages (progress notifications, and in later releases elicitation prompts and subscription updates) are silently unavailable. Set `MCP_HTTP_SESSIONS=true` to switch to stateful streamable-HTTP sessions: the client initializes once, carries the returned `mcp-session-id` header, receives SSE responses that can carry server-initiated messages, and may end the session with a DELETE. Idle sessions expire after 5 minutes.
 
 The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To deliberately run an open endpoint on a trusted network, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` (a warning is logged at startup). Requests without a matching token get a 401; token comparison is constant-time.
 

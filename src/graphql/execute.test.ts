@@ -41,4 +41,33 @@ describe("executeGraphQL", () => {
       ),
     ).rejects.toThrow(/401/);
   });
+
+  it("passes an abort signal to the fetch implementation", async () => {
+    let seenSignal: unknown;
+    const fetchImpl = async (_url: string, init: Record<string, unknown>) => {
+      seenSignal = init.signal;
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({ data: {} }),
+      } as Response;
+    };
+
+    await executeGraphQL({ endpoint: "http://x/graphql", apiKey: "k", fetchImpl }, PingDoc);
+
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("maps an abort rejection to a clean timeout error", async () => {
+    const fetchImpl = async () => {
+      const error = new Error("This operation was aborted");
+      error.name = "TimeoutError";
+      throw error;
+    };
+
+    await expect(
+      executeGraphQL({ endpoint: "http://x/graphql", apiKey: "k", fetchImpl }, PingDoc),
+    ).rejects.toThrow(/timed out after 30000 ms/);
+  });
 });

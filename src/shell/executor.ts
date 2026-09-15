@@ -4,6 +4,20 @@ import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
 /** How long to wait for the SSH handshake before giving up. */
 const CONNECT_TIMEOUT_MS = 10_000;
 
+/** ssh2 keepalive probe interval, so NAT/firewall state stays warm. */
+const KEEPALIVE_INTERVAL_MS = 15_000;
+
+/** Missed keepalive probes before ssh2 declares the connection dead. */
+const KEEPALIVE_COUNT_MAX = 3;
+
+/** Upper bound on concurrent exec channels over the one connection. */
+const MAX_CONCURRENT_CHANNELS = 4;
+
+/** Idle seconds before the kept-alive connection is closed. */
+const DEFAULT_IDLE_SECONDS = 90;
+
+const MS_PER_SECOND = 1_000;
+
 /** Result of one remote command: both output streams plus the exit code. */
 export interface ShellResult {
   stdout: string;
@@ -23,25 +37,46 @@ export interface SshSettings {
   username: string;
   password?: string;
   privateKeyPath?: string;
+  /** Idle seconds before disconnecting; defaults to 90. */
+  idleSeconds?: number;
 }
 
+/** One open SSH connection, reduced to what the executor needs. Test seam. */
+export interface SshConnection {
+  exec(command: string): Promise<ShellResult>;
+  end(): void;
+  onClose(listener: () => void): void;
+}
+
+/** Opens a connection; injectable so tests never touch the network. */
+export type SshConnectionFactory = (config: ConnectConfig) => Promise<SshConnection>;
+
 /**
- * Runs each command over a fresh SSH connection to the Unraid host. A
- * connection per call keeps the executor stateless (matching the GraphQL
- * client) and avoids stale-socket handling; host diagnostics are low-volume
- * so the handshake cost is acceptable.
+ * Runs commands over ONE kept-alive SSH connection: lazy connect on first
+ * use, ssh2 keepalive probes, automatic reconnect after a drop, disconnect
+ * after an idle window, and a bounded number of concurrent exec channels.
+ * The `ShellExecutor` interface is unchanged, so tools and fakes are
+ * untouched.
  */
 export class SshShellExecutor implements ShellExecutor {
   private readonly connectConfig: ConnectConfig;
+  private readonly idleMs: number;
+  private readonly factory: SshConnectionFactory;
+  private connection: SshConnection | null = null;
+  private connecting: Promise<SshConnection> | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
+  private activeChannels = 0;
+  private readonly waiters: Array<() => void> = [];
 
   /**
    * Builds the executor, reading the private key file (when configured) once
    * up front so a bad key path fails at startup instead of on first use.
    *
-   * @param settings - Host, port, user, and credential configuration.
+   * @param settings - Host, port, user, credential, and idle configuration.
+   * @param connectionFactory - Injectable connection opener (tests only).
    * @throws Error when the configured private key file cannot be read.
    */
-  constructor(settings: SshSettings) {
+  constructor(settings: SshSettings, connectionFactory: SshConnectionFactory = openSshConnection) {
     this.connectConfig = {
       host: settings.host,
       port: settings.port,
@@ -49,11 +84,15 @@ export class SshShellExecutor implements ShellExecutor {
       password: settings.password,
       privateKey: settings.privateKeyPath ? readFileSync(settings.privateKeyPath) : undefined,
       readyTimeout: CONNECT_TIMEOUT_MS,
+      keepaliveInterval: KEEPALIVE_INTERVAL_MS,
+      keepaliveCountMax: KEEPALIVE_COUNT_MAX,
     };
+    this.idleMs = (settings.idleSeconds ?? DEFAULT_IDLE_SECONDS) * MS_PER_SECOND;
+    this.factory = connectionFactory;
   }
 
   /**
-   * Connects, runs one command, and always closes the connection.
+   * Runs one command on the shared connection, connecting lazily first.
    *
    * @param command - The shell command to run on the host.
    * @param timeoutMs - Overall deadline for the command (and for connecting).
@@ -61,13 +100,99 @@ export class SshShellExecutor implements ShellExecutor {
    * @throws Error on connection failure, auth failure, or timeout.
    */
   async execute(command: string, timeoutMs: number): Promise<ShellResult> {
-    const connection = await withTimeout(connect(this.connectConfig), timeoutMs, "connect");
+    const connection = await withTimeout(this.acquireConnection(), timeoutMs, "connect");
+    await this.acquireChannel();
     try {
-      return await withTimeout(run(connection, command), timeoutMs, "run the command");
+      return await withTimeout(connection.exec(command), timeoutMs, "run the command");
     } finally {
-      connection.end();
+      this.releaseChannel();
     }
   }
+
+  /** Returns the live connection, opening one (once) when absent. */
+  private async acquireConnection(): Promise<SshConnection> {
+    if (this.connection) {
+      return this.connection;
+    }
+    this.connecting ??= this.openConnection();
+    try {
+      return await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
+
+  /** Opens a connection and installs the auto-reconnect close handler. */
+  private async openConnection(): Promise<SshConnection> {
+    const connection = await this.factory(this.connectConfig);
+    connection.onClose(() => this.dropConnection(connection));
+    this.connection = connection;
+    return connection;
+  }
+
+  /** Forgets a dropped connection so the next call reconnects. */
+  private dropConnection(dropped: SshConnection): void {
+    if (this.connection === dropped) {
+      this.connection = null;
+    }
+  }
+
+  /** Takes a channel slot, waiting when all slots are busy. */
+  private async acquireChannel(): Promise<void> {
+    this.clearIdleTimer();
+    if (this.activeChannels < MAX_CONCURRENT_CHANNELS) {
+      this.activeChannels += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => this.waiters.push(resolve));
+    this.activeChannels += 1;
+  }
+
+  /** Frees a channel slot, waking a waiter or arming the idle timer. */
+  private releaseChannel(): void {
+    this.activeChannels -= 1;
+    const next = this.waiters.shift();
+    if (next) {
+      next();
+      return;
+    }
+    if (this.activeChannels === 0) {
+      this.scheduleIdleDisconnect();
+    }
+  }
+
+  /** Arms the idle-disconnect timer (never blocks process exit). */
+  private scheduleIdleDisconnect(): void {
+    this.clearIdleTimer();
+    this.idleTimer = setTimeout(() => this.disconnectIdle(), this.idleMs);
+    this.idleTimer.unref?.();
+  }
+
+  /** Closes the idle connection; the next call reconnects lazily. */
+  private disconnectIdle(): void {
+    this.connection?.end();
+    this.connection = null;
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
+}
+
+/** The real ssh2-backed connection factory. */
+async function openSshConnection(config: ConnectConfig): Promise<SshConnection> {
+  const client = await connect(config);
+  return {
+    exec: (command) => run(client, command),
+    end: () => client.end(),
+    onClose: (listener) => {
+      client.on("close", listener);
+      client.on("error", listener);
+    },
+  };
 }
 
 /** Opens an SSH connection, resolving once the handshake completes. */

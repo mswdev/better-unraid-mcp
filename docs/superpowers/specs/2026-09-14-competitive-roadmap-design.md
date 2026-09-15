@@ -97,7 +97,7 @@ the `/goal` evaluator uses it plus `npm view better-unraid-mcp version` as evide
 | Phase | Version | Theme | Status |
 |---|---|---|---|
 | 1 | 0.0.4 | Safe by default + daily drivers | released |
-| 2 | 0.0.5 | Connection architecture | not started |
+| 2 | 0.0.5 | Connection architecture | released |
 | 3 | 0.0.6 | Modern MCP surface | not started |
 | 4 | 0.0.7 | Coverage: GraphQL | not started |
 | 5 | 0.0.8 | Coverage: SSH | not started |

@@ -29,3 +29,34 @@ still wanted.
   `: SystemHealthQuery` return annotation (instead of `satisfies`) so tests can
   mutate one field at a time while keeping the codegen-drift tripwire.
 - **Owner input:** Not needed.
+
+## Phase 2 — 0.0.5 "Fast"
+
+### D3: Snapshot-cache age travels via a WeakMap, not a mutated payload
+
+- **Decided:** `CachingExecutor` stamps serve-age in a WeakMap read through
+  `cacheAgeMs(data)`; the three hot tools add `data_age_ms` to their detailed
+  payloads explicitly.
+- **Why:** Injecting a `data_age_ms` field into the typed GraphQL payload
+  would silently violate the generated types and surprise every consumer;
+  the WeakMap keeps the executor honest and the field opt-in per tool.
+- **Alternatives:** Mutating the payload (rejected: type lies); widening
+  `GraphQLExecutor` with an envelope return (rejected: touches every tool).
+- **Owner input:** Not needed.
+
+### D4: shell_exec progress is a heartbeat, not real command progress
+
+- **Decided:** `shell_exec` emits a periodic "still running" heartbeat (every
+  5 s) rather than parsing command output for progress.
+- **Why:** The executor collects output only at command completion; streaming
+  partial output would change the `ShellExecutor` seam the spec says to keep.
+  A heartbeat still gives clients liveness for long commands.
+- **Owner input:** Not needed. Revisit if streaming output becomes a feature.
+
+### D5: Session idle expiry fixed at 5 minutes, not configurable
+
+- **Decided:** `SESSION_IDLE_EXPIRY_MS` is a named constant (300 000), swept
+  every 60 s; no env knob.
+- **Why:** The spec asked for "session map with idle expiry" without a knob;
+  YAGNI until a user reports needing longer-lived idle sessions.
+- **Owner input:** Not needed.
