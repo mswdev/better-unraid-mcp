@@ -34,6 +34,7 @@ import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
+import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerSystemPower } from "./system/system-power.js";
@@ -136,6 +137,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
+  { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
   { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },

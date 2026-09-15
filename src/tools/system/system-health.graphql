@@ -1,0 +1,52 @@
+query SystemHealth {
+  array {
+    state
+    capacity {
+      kilobytes {
+        used
+        total
+      }
+    }
+    parityCheckStatus {
+      status
+      errors
+      running
+    }
+    parities {
+      name
+      status
+      temp
+    }
+    disks {
+      name
+      status
+      temp
+      numErrors
+    }
+    caches {
+      name
+      status
+      temp
+    }
+  }
+  notifications {
+    overview {
+      unread {
+        warning
+        alert
+      }
+    }
+  }
+  upsDevices {
+    name
+    status
+    battery {
+      chargeLevel
+    }
+  }
+  docker {
+    containers {
+      isUpdateAvailable
+    }
+  }
+}
