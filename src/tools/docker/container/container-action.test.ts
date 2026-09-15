@@ -9,7 +9,12 @@ import {
   DockerUnpauseDocument,
   type DockerUnpauseMutation,
 } from "../../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  sequencedExecutor,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
 import { createDockerContainerActionHandler } from "./container-action.js";
 
 // Per-action fixtures are typed `satisfies <Op>Mutation` so codegen/selection
@@ -93,6 +98,72 @@ describe("docker_container_action handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to stop container srv:abc/);
     expect(firstText(result)).toMatch(/daemon down/);
+  });
+});
+
+describe("docker_container_action restart", () => {
+  const containerFixture = { id: "srv:abc", names: ["/plex"], state: "RUNNING", status: "Up" };
+  const stopResult = { docker: { stop: containerFixture } };
+  const startResult = { docker: { start: containerFixture } };
+
+  it("dispatches stop then start", async () => {
+    const { executor, calls } = sequencedExecutor([stopResult, startResult]);
+    const handler = createDockerContainerActionHandler(executor);
+
+    const result = await handler({
+      response_format: "concise",
+      id: "srv:abc",
+      action: "restart",
+      confirm: true,
+    });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0].document).toBe(DockerStopDocument);
+    expect(calls[1].document).toBe(DockerStartDocument);
+    expect(firstText(result)).toContain("Restarted");
+  });
+
+  it("tolerates the stop read-back quirk and still starts", async () => {
+    const { executor, calls } = sequencedExecutor([
+      new Error("Container abc not found after stopping"),
+      startResult,
+    ]);
+    const handler = createDockerContainerActionHandler(executor);
+
+    const result = await handler({
+      response_format: "concise",
+      id: "srv:abc",
+      action: "restart",
+      confirm: true,
+    });
+
+    expect(calls).toHaveLength(2);
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("aborts before start when stop genuinely fails", async () => {
+    const { executor, calls } = sequencedExecutor([new Error("permission denied")]);
+    const handler = createDockerContainerActionHandler(executor);
+
+    const result = await handler({
+      response_format: "concise",
+      id: "srv:abc",
+      action: "restart",
+      confirm: true,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(result.isError).toBe(true);
+  });
+
+  it("refuses without confirm and touches nothing", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createDockerContainerActionHandler(executor);
+
+    const result = await handler({ response_format: "concise", id: "srv:abc", action: "restart" });
+
+    expect(result.isError).toBe(true);
+    expect(calls).toHaveLength(0);
   });
 });
 
