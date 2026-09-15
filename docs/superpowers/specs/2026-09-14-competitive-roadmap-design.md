@@ -101,7 +101,7 @@ the `/goal` evaluator uses it plus `npm view better-unraid-mcp version` as evide
 | 3 | 0.0.6 | Modern MCP surface | released |
 | 4 | 0.0.7 | Coverage: GraphQL | released |
 | 5 | 0.0.8 | Coverage: SSH | released |
-| 6 | 0.0.9 | Live telemetry + launch kit | not started |
+| 6 | 0.0.9 | Live telemetry + launch kit | released |
 
 ## 6. Phase Specifications
 
