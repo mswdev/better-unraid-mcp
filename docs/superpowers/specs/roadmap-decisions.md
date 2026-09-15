@@ -130,3 +130,30 @@ still wanted.
   create disclosed the key value once, phrased to bypass the redactor's
   key:value pattern deliberately.
 - **Owner input:** Not needed.
+
+## Phase 5 — 0.0.8 "Coverage: SSH"
+
+### D12: VM snapshot revert/delete descoped; ZFS snapshot actions ship in full
+
+- **Decided:** VM snapshots ship as `vm_snapshot_list` + `vm_snapshot_create`
+  (external, `virsh snapshot-create-as --atomic --disk-only`); revert and
+  delete are not offered and both tools say to use the Unraid UI for those.
+  ZFS `zfs_snapshot_action` ships create/destroy/rollback in full.
+- **Why:** The spec pre-authorized descoping VM revert/delete if
+  implementation risk proved too high — and it is: correct external-snapshot
+  deletion needs per-disk `blockcommit --pivot` orchestration and a bare
+  `snapshot-revert` corrupts Unraid 7's snapshot chains. ZFS snapshots, by
+  contrast, are single well-defined CLI commands with safe failure modes
+  (rollback refuses non-latest on its own; destroy is validated to only ever
+  target `dataset@snapshot`).
+- **Owner input:** Not needed (pre-authorized); revisit VM revert/delete as a
+  post-roadmap item if users ask.
+
+### D13: gpu_metrics Intel path is detection + bounded raw sample
+
+- **Decided:** NVIDIA gets fully parsed metrics (nvidia-smi CSV); Intel gets
+  detection plus a 3-second `timeout intel_gpu_top -J` raw sample, truncated.
+- **Why:** intel_gpu_top has no single-shot machine mode; a bounded raw
+  sample is honest and still useful, and the spec asked for "detection" with
+  clear absence reporting rather than parity.
+- **Owner input:** Not needed.

@@ -145,10 +145,14 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `array_status` | read-only | Array state, capacity, current parity-check status, and per-disk health. |
 | `parity_history` | read-only | Recent parity checks (date, status, errors, speed). |
 | `disk_list` | read-only | Physical disks with model, size, SMART status, temperature, and partitions. |
+| `disk_smart_report` | read-only | Full smartctl attribute report for one disk (SSH). |
+| `disk_spin` | mutation | Spins a disk up or down (SSH; `confirm`): array slots via emhttpd for consistent state, unassigned `/dev/sdX` via sdspin (ATA only). |
 | `share_list` | read-only | User shares with usage; filter by name. |
 | `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
 | `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks/temps, parity, notifications, UPS, and pending container updates. Start here. |
 | `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves. |
+| `gpu_metrics` | read-only | GPU utilization over SSH — full metrics via nvidia-smi, a bounded sample via intel_gpu_top, clear absence report otherwise. |
+| `process_list` | read-only | The host's busiest processes by CPU or memory (SSH). |
 | `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
 | `system_power` | destructive | Reboots or shuts down the whole server over SSH. Requires `confirm: true` and `acknowledge_risk: true`. |
 
@@ -182,6 +186,8 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | --- | --- | --- |
 | `vm_list` | read-only | Virtual machines with run state; filter by name. |
 | `vm_action` | destructive | Start, stop, pause, resume, forceStop, reboot, or reset a VM by name or id. `forceStop` and `reset` are ungraceful and also require `acknowledge_risk: true`. |
+| `vm_snapshot_list` | read-only | Lists a VM's libvirt snapshots via virsh (SSH; not exposed by the GraphQL API). |
+| `vm_snapshot_create` | destructive | Creates an EXTERNAL disk snapshot via virsh (the flow Unraid 7 itself uses). Requires `confirm` + `acknowledge_risk`. Revert/delete deliberately stay in the Unraid UI. |
 
 ### Notifications
 
@@ -212,6 +218,24 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `plugin_add` | destructive | Installs API plugins by npm package name, then restarts the Unraid API. Running `npm install` on your server executes package lifecycle scripts, so only install packages you trust. |
 | `plugin_remove` | destructive | Uninstalls API plugins by npm package name, then restarts the Unraid API. |
 | `plugin_install_plg` | destructive | Installs a native Unraid OS plugin from a `.plg` URL. A `.plg` runs arbitrary code as root, so this requires `confirm` + `acknowledge_risk` — only install from trusted sources. |
+
+### ZFS (SSH)
+
+ZFS ships with Unraid 6.12+; these tools report clearly when no pools exist.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `zfs_status` | read-only | Pool health/capacity plus ARC memory usage. |
+| `zfs_dataset_list` | read-only | Datasets with used/available space and mountpoints; optional pool filter. |
+| `zfs_snapshot_list` | read-only | Snapshots with size and creation time; optional dataset filter. |
+| `zfs_snapshot_action` | destructive | Create, destroy, or roll back a snapshot. Rollback discards everything after the snapshot, so this requires `confirm` + `acknowledge_risk`. |
+
+### User Scripts (SSH)
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin. |
+| `user_script_run` | destructive | Runs one user script (arbitrary root code by design — `confirm` + `acknowledge_risk`), replicating the plugin's noexec-safe runner. |
 
 ### API keys
 
