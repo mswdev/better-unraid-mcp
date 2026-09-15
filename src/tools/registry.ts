@@ -1,7 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import type { ShellExecutor } from "../shell/executor.js";
+import { registerApiKeyList } from "./apikey/apikey-list.js";
+import { registerApiKeyManage } from "./apikey/apikey-manage.js";
 import { registerArrayAction } from "./array/array-action.js";
+import { registerArrayDiskAction } from "./array/array-disk-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
@@ -28,7 +31,9 @@ import { registerNotificationDelete } from "./notification/notification-delete.j
 import { registerNotificationList } from "./notification/notification-list.js";
 import { registerNotificationOverview } from "./notification/notification-overview.js";
 import { registerNotificationRecalculate } from "./notification/notification-recalculate.js";
+import { registerNotificationUnread } from "./notification/notification-unread.js";
 import { registerPluginAdd } from "./plugin/plugin-add.js";
+import { registerPluginInstallPlg } from "./plugin/plugin-install-plg.js";
 import { registerPluginList } from "./plugin/plugin-list.js";
 import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
@@ -68,6 +73,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerLogRead(server, client) },
   { isMutating: false, register: (server, { client }) => registerArrayStatus(server, client) },
   { isMutating: true, register: (server, { client }) => registerArrayAction(server, client) },
+  { isMutating: true, register: (server, { client }) => registerArrayDiskAction(server, client) },
   { isMutating: false, register: (server, { client }) => registerParityHistory(server, client) },
   { isMutating: true, register: (server, { client }) => registerParityCheck(server, client) },
   { isMutating: false, register: (server, { client }) => registerDiskList(server, client) },
@@ -121,6 +127,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   },
   {
     isMutating: true,
+    register: (server, { client }) => registerNotificationUnread(server, client),
+  },
+  {
+    isMutating: true,
     register: (server, { client }) => registerNotificationDelete(server, client),
   },
   {
@@ -134,6 +144,12 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerPluginList(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginAdd(server, client) },
   { isMutating: true, register: (server, { client }) => registerPluginRemove(server, client) },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerPluginInstallPlg(server, client),
+  },
+  { isMutating: false, register: (server, { client }) => registerApiKeyList(server, client) },
+  { isMutating: true, register: (server, { client }) => registerApiKeyManage(server, client) },
   { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
   { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },

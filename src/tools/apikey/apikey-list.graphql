@@ -1,0 +1,13 @@
+query ApiKeyList {
+  apiKeys {
+    id
+    name
+    description
+    roles
+    createdAt
+    permissions {
+      resource
+      actions
+    }
+  }
+}

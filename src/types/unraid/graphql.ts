@@ -3,6 +3,23 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 /** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
+export type AddPermissionInput = {
+  actions: Array<AuthAction>;
+  resource: Resource;
+};
+
+export type AddRoleForApiKeyInput = {
+  apiKeyId: string;
+  role: Role;
+};
+
+export type ArrayDiskInput = {
+  /** Disk ID */
+  id: string;
+  /** The slot for the disk */
+  slot?: number | null | undefined;
+};
+
 export type ArrayDiskStatus =
   | 'DISK_DSBL'
   | 'DISK_DSBL_NEW'
@@ -43,6 +60,25 @@ export type ArrayStateInputState =
   | 'START'
   | 'STOP';
 
+/** Authentication actions with possession (e.g., create:any, read:own) */
+export type AuthAction =
+  /** Create any resource */
+  | 'CREATE_ANY'
+  /** Create own resource */
+  | 'CREATE_OWN'
+  /** Delete any resource */
+  | 'DELETE_ANY'
+  /** Delete own resource */
+  | 'DELETE_OWN'
+  /** Read any resource */
+  | 'READ_ANY'
+  /** Read own resource */
+  | 'READ_OWN'
+  /** Update any resource */
+  | 'UPDATE_ANY'
+  /** Update own resource */
+  | 'UPDATE_OWN';
+
 export type ContainerPortType =
   | 'TCP'
   | 'UDP';
@@ -51,6 +87,19 @@ export type ContainerState =
   | 'EXITED'
   | 'PAUSED'
   | 'RUNNING';
+
+export type CreateApiKeyInput = {
+  description?: string | null | undefined;
+  name: string;
+  /** This will replace the existing key if one already exists with the same name, otherwise returns the existing key */
+  overwrite?: boolean | null | undefined;
+  permissions?: Array<AddPermissionInput> | null | undefined;
+  roles?: Array<Role> | null | undefined;
+};
+
+export type DeleteApiKeyInput = {
+  ids: Array<string>;
+};
 
 /** The type of filesystem on the disk partition */
 export type DiskFsType =
@@ -81,6 +130,16 @@ export type DockerAutostartEntryInput = {
   id: string;
   /** Number of seconds to wait after starting the container */
   wait?: number | null | undefined;
+};
+
+/** Input payload for installing a plugin */
+export type InstallPluginInput = {
+  /** Force installation even when plugin is already present. Defaults to true to mirror the existing UI behaviour. */
+  forced?: boolean | null | undefined;
+  /** Optional human-readable plugin name used for logging */
+  name?: string | null | undefined;
+  /** Plugin installation URL (.plg) */
+  url: string;
 };
 
 export type NotificationData = {
@@ -115,6 +174,13 @@ export type ParityCheckStatus =
   | 'PAUSED'
   | 'RUNNING';
 
+/** Status of a plugin installation operation */
+export type PluginInstallStatus =
+  | 'FAILED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED';
+
 export type PluginManagementInput = {
   /** Whether to treat plugins as bundled plugins. Bundled plugins are installed to node_modules at build time and controlled via config only. */
   bundled?: boolean;
@@ -123,6 +189,54 @@ export type PluginManagementInput = {
   /** Whether to restart the API after the operation. When false, a restart has already been queued. */
   restart?: boolean;
 };
+
+export type RemoveRoleFromApiKeyInput = {
+  apiKeyId: string;
+  role: Role;
+};
+
+/** Available resources for permissions */
+export type Resource =
+  | 'ACTIVATION_CODE'
+  | 'API_KEY'
+  | 'ARRAY'
+  | 'CLOUD'
+  | 'CONFIG'
+  | 'CONNECT'
+  | 'CONNECT__REMOTE_ACCESS'
+  | 'CUSTOMIZATIONS'
+  | 'DASHBOARD'
+  | 'DISK'
+  | 'DISPLAY'
+  | 'DOCKER'
+  | 'FLASH'
+  | 'INFO'
+  | 'LOGS'
+  | 'ME'
+  | 'NETWORK'
+  | 'NOTIFICATIONS'
+  | 'ONLINE'
+  | 'OS'
+  | 'OWNER'
+  | 'PERMISSION'
+  | 'REGISTRATION'
+  | 'SERVERS'
+  | 'SERVICES'
+  | 'SHARE'
+  | 'VARS'
+  | 'VMS'
+  | 'WELCOME';
+
+/** Available roles for API keys and users */
+export type Role =
+  /** Full administrative access to all resources */
+  | 'ADMIN'
+  /** Internal Role for Unraid Connect */
+  | 'CONNECT'
+  /** Basic read access to user profile only */
+  | 'GUEST'
+  /** Read-only access to all resources */
+  | 'VIEWER';
 
 /** Type of temperature sensor */
 export type SensorType =
@@ -149,6 +263,14 @@ export type TemperatureUnit =
   | 'KELVIN'
   | 'RANKINE';
 
+export type UpdateApiKeyInput = {
+  description?: string | null | undefined;
+  id: string;
+  name?: string | null | undefined;
+  permissions?: Array<AddPermissionInput> | null | undefined;
+  roles?: Array<Role> | null | undefined;
+};
+
 /** The state of a virtual machine */
 export type VmState =
   | 'CRASHED'
@@ -160,12 +282,92 @@ export type VmState =
   | 'SHUTDOWN'
   | 'SHUTOFF';
 
+export type ApiKeyListQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ApiKeyListQuery = { apiKeys: Array<{ id: string, name: string, description: string | null, roles: Array<Role>, createdAt: string, permissions: Array<{ resource: Resource, actions: Array<AuthAction> }> }> };
+
+export type ApiKeyCreateMutationVariables = Exact<{
+  input: CreateApiKeyInput;
+}>;
+
+
+export type ApiKeyCreateMutation = { apiKey: { create: { id: string, name: string, key: string, roles: Array<Role> } } };
+
+export type ApiKeyUpdateMutationVariables = Exact<{
+  input: UpdateApiKeyInput;
+}>;
+
+
+export type ApiKeyUpdateMutation = { apiKey: { update: { id: string, name: string, description: string | null, roles: Array<Role> } } };
+
+export type ApiKeyAddRoleMutationVariables = Exact<{
+  input: AddRoleForApiKeyInput;
+}>;
+
+
+export type ApiKeyAddRoleMutation = { apiKey: { addRole: boolean } };
+
+export type ApiKeyRemoveRoleMutationVariables = Exact<{
+  input: RemoveRoleFromApiKeyInput;
+}>;
+
+
+export type ApiKeyRemoveRoleMutation = { apiKey: { removeRole: boolean } };
+
+export type ApiKeyDeleteMutationVariables = Exact<{
+  input: DeleteApiKeyInput;
+}>;
+
+
+export type ApiKeyDeleteMutation = { apiKey: { delete: boolean } };
+
 export type ArraySetStateMutationVariables = Exact<{
   input: ArrayStateInput;
 }>;
 
 
 export type ArraySetStateMutation = { array: { setState: { id: string, state: ArrayState } } };
+
+export type ArrayStateProbeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ArrayStateProbeQuery = { array: { state: ArrayState } };
+
+export type ArrayDiskAddMutationVariables = Exact<{
+  input: ArrayDiskInput;
+}>;
+
+
+export type ArrayDiskAddMutation = { array: { addDiskToArray: { state: ArrayState } } };
+
+export type ArrayDiskRemoveMutationVariables = Exact<{
+  input: ArrayDiskInput;
+}>;
+
+
+export type ArrayDiskRemoveMutation = { array: { removeDiskFromArray: { state: ArrayState } } };
+
+export type ArrayDiskMountMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type ArrayDiskMountMutation = { array: { mountArrayDisk: { id: string, status: ArrayDiskStatus | null } } };
+
+export type ArrayDiskUnmountMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type ArrayDiskUnmountMutation = { array: { unmountArrayDisk: { id: string, status: ArrayDiskStatus | null } } };
+
+export type ArrayDiskClearStatsMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type ArrayDiskClearStatsMutation = { array: { clearArrayDiskStatistics: boolean } };
 
 export type ArrayStatusQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -390,12 +592,26 @@ export type RecalculateOverviewMutationVariables = Exact<{ [key: string]: never;
 
 export type RecalculateOverviewMutation = { recalculateOverview: { unread: { info: number, warning: number, alert: number, total: number }, archive: { info: number, warning: number, alert: number, total: number } } };
 
+export type NotificationUnreadMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type NotificationUnreadMutation = { unreadNotification: { id: string, title: string, importance: NotificationImportance } };
+
 export type PluginAddMutationVariables = Exact<{
   input: PluginManagementInput;
 }>;
 
 
 export type PluginAddMutation = { addPlugin: boolean };
+
+export type PluginInstallPlgMutationVariables = Exact<{
+  input: InstallPluginInput;
+}>;
+
+
+export type PluginInstallPlgMutation = { unraidPlugins: { installPlugin: { id: string, url: string, name: string | null, status: PluginInstallStatus } } };
 
 export type PluginListQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -501,7 +717,19 @@ export type VmListQueryVariables = Exact<{ [key: string]: never; }>;
 export type VmListQuery = { vms: { domains: Array<{ id: string, name: string | null, state: VmState }> | null } };
 
 
+export const ApiKeyListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ApiKeyList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resource"}},{"kind":"Field","name":{"kind":"Name","value":"actions"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyListQuery, ApiKeyListQueryVariables>;
+export const ApiKeyCreateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyCreate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"create"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyCreateMutation, ApiKeyCreateMutationVariables>;
+export const ApiKeyUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"update"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyUpdateMutation, ApiKeyUpdateMutationVariables>;
+export const ApiKeyAddRoleDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyAddRole"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddRoleForApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addRole"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyAddRoleMutation, ApiKeyAddRoleMutationVariables>;
+export const ApiKeyRemoveRoleDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyRemoveRole"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RemoveRoleFromApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeRole"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyRemoveRoleMutation, ApiKeyRemoveRoleMutationVariables>;
+export const ApiKeyDeleteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApiKeyDelete"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeleteApiKeyInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"delete"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]}}]} as unknown as DocumentNode<ApiKeyDeleteMutation, ApiKeyDeleteMutationVariables>;
 export const ArraySetStateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArraySetState"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ArrayStateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setState"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]}}]} as unknown as DocumentNode<ArraySetStateMutation, ArraySetStateMutationVariables>;
+export const ArrayStateProbeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ArrayStateProbe"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]} as unknown as DocumentNode<ArrayStateProbeQuery, ArrayStateProbeQueryVariables>;
+export const ArrayDiskAddDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskAdd"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ArrayDiskInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addDiskToArray"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayDiskAddMutation, ArrayDiskAddMutationVariables>;
+export const ArrayDiskRemoveDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskRemove"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ArrayDiskInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeDiskFromArray"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayDiskRemoveMutation, ArrayDiskRemoveMutationVariables>;
+export const ArrayDiskMountDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskMount"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PrefixedID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mountArrayDisk"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayDiskMountMutation, ArrayDiskMountMutationVariables>;
+export const ArrayDiskUnmountDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskUnmount"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PrefixedID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unmountArrayDisk"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayDiskUnmountMutation, ArrayDiskUnmountMutationVariables>;
+export const ArrayDiskClearStatsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ArrayDiskClearStats"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PrefixedID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"clearArrayDiskStatistics"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]}}]} as unknown as DocumentNode<ArrayDiskClearStatsMutation, ArrayDiskClearStatsMutationVariables>;
 export const ArrayStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ArrayStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"array"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"state"}},{"kind":"Field","name":{"kind":"Name","value":"capacity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kilobytes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"free"}},{"kind":"Field","name":{"kind":"Name","value":"used"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"parityCheckStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"progress"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"running"}},{"kind":"Field","name":{"kind":"Name","value":"paused"}},{"kind":"Field","name":{"kind":"Name","value":"speed"}}]}},{"kind":"Field","name":{"kind":"Name","value":"parities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"temp"}},{"kind":"Field","name":{"kind":"Name","value":"type"}}]}},{"kind":"Field","name":{"kind":"Name","value":"disks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"temp"}},{"kind":"Field","name":{"kind":"Name","value":"fsFree"}},{"kind":"Field","name":{"kind":"Name","value":"fsUsed"}},{"kind":"Field","name":{"kind":"Name","value":"fsSize"}},{"kind":"Field","name":{"kind":"Name","value":"numErrors"}},{"kind":"Field","name":{"kind":"Name","value":"isSpinning"}},{"kind":"Field","name":{"kind":"Name","value":"type"}}]}},{"kind":"Field","name":{"kind":"Name","value":"caches"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"temp"}},{"kind":"Field","name":{"kind":"Name","value":"fsFree"}},{"kind":"Field","name":{"kind":"Name","value":"fsUsed"}},{"kind":"Field","name":{"kind":"Name","value":"type"}}]}}]}}]}}]} as unknown as DocumentNode<ArrayStatusQuery, ArrayStatusQueryVariables>;
 export const ParityCheckStartDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ParityCheckStart"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"correct"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"parityCheck"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"start"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"correct"},"value":{"kind":"Variable","name":{"kind":"Name","value":"correct"}}}]}]}}]}}]} as unknown as DocumentNode<ParityCheckStartMutation, ParityCheckStartMutationVariables>;
 export const ParityCheckPauseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ParityCheckPause"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"parityCheck"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pause"}}]}}]}}]} as unknown as DocumentNode<ParityCheckPauseMutation, ParityCheckPauseMutationVariables>;
@@ -538,7 +766,9 @@ export const DeleteArchivedNotificationsDocument = {"kind":"Document","definitio
 export const NotificationListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"NotificationList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filter"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"notifications"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"list"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"importance"}},{"kind":"Field","name":{"kind":"Name","value":"link"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"formattedTimestamp"}}]}}]}}]}}]} as unknown as DocumentNode<NotificationListQuery, NotificationListQueryVariables>;
 export const NotificationOverviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"NotificationOverview"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"notifications"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"overview"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unread"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"info"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}},{"kind":"Field","name":{"kind":"Name","value":"alert"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"archive"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"info"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}},{"kind":"Field","name":{"kind":"Name","value":"alert"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]}}]}}]} as unknown as DocumentNode<NotificationOverviewQuery, NotificationOverviewQueryVariables>;
 export const RecalculateOverviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RecalculateOverview"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"recalculateOverview"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unread"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"info"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}},{"kind":"Field","name":{"kind":"Name","value":"alert"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"archive"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"info"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}},{"kind":"Field","name":{"kind":"Name","value":"alert"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]}}]} as unknown as DocumentNode<RecalculateOverviewMutation, RecalculateOverviewMutationVariables>;
+export const NotificationUnreadDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"NotificationUnread"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PrefixedID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unreadNotification"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"importance"}}]}}]}}]} as unknown as DocumentNode<NotificationUnreadMutation, NotificationUnreadMutationVariables>;
 export const PluginAddDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PluginAdd"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PluginManagementInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addPlugin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<PluginAddMutation, PluginAddMutationVariables>;
+export const PluginInstallPlgDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PluginInstallPlg"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"InstallPluginInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unraidPlugins"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"installPlugin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}}]}}]} as unknown as DocumentNode<PluginInstallPlgMutation, PluginInstallPlgMutationVariables>;
 export const PluginListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PluginList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"plugins"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"hasApiModule"}},{"kind":"Field","name":{"kind":"Name","value":"hasCliModule"}}]}},{"kind":"Field","name":{"kind":"Name","value":"installedUnraidPlugins"}}]}}]} as unknown as DocumentNode<PluginListQuery, PluginListQueryVariables>;
 export const PluginRemoveDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PluginRemove"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PluginManagementInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removePlugin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<PluginRemoveMutation, PluginRemoveMutationVariables>;
 export const ShareListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ShareList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"shares"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"free"}},{"kind":"Field","name":{"kind":"Name","value":"used"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"cache"}},{"kind":"Field","name":{"kind":"Name","value":"include"}},{"kind":"Field","name":{"kind":"Name","value":"exclude"}},{"kind":"Field","name":{"kind":"Name","value":"comment"}}]}}]}}]} as unknown as DocumentNode<ShareListQuery, ShareListQueryVariables>;

@@ -1,0 +1,45 @@
+query ArrayStateProbe {
+  array {
+    state
+  }
+}
+
+mutation ArrayDiskAdd($input: ArrayDiskInput!) {
+  array {
+    addDiskToArray(input: $input) {
+      state
+    }
+  }
+}
+
+mutation ArrayDiskRemove($input: ArrayDiskInput!) {
+  array {
+    removeDiskFromArray(input: $input) {
+      state
+    }
+  }
+}
+
+mutation ArrayDiskMount($id: PrefixedID!) {
+  array {
+    mountArrayDisk(id: $id) {
+      id
+      status
+    }
+  }
+}
+
+mutation ArrayDiskUnmount($id: PrefixedID!) {
+  array {
+    unmountArrayDisk(id: $id) {
+      id
+      status
+    }
+  }
+}
+
+mutation ArrayDiskClearStats($id: PrefixedID!) {
+  array {
+    clearArrayDiskStatistics(id: $id)
+  }
+}

@@ -159,6 +159,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | Tool | Type | Description |
 | --- | --- | --- |
 | `array_action` | destructive | Starts or stops the array. Stopping takes every share, container, and VM offline, so `stop` also requires `acknowledge_risk: true`. |
+| `array_disk_action` | destructive | Add/remove a disk to/from the array (needs a STOPPED array — checked first), mount/unmount an array disk, or clear disk statistics. Requires `confirm` + `acknowledge_risk`. |
 | `parity_check` | destructive | Starts (optionally correcting), pauses, resumes, or cancels a parity check. |
 
 ### Docker
@@ -190,6 +191,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `notification_list` | read-only | Notifications by type (`unread` or `archive`) with paging; the source of truth for ids. |
 | `notification_alerts` | read-only | Deduplicated unread warnings and alerts: the "needs attention now" view. |
 | `notification_archive` | mutation | Archives or unarchives notifications (reversible, ungated). |
+| `notification_unread` | mutation | Marks one notification as unread again (reversible, ungated). |
 | `notification_create` | mutation | Creates a notification (ungated). |
 | `notification_recalculate` | mutation | Re-syncs cached overview counts from disk (ungated). |
 | `notification_delete` | destructive | Permanently deletes notifications (irreversible). |
@@ -209,6 +211,16 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `plugin_list` | read-only | Installed API plugins and OS `.plg` plugins. |
 | `plugin_add` | destructive | Installs API plugins by npm package name, then restarts the Unraid API. Running `npm install` on your server executes package lifecycle scripts, so only install packages you trust. |
 | `plugin_remove` | destructive | Uninstalls API plugins by npm package name, then restarts the Unraid API. |
+| `plugin_install_plg` | destructive | Installs a native Unraid OS plugin from a `.plg` URL. A `.plg` runs arbitrary code as root, so this requires `confirm` + `acknowledge_risk` — only install from trusted sources. |
+
+### API keys
+
+Managing API keys means the model is handling the credentials that control access to your server — treat these tools with the same care as the keys themselves.
+
+| Tool | Type | Description |
+| --- | --- | --- |
+| `apikey_list` | read-only | Lists configured API keys (name, roles, permissions, created). Key values are never selected or returned. |
+| `apikey_manage` | destructive | Create, update, add/remove roles, or delete API keys. Requires `confirm` + `acknowledge_risk`. The key value is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. |
 
 ### UPS
 

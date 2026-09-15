@@ -1,0 +1,39 @@
+mutation ApiKeyCreate($input: CreateApiKeyInput!) {
+  apiKey {
+    create(input: $input) {
+      id
+      name
+      key
+      roles
+    }
+  }
+}
+
+mutation ApiKeyUpdate($input: UpdateApiKeyInput!) {
+  apiKey {
+    update(input: $input) {
+      id
+      name
+      description
+      roles
+    }
+  }
+}
+
+mutation ApiKeyAddRole($input: AddRoleForApiKeyInput!) {
+  apiKey {
+    addRole(input: $input)
+  }
+}
+
+mutation ApiKeyRemoveRole($input: RemoveRoleFromApiKeyInput!) {
+  apiKey {
+    removeRole(input: $input)
+  }
+}
+
+mutation ApiKeyDelete($input: DeleteApiKeyInput!) {
+  apiKey {
+    delete(input: $input)
+  }
+}
