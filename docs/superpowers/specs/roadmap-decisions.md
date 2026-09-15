@@ -157,3 +157,34 @@ still wanted.
   sample is honest and still useful, and the spec asked for "detection" with
   clear absence reporting rather than parity.
 - **Owner input:** Not needed.
+
+## Phase 6 — 0.0.9 "Live + Launch"
+
+### D14: docker-stats live samples are aggregated per container id
+
+- **Decided:** The `dockerContainerStats` subscription emits ONE container per
+  event, so the live-resource pipeline reduces samples into a per-id map
+  (`{containers: {id: stats}}`) before storing; `docker_stats` serves from it
+  when fresher than 10 s and labels the source, else falls back to SSH.
+- **Why:** Storing only the latest single-container event would make the live
+  path useless for a whole-box view; the reducer is confined to that topic.
+- **Owner input:** Not needed.
+
+### D15: Live metrics resource carries CPU only (for now)
+
+- **Decided:** `unraid://live/metrics` subscribes to `systemMetricsCpu`;
+  memory/network/temperature subscriptions are not wired in this release.
+- **Why:** One clean topic proves the lifecycle end to end; fanning one
+  resource out across four upstream subscriptions multiplies reconnect and
+  merge states for little launch value. The `system_metrics` tool still
+  covers everything on demand.
+- **Owner input:** Optional — say the word and the remaining metric topics
+  get wired the same way.
+
+### D16: New runtime dependencies graphql-ws + ws
+
+- **Decided:** Added `graphql-ws` (protocol client) and `ws` (WebSocket impl
+  for Node 20) as runtime dependencies.
+- **Why:** The spec mandates the graphql-transport-ws subprotocol; Node 20
+  (the package's floor) lacks a stable global WebSocket.
+- **Owner input:** Not needed.
