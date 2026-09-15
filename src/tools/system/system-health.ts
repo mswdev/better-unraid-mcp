@@ -3,7 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { SystemHealthDocument, type SystemHealthQuery } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_health";
 
@@ -35,6 +35,14 @@ interface SubsystemHealth {
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
+};
+
+/** Shape of the structuredContent payload. */
+const outputSchema = {
+  overall: z.enum(["ok", "warning", "critical"]),
+  subsystems: z.array(
+    z.object({ subsystem: z.string(), severity: z.string(), detail: z.string() }),
+  ),
 };
 
 type HealthData = SystemHealthQuery;
@@ -214,7 +222,7 @@ export function createSystemHealthHandler(client: GraphQLExecutor) {
     try {
       const report = await runSystemHealth(client);
       const summary = summarize(report.overall, report.subsystems);
-      return formatResponse(input.response_format, summary, report);
+      return formatStructuredResponse(input.response_format, summary, report);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to compute system health: ${message}`);
@@ -237,6 +245,7 @@ export function registerSystemHealth(server: McpServer, client: GraphQLExecutor)
       description:
         "Read-only. One severity-scored health report (OK / WARNING / CRITICAL) across array state, capacity, disk status and temperatures, parity errors, unread notifications, UPS, and pending container updates — start here instead of assembling health from separate reads. Thresholds: capacity warns at 90% and goes critical at 95%; disk temps warn at 50°C and go critical at 60°C. Follow up with array_status, disk_list, or notification_alerts for depth.",
       inputSchema,
+      outputSchema,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

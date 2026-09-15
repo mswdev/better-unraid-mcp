@@ -7,6 +7,7 @@ interface Registration {
   hasConfig: boolean;
   hasHandler: boolean;
   annotations: unknown;
+  hasOutputSchema: boolean;
 }
 
 function fakeServer() {
@@ -14,12 +15,17 @@ function fakeServer() {
   return {
     registrations,
     server: {
-      registerTool: (name: string, config: { annotations?: unknown }, handler: unknown) => {
+      registerTool: (
+        name: string,
+        config: { annotations?: unknown; outputSchema?: unknown },
+        handler: unknown,
+      ) => {
         registrations.push({
           name,
           hasConfig: typeof config === "object" && config !== null,
           hasHandler: typeof handler === "function",
           annotations: config?.annotations,
+          hasOutputSchema: config?.outputSchema !== undefined,
         });
       },
     },
@@ -297,6 +303,24 @@ describe("annotation audit", () => {
           "boolean",
         );
       }
+    }
+  });
+});
+
+describe("structured output tools", () => {
+  it("the four structured reads declare an outputSchema", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    for (const name of [
+      "system_health",
+      "system_metrics",
+      "array_status",
+      "docker_container_list",
+    ]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasOutputSchema, `${name} should declare outputSchema`).toBe(true);
     }
   });
 });
