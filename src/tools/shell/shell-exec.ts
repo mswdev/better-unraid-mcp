@@ -3,6 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireConfirmation } from "../_shared/confirm.js";
+import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
@@ -59,7 +60,7 @@ function summarize(result: ShellResult): string {
  * await handler({ response_format: "concise", command: "dmesg | tail -n 50", timeout_seconds: 30, confirm: true });
  */
 export function createShellExecHandler(shell: ShellExecutor | null) {
-  return async (input: ShellExecInput): Promise<CallToolResult> => {
+  return async (input: ShellExecInput, extra?: unknown): Promise<CallToolResult> => {
     const unavailable = requireShell(shell);
     if (unavailable || !shell) {
       return unavailable ?? toolError("SSH is not configured.");
@@ -71,6 +72,9 @@ export function createShellExecHandler(shell: ShellExecutor | null) {
     if (refusal) {
       return refusal;
     }
+    const stopHeartbeat = startProgressHeartbeat(progressContextFrom(extra), {
+      message: `Still running: ${input.command}`,
+    });
     try {
       const result = await shell.execute(input.command, input.timeout_seconds * MS_PER_SECOND);
       return formatResponse(input.response_format, summarize(result), {
@@ -82,6 +86,8 @@ export function createShellExecHandler(shell: ShellExecutor | null) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to run command over SSH: ${message}`);
+    } finally {
+      stopHeartbeat();
     }
   };
 }

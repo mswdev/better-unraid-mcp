@@ -110,3 +110,34 @@ describe("docker_container_update handler", () => {
     expect(firstText(result)).toMatch(/registry timeout/);
   });
 });
+
+describe("docker_container_update progress", () => {
+  it("emits start and finish notifications when a token is supplied", async () => {
+    const notifications: Array<{ params: { progress: number; message?: string } }> = [];
+    const extra = {
+      _meta: { progressToken: 7 },
+      sendNotification: async (notification: {
+        params: { progress: number; message?: string };
+      }) => {
+        notifications.push(notification);
+      },
+    };
+    const { executor } = recordingExecutor({ docker: { updateContainers: [] } });
+    const handler = createDockerContainerUpdateHandler(executor);
+
+    await handler({ response_format: "concise", ids: ["abc"], confirm: true }, extra);
+
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0].params.progress).toBe(0);
+    expect(notifications[1].params.progress).toBe(1);
+  });
+
+  it("sends nothing without a progress token", async () => {
+    const { executor } = recordingExecutor({ docker: { updateContainers: [] } });
+    const handler = createDockerContainerUpdateHandler(executor);
+
+    const result = await handler({ response_format: "concise", ids: ["abc"], confirm: true });
+
+    expect(result.isError).toBeUndefined();
+  });
+});
