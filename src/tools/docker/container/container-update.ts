@@ -6,7 +6,8 @@ import {
   DockerUpdateAllDocument,
   DockerUpdateContainersDocument,
 } from "../../../types/unraid/graphql.js";
-import { requireConfirmation } from "../../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../../_shared/elicitation.js";
 import { progressContextFrom, sendProgress } from "../../_shared/progress.js";
 import { type ResponseFormat, formatResponse, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
@@ -84,7 +85,10 @@ function summarize(containers: UpdatedContainer[]): string {
  * @param client - The GraphQL executor used to run the update mutation.
  * @returns An MCP handler that pulls latest images and recreates containers.
  */
-export function createDockerContainerUpdateHandler(client: GraphQLExecutor) {
+export function createDockerContainerUpdateHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (
     input: {
       response_format: ResponseFormat;
@@ -94,7 +98,11 @@ export function createDockerContainerUpdateHandler(client: GraphQLExecutor) {
     },
     extra?: unknown,
   ): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(input.confirm, "update Docker container(s)");
+    const refusal = await requireConfirmationInteractive({
+      confirm: input.confirm,
+      actionDescription: "update Docker container(s)",
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -131,8 +139,13 @@ export function registerDockerContainerUpdate(server: McpServer, client: GraphQL
       description:
         "Pulls the latest image(s) and recreates container(s). `ids` updates those containers (force-pull regardless of update-available); `all` updates every container with a known-available update (returns none if the cache is cold — not an error). Updating an orphaned container with no template is a silent no-op. Requires `confirm: true`. Needs Unraid OS 7.3+.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    createDockerContainerUpdateHandler(client),
+    createDockerContainerUpdateHandler(client, createElicitationChannel(server)),
   );
 }

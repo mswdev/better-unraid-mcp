@@ -89,3 +89,32 @@ describe("system_power", () => {
     expect(result.isError).toBe(true);
   });
 });
+
+describe("system_power elicitation", () => {
+  function scriptedChannel(outcome: "accepted" | "declined") {
+    return {
+      isAvailable: () => true,
+      confirm: async () => outcome,
+    };
+  }
+
+  it("issues the command when the human accepts the two-checkbox prompt", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createSystemPowerHandler(shell, scriptedChannel("accepted"));
+
+    const result = await handler({ response_format: "concise", action: "reboot" });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("issues nothing when the human declines", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createSystemPowerHandler(shell, scriptedChannel("declined"));
+
+    const result = await handler({ response_format: "concise", action: "reboot" });
+
+    expect(result.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});

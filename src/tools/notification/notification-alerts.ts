@@ -49,7 +49,12 @@ export function registerNotificationAlerts(server: McpServer, client: GraphQLExe
       description:
         "Read-only. Deduplicated unread warnings and alerts, newest first — the 'needs attention now' view (up to 50).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createNotificationAlertsHandler(client),
   );

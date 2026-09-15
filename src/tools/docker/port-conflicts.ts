@@ -88,7 +88,12 @@ export function registerDockerPortConflicts(server: McpServer, client: GraphQLEx
       title: "List Docker Port Conflicts",
       description: "Read-only. Reports Docker container/LAN port conflicts.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerPortConflictsHandler(client),
   );

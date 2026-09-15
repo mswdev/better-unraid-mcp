@@ -50,7 +50,12 @@ export function registerNotificationOverview(server: McpServer, client: GraphQLE
       description:
         "Read-only. Notification counts: unread and archived, each broken down by importance (alert / warning / info) plus total.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createNotificationOverviewHandler(client),
   );

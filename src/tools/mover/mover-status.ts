@@ -71,7 +71,12 @@ export function registerMoverStatus(server: McpServer, client: GraphQLExecutor):
       description:
         "Read-only. Reports whether the mover (the process that migrates data from the cache pool to the array) is currently running, plus its cron schedule and whether mover logging is enabled. Needs a viewer-level key (VARS read). Mover activity detail appears in the syslog (see log_read).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createMoverStatusHandler(client),
   );

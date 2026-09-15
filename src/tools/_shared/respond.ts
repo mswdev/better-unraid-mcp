@@ -52,3 +52,33 @@ export function formatResponse(
   }
   return toolText(concise);
 }
+
+/** Round-trips structured data through the string redactor (stays parseable). */
+function redactStructured(structured: object): Record<string, unknown> {
+  return JSON.parse(redactSecrets(JSON.stringify(structured))) as Record<string, unknown>;
+}
+
+/**
+ * Formats a response for tools that declare an `outputSchema`: the machine
+ * payload always travels as `structuredContent` (in BOTH modes — the SDK
+ * requires it on every non-error result once a schema is declared), while
+ * the text block stays the human summary (concise) or pretty JSON (detailed).
+ * Both channels pass through secret redaction.
+ *
+ * @param format - Requested verbosity for the text block.
+ * @param concise - Pre-built human summary.
+ * @param structured - The machine-readable payload matching the tool's schema.
+ * @returns A successful tool result carrying text and structuredContent.
+ */
+export function formatStructuredResponse(
+  format: ResponseFormat,
+  concise: string,
+  structured: object,
+): CallToolResult {
+  const redacted = redactStructured(structured);
+  const text =
+    format === "detailed"
+      ? truncateJsonPayload(JSON.stringify(redacted, null, JSON_INDENT_SPACES))
+      : redactSecrets(concise);
+  return { content: [{ type: "text", text }], structuredContent: redacted };
+}

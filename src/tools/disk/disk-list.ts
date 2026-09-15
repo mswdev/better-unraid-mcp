@@ -69,6 +69,7 @@ export function registerDiskList(server: McpServer, client: GraphQLExecutor): vo
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
+        idempotentHint: true,
         openWorldHint: false,
       },
     },

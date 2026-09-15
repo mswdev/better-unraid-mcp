@@ -14,7 +14,7 @@ const SSH_PROBE_COMMAND = "echo ok";
 const SSH_PROBE_TIMEOUT_MS = 10_000;
 
 /** One diagnostic check's outcome. */
-interface DoctorCheck {
+export interface DoctorCheck {
   check: string;
   status: "ok" | "warn" | "fail";
   detail: string;
@@ -118,14 +118,26 @@ function summarize(checks: DoctorCheck[]): string {
  * const handler = createConnectionDoctorHandler({ client, shell, readOnly: false });
  * await handler({ response_format: "concise" });
  */
+/**
+ * Runs every doctor check, reused by the tool and the unraid://doctor resource.
+ *
+ * @param deps - GraphQL executor, optional shell executor, read-only flag.
+ * @returns The full check list (individual check failures become failed checks).
+ */
+export async function runConnectionDoctor(deps: DoctorDeps): Promise<{ checks: DoctorCheck[] }> {
+  return {
+    checks: [
+      await checkGraphql(deps.client),
+      await checkSsh(deps.shell),
+      ...configChecks(deps.readOnly),
+    ],
+  };
+}
+
 export function createConnectionDoctorHandler(deps: DoctorDeps) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     try {
-      const checks = [
-        await checkGraphql(deps.client),
-        await checkSsh(deps.shell),
-        ...configChecks(deps.readOnly),
-      ];
+      const { checks } = await runConnectionDoctor(deps);
       return formatResponse(input.response_format, summarize(checks), { checks });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -149,7 +161,12 @@ export function registerConnectionDoctor(server: McpServer, deps: DoctorDeps): v
       description:
         "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createConnectionDoctorHandler(deps),
   );

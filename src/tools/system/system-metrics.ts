@@ -9,7 +9,7 @@ import {
   type TemperatureUnit,
 } from "../../types/unraid/graphql.js";
 import { humanizeBytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_metrics";
 
@@ -48,6 +48,13 @@ function unitSuffix(unit: TemperatureUnit): string {
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   include_temperature: z.boolean().default(false),
+};
+
+/** Shape of the structuredContent payload (deep metric typing adds no safety). */
+const outputSchema = {
+  metrics: z.unknown(),
+  systemTime: z.unknown(),
+  data_age_ms: z.number(),
 };
 
 type Metrics = SystemMetricsQuery["metrics"];
@@ -189,7 +196,11 @@ export function createSystemMetricsHandler(client: GraphQLExecutor) {
         includeTemperature: include_temperature,
       });
       const detailed = { ...data, data_age_ms: cacheAgeMs(data) ?? 0 };
-      return formatResponse(response_format, summarize(data, include_temperature), detailed);
+      return formatStructuredResponse(
+        response_format,
+        summarize(data, include_temperature),
+        detailed,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch system metrics: ${message}`);
@@ -212,7 +223,13 @@ export function registerSystemMetrics(server: McpServer, client: GraphQLExecutor
       description:
         "Read-only. Point-in-time health snapshot: CPU load, memory pressure (percent + available bytes), per-interface network rates/errors, and server time (timezone, NTP). Set include_temperature=true to also probe temperature sensors — omitted by default because a cold probe can take seconds on multi-disk servers. Network rates read 0 right after the Unraid API restarts. Requires INFO+VARS read permission (any viewer-level key).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      outputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createSystemMetricsHandler(client),
   );

@@ -8,7 +8,8 @@ import {
   DockerStopDocument,
   DockerUnpauseDocument,
 } from "../../../types/unraid/graphql.js";
-import { requireConfirmation } from "../../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError, toolText } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
@@ -90,7 +91,10 @@ async function runAction(
  * @param client - The GraphQL executor used to run the lifecycle mutation.
  * @returns An MCP handler that starts/stops/pauses/unpauses a container.
  */
-export function createDockerContainerActionHandler(client: GraphQLExecutor) {
+export function createDockerContainerActionHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async ({
     response_format,
     id,
@@ -102,7 +106,11 @@ export function createDockerContainerActionHandler(client: GraphQLExecutor) {
     action: ContainerAction;
     confirm?: boolean;
   }): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(confirm, `${action} container ${id}`);
+    const refusal = await requireConfirmationInteractive({
+      confirm,
+      actionDescription: `${action} container ${id}`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -140,8 +148,13 @@ export function registerDockerContainerAction(server: McpServer, client: GraphQL
       description:
         "Changes a container's run state (start | stop | pause | unpause | restart). restart is composed stop-then-start (the API has no restart mutation). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause/restart disrupt a running container; start/unpause are restorative but still gated for consistency.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    createDockerContainerActionHandler(client),
+    createDockerContainerActionHandler(client, createElicitationChannel(server)),
   );
 }

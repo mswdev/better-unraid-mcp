@@ -86,6 +86,7 @@ export function registerParityHistory(server: McpServer, client: GraphQLExecutor
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
+        idempotentHint: true,
         openWorldHint: false,
       },
     },

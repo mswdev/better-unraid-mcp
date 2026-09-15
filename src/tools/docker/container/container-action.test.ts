@@ -185,3 +185,36 @@ describe("docker_container_action read-back quirk", () => {
     expect(firstText(result)).toMatch(/docker_container_list/);
   });
 });
+
+describe("docker_container_action elicitation", () => {
+  const startResult = {
+    docker: { start: { id: "srv:abc", names: ["/plex"], state: "RUNNING", status: "Up" } },
+  };
+
+  function scriptedChannel(outcome: "accepted" | "declined") {
+    return {
+      isAvailable: () => true,
+      confirm: async () => outcome,
+    };
+  }
+
+  it("runs the action when the human accepts the prompt", async () => {
+    const { executor, calls } = recordingExecutor(startResult);
+    const handler = createDockerContainerActionHandler(executor, scriptedChannel("accepted"));
+
+    const result = await handler({ response_format: "concise", id: "srv:abc", action: "start" });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs nothing when the human declines", async () => {
+    const { executor, calls } = recordingExecutor(startResult);
+    const handler = createDockerContainerActionHandler(executor, scriptedChannel("declined"));
+
+    const result = await handler({ response_format: "concise", id: "srv:abc", action: "start" });
+
+    expect(result.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});

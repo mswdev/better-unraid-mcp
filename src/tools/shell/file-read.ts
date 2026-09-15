@@ -119,7 +119,12 @@ export function registerFileRead(server: McpServer, shell: ShellExecutor | null)
       description:
         "Read-only. Returns the last `lines` lines (default 200, max 2000) of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional `pattern` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createFileReadHandler(shell),
   );

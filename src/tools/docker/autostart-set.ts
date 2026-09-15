@@ -8,7 +8,8 @@ import {
   type DockerAutostartStateQuery,
   DockerSetAutostartDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
@@ -151,7 +152,10 @@ function summarize({ ok, changes, containers, persist }: SummaryOptions): string
  * @param client - The GraphQL executor used to read containers and write autostart.
  * @returns An MCP handler that merge-safely sets container autostart on boot.
  */
-export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
+export function createDockerAutostartSetHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async ({
     response_format,
     changes,
@@ -163,7 +167,11 @@ export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
     persist: boolean;
     confirm?: boolean;
   }): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(confirm, "change Docker autostart configuration");
+    const refusal = await requireConfirmationInteractive({
+      confirm,
+      actionDescription: "change Docker autostart configuration",
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -204,8 +212,13 @@ export function registerDockerAutostartSet(server: McpServer, client: GraphQLExe
       description:
         "Sets which containers auto-start on boot. Merge-safe: reads the current autostart config, applies your changes, and resubmits the complete set (sorted to preserve boot order) so unlisted containers are untouched. Boot-time only — does not start/stop running containers now; takes effect on the next array/Docker start. `persist: true` also writes the WebGUI's saved prefs but ⚠ reorders the Docker-page container list irreversibly — leave it false unless you want that. Requires `confirm: true`. Needs Unraid OS 7.3+ (ENABLE_NEXT_DOCKER_RELEASE).",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    createDockerAutostartSetHandler(client),
+    createDockerAutostartSetHandler(client, createElicitationChannel(server)),
   );
 }
