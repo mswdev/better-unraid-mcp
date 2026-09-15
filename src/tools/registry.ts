@@ -36,6 +36,7 @@ import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
+import { registerSystemPower } from "./system/system-power.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
@@ -134,6 +135,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
   { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },

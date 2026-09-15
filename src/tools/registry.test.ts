@@ -213,10 +213,10 @@ describe("registerAllTools host-level tools", () => {
     });
   });
 
-  it("registers 38 tools in total", () => {
+  it("registers 39 tools in total", () => {
     const { server, registrations } = fakeServer();
     registerAll(server);
-    expect(registrations).toHaveLength(38);
+    expect(registrations).toHaveLength(39);
   });
 });
 
@@ -240,6 +240,18 @@ describe("registerAllTools mover_action", () => {
     registerAll(server);
 
     const reg = registrations.find((r) => r.name === "mover_action");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+  });
+});
+
+describe("registerAllTools system_power", () => {
+  it("registers system_power as destructive", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    const reg = registrations.find((r) => r.name === "system_power");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
   });
