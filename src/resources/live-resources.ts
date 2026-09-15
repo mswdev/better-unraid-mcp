@@ -4,7 +4,11 @@ import {
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { LiveSnapshotStore } from "../graphql/live-store.js";
+import {
+  DOCKER_STATS_TOPIC,
+  type LiveSnapshotStore,
+  mergeDockerStatsSample,
+} from "../graphql/live-store.js";
 import type { SubscriptionFeed } from "../graphql/subscription-feed.js";
 
 const JSON_INDENT_SPACES = 2;
@@ -219,6 +223,24 @@ export function registerLiveResources(server: McpServer, deps: LiveResourceDeps)
     active.delete(request.params.uri);
     return {};
   });
+  installTeardown(server, active);
+}
+
+/**
+ * Stops every upstream subscription when this server's transport closes
+ * (stateless response teardown, session DELETE, or idle expiry) — without
+ * this, each recycled session would leak its WebSocket subscriptions on the
+ * process-lifetime shared feed forever.
+ */
+function installTeardown(server: McpServer, active: Map<string, () => void>): void {
+  const previousOnClose = server.server.onclose;
+  server.server.onclose = () => {
+    for (const stop of active.values()) {
+      stop();
+    }
+    active.clear();
+    previousOnClose?.();
+  };
 }
 
 /** Starts (idempotently) every feed subscription behind one resource URI. */
@@ -245,6 +267,13 @@ function startLiveSubscription(input: {
         );
         void server.server.sendResourceUpdated({ uri }).catch(() => {});
       },
+      onError: () => {
+        // A dead subscription must not block revival: drop the active entry
+        // (stopping any surviving siblings) so the next subscribe restarts.
+        const stop = active.get(uri);
+        active.delete(uri);
+        stop?.();
+      },
     }),
   );
   active.set(uri, () => {
@@ -256,19 +285,12 @@ function startLiveSubscription(input: {
 
 /**
  * Docker-stats subscription events carry ONE container each, so samples are
- * aggregated into a per-id map; every other topic stores the raw sample.
+ * aggregated (with eviction) via the shared merge; every other topic stores
+ * the raw sample.
  */
 function reduceSample(storeKey: string, previous: unknown, incoming: unknown): unknown {
-  if (storeKey !== "dockerContainerStats") {
+  if (storeKey !== DOCKER_STATS_TOPIC) {
     return incoming;
   }
-  const stats = (incoming as { dockerContainerStats?: { id?: string } }).dockerContainerStats;
-  if (!stats?.id) {
-    return previous ?? { containers: {} };
-  }
-  const existing =
-    typeof previous === "object" && previous !== null
-      ? ((previous as { containers?: Record<string, unknown> }).containers ?? {})
-      : {};
-  return { containers: { ...existing, [stats.id]: stats } };
+  return mergeDockerStatsSample(previous, incoming);
 }

@@ -141,3 +141,39 @@ describe("registerLiveResources", () => {
     );
   });
 });
+
+describe("live subscription lifecycle hardening", () => {
+  it("stops every active subscription when the server closes", async () => {
+    const { stopped, subscribe, fake } = setup();
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+    await subscribe({ params: { uri: "unraid://live/ups" } });
+
+    (fake.server.server as unknown as { onclose: () => void }).onclose();
+
+    expect(stopped.sort()).toEqual([0, 1]);
+  });
+
+  it("self-heals after a subscription error: the next subscribe restarts the feed", async () => {
+    const { subs, subscribe } = setup();
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+
+    subs[0].handlers.onError?.(new Error("socket gone"));
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+
+    expect(subs).toHaveLength(2);
+  });
+
+  it("evicts stale containers from the docker-stats aggregate", async () => {
+    const { subs, store, subscribe } = setup();
+    await subscribe({ params: { uri: "unraid://live/docker-stats" } });
+
+    subs[0].handlers.onData({
+      dockerContainerStats: { id: "old", cpuPercent: 90 },
+    });
+    const aggregate = store.get("dockerContainerStats")?.data as {
+      containers: Record<string, { id: string }>;
+    };
+
+    expect(Object.keys(aggregate.containers)).toEqual(["old"]);
+  });
+});

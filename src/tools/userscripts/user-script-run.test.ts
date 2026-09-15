@@ -87,3 +87,27 @@ describe("user_script_run", () => {
     expect(result.isError).toBe(true);
   });
 });
+
+describe("user_script_run dot-name confinement", () => {
+  it('rejects "." and ".." names before the gate', async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell);
+
+    const dot = await handler({
+      response_format: "concise",
+      name: ".",
+      timeout_seconds: 60,
+      ...bothFlags,
+    });
+    const dotdot = await handler({
+      response_format: "concise",
+      name: "..",
+      timeout_seconds: 60,
+      ...bothFlags,
+    });
+
+    expect(dot.isError).toBe(true);
+    expect(dotdot.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});

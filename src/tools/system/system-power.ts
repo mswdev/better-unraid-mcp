@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_power";
@@ -49,16 +49,25 @@ function refusalMessage(action: PowerAction): string {
 }
 
 /**
- * Maps a thrown SSH error: a failure to CONNECT is a real error (nothing was
- * issued); anything after that (timeout, dropped channel) is the expected
- * consequence of the server going down mid-session.
+ * The executor's exec-phase timeout label — the ONLY error proving the
+ * command was actually sent before the channel died.
+ */
+const EXEC_PHASE_MARKER = "run the command";
+
+/**
+ * Maps a thrown SSH error. Only an exec-phase drop (the command was sent,
+ * then the channel died — expected while the host goes down) reads as
+ * issued; every other failure (connect timeout, DNS, auth) means NOTHING
+ * was sent and must surface as a real error, never a false confirmation.
  */
 function mapPowerError(action: PowerAction, message: string): CallToolResult {
-  if (message.includes("connect")) {
-    return toolError(`Failed to ${action}: could not reach the server over SSH: ${message}`);
+  if (message.includes(EXEC_PHASE_MARKER)) {
+    return toolText(
+      `The ${action} command was issued, then the SSH connection dropped — expected while the server goes down. Verify with connection_doctor once the server should be back.`,
+    );
   }
-  return toolText(
-    `The ${action} command was issued, then the SSH connection dropped — expected while the server goes down. Verify with connection_doctor once the server should be back.`,
+  return toolError(
+    `Failed to ${action}: the command was never sent — SSH failed first: ${message}`,
   );
 }
 
@@ -74,9 +83,8 @@ export function createSystemPowerHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: SystemPowerArgs): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,

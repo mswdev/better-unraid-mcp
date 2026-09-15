@@ -140,18 +140,29 @@ function checkNotifications(data: HealthData): SubsystemHealth {
   return { subsystem: "notifications", severity: "ok", detail: "No unread warnings or alerts." };
 }
 
+/**
+ * apcupsd statuses are free-form, possibly multi-token ("ONLINE SLAVE"), and
+ * the API returns a phantom no-status device instead of an empty list when
+ * no UPS is configured — so tokens are matched, and status-less devices are
+ * treated as absence, never as an outage.
+ */
 function checkUps(data: HealthData): SubsystemHealth {
-  const devices = data.upsDevices ?? [];
-  if (devices.length === 0) {
-    return { subsystem: "ups", severity: "ok", detail: "No UPS configured." };
+  const reporting = (data.upsDevices ?? []).filter((ups) => (ups.status ?? "").trim().length > 0);
+  if (reporting.length === 0) {
+    return { subsystem: "ups", severity: "ok", detail: "No UPS reporting live data." };
   }
-  const offline = devices.filter((ups) => ups.status !== UPS_ONLINE_STATUS);
+  const tokensOf = (status: string) => status.trim().toUpperCase().split(/\s+/);
+  const offline = reporting.filter((ups) => !tokensOf(ups.status).includes(UPS_ONLINE_STATUS));
+  const onBattery = reporting.some((ups) => tokensOf(ups.status).includes("ONBATT"));
+  if (onBattery) {
+    const detail = reporting.map((ups) => `${ups.name}: ${ups.status}`).join(", ");
+    return { subsystem: "ups", severity: "critical", detail };
+  }
   if (offline.length === 0) {
     return { subsystem: "ups", severity: "ok", detail: "UPS online." };
   }
   const detail = offline.map((ups) => `${ups.name}: ${ups.status}`).join(", ");
-  const onBattery = offline.some((ups) => ups.status === "ONBATT");
-  return { subsystem: "ups", severity: onBattery ? "critical" : "warning", detail };
+  return { subsystem: "ups", severity: "warning", detail };
 }
 
 function checkDockerUpdates(data: HealthData): SubsystemHealth {

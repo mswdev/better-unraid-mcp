@@ -19,6 +19,13 @@ const JSON_INDENT_SPACES = 2;
  * @returns Nothing; registers resources as a side effect.
  */
 export function registerAllResources(server: McpServer, options: RegistryOptions): void {
+  registerSchemaResource(server);
+  registerHealthResource(server, options);
+  registerDoctorResource(server, options);
+}
+
+/** The vendored SDL as a resource. */
+function registerSchemaResource(server: McpServer): void {
   server.registerResource(
     "unraid-schema",
     SCHEMA_URI,
@@ -32,6 +39,10 @@ export function registerAllResources(server: McpServer, options: RegistryOptions
       contents: [{ uri: SCHEMA_URI, mimeType: "application/graphql", text: loadSchemaSdl() }],
     }),
   );
+}
+
+/** The system-health rollup as JSON. */
+function registerHealthResource(server: McpServer, options: RegistryOptions): void {
   server.registerResource(
     "unraid-health",
     HEALTH_URI,
@@ -51,6 +62,10 @@ export function registerAllResources(server: McpServer, options: RegistryOptions
       ],
     }),
   );
+}
+
+/** The connection self-test as JSON. */
+function registerDoctorResource(server: McpServer, options: RegistryOptions): void {
   server.registerResource(
     "unraid-doctor",
     DOCTOR_URI,

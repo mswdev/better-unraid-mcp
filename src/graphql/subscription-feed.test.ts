@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LiveSnapshotStore } from "./live-store.js";
+import {
+  DOCKER_CONTAINER_EVICTION_MS,
+  LiveSnapshotStore,
+  mergeDockerStatsSample,
+} from "./live-store.js";
 import { type CreateClientLike, SubscriptionFeed, toWsUrl } from "./subscription-feed.js";
 
 interface RecordedSubscribe {
@@ -102,5 +106,40 @@ describe("LiveSnapshotStore", () => {
     const store = new LiveSnapshotStore();
 
     expect(store.get("nothing")).toBeNull();
+  });
+});
+
+describe("mergeDockerStatsSample", () => {
+  it("aggregates per container id with arrival stamps", () => {
+    const first = mergeDockerStatsSample(
+      undefined,
+      { dockerContainerStats: { id: "a", cpuPercent: 1 } },
+      1_000,
+    );
+    const second = mergeDockerStatsSample(
+      first,
+      { dockerContainerStats: { id: "b", cpuPercent: 2 } },
+      2_000,
+    );
+
+    expect(Object.keys(second.containers).sort()).toEqual(["a", "b"]);
+    expect(second.containers.a.seenAtMs).toBe(1_000);
+    expect(second.containers.b.seenAtMs).toBe(2_000);
+  });
+
+  it("evicts containers unseen for longer than the eviction window", () => {
+    const first = mergeDockerStatsSample(
+      undefined,
+      { dockerContainerStats: { id: "a", cpuPercent: 1 } },
+      0,
+    );
+
+    const later = mergeDockerStatsSample(
+      first,
+      { dockerContainerStats: { id: "b", cpuPercent: 2 } },
+      DOCKER_CONTAINER_EVICTION_MS + 1_000,
+    );
+
+    expect(Object.keys(later.containers)).toEqual(["b"]);
   });
 });

@@ -118,3 +118,34 @@ describe("system_power elicitation", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("system_power SSH failure classification", () => {
+  it("reports an auth failure as a real error, never as issued", async () => {
+    const handler = createSystemPowerHandler(
+      throwingShell("All configured authentication methods failed"),
+    );
+
+    const result = await handler({
+      response_format: "concise",
+      action: "reboot",
+      confirm: true,
+      acknowledge_risk: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("never sent");
+  });
+
+  it("reports a DNS failure as a real error", async () => {
+    const handler = createSystemPowerHandler(throwingShell("getaddrinfo ENOTFOUND tower"));
+
+    const result = await handler({
+      response_format: "concise",
+      action: "shutdown",
+      confirm: true,
+      acknowledge_risk: true,
+    });
+
+    expect(result.isError).toBe(true);
+  });
+});

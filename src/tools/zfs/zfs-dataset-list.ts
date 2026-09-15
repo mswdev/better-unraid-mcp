@@ -3,7 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { DATASET_PATTERN, ZFS_COMMAND_TIMEOUT_MS, probeZfs } from "./_shared.js";
 
@@ -68,9 +68,8 @@ export function createZfsDatasetListHandler(shell: ShellExecutor | null) {
     response_format: ResponseFormat;
     pool?: string;
   }): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     if (input.pool && !DATASET_PATTERN.test(input.pool)) {
       return toolError(`Invalid pool name: ${input.pool}`);

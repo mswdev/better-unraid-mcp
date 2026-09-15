@@ -1,4 +1,5 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
+import { Kind } from "graphql";
 import {
   ArrayStatusDocument,
   DockerContainerListDocument,
@@ -89,7 +90,7 @@ export class CachingExecutor implements GraphQLExecutor {
     variables?: TVariables,
   ): Promise<TData> {
     if (!this.cacheable.has(document)) {
-      return this.inner.execute(document, variables);
+      return this.executeUncached(document, variables);
     }
     const key = this.cacheKey(document, variables);
     const cached = this.cache.get(key);
@@ -101,6 +102,28 @@ export class CachingExecutor implements GraphQLExecutor {
     this.cache.set(key, { data, storedAtMs: this.now() });
     this.stampAge(data, 0);
     return data;
+  }
+
+  /**
+   * Pass-through for uncached operations. Mutations additionally clear every
+   * snapshot: the write tools direct agents to verify with a follow-up read,
+   * and that read must never be served from a pre-mutation cache entry.
+   */
+  private async executeUncached<TData, TVariables>(
+    document: TypedDocumentNode<TData, TVariables>,
+    variables?: TVariables,
+  ): Promise<TData> {
+    const isMutation = document.definitions.some(
+      (definition) =>
+        definition.kind === Kind.OPERATION_DEFINITION && definition.operation === "mutation",
+    );
+    try {
+      return await this.inner.execute(document, variables);
+    } finally {
+      if (isMutation) {
+        this.cache.clear();
+      }
+    }
   }
 
   /** Stable key: an id per document object plus the serialized variables. */
