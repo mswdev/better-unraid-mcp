@@ -182,22 +182,39 @@ function summarize(overall: Severity, reports: SubsystemHealth[]): string {
  * const handler = createSystemHealthHandler(client);
  * await handler({ response_format: "concise" });
  */
+/** The severity-scored rollup, reused by the tool and the unraid://health resource. */
+export interface SystemHealthReport {
+  overall: Severity;
+  subsystems: SubsystemHealth[];
+}
+
+/**
+ * Computes the severity-scored health rollup from one combined GraphQL read.
+ *
+ * @param client - The GraphQL executor used for the combined health read.
+ * @returns The overall verdict plus per-subsystem reports.
+ * @throws Error when the health query fails.
+ */
+export async function runSystemHealth(client: GraphQLExecutor): Promise<SystemHealthReport> {
+  const data = await client.execute(SystemHealthDocument);
+  const subsystems = [
+    checkArrayState(data.array),
+    checkCapacity(data.array),
+    checkDisks(data.array),
+    checkParity(data.array),
+    checkNotifications(data),
+    checkUps(data),
+    checkDockerUpdates(data),
+  ];
+  return { overall: worstSeverity(subsystems), subsystems };
+}
+
 export function createSystemHealthHandler(client: GraphQLExecutor) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     try {
-      const data = await client.execute(SystemHealthDocument);
-      const reports = [
-        checkArrayState(data.array),
-        checkCapacity(data.array),
-        checkDisks(data.array),
-        checkParity(data.array),
-        checkNotifications(data),
-        checkUps(data),
-        checkDockerUpdates(data),
-      ];
-      const overall = worstSeverity(reports);
-      const detailed = { overall, subsystems: reports };
-      return formatResponse(input.response_format, summarize(overall, reports), detailed);
+      const report = await runSystemHealth(client);
+      const summary = summarize(report.overall, report.subsystems);
+      return formatResponse(input.response_format, summary, report);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to compute system health: ${message}`);
