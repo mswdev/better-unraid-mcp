@@ -236,6 +236,16 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 
 > **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 370+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
+## Modern MCP surface
+
+Beyond tools, the server speaks the wider MCP protocol:
+
+- **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools present a real confirmation prompt — tier-2 actions show the blast-radius warning with two checkboxes — instead of refusing. The `confirm` / `acknowledge_risk` arguments still work everywhere and remain the only path on stateless HTTP. Declining the prompt changes nothing on the server.
+- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), and `unraid://doctor` (the connection self-test as JSON).
+- **Prompts.** Four guided workflows: `triage-array-problem`, `find-resource-hog`, `safe-container-update` (takes an optional `container` argument), and `health-report`.
+- **Structured output.** `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human text in both response formats.
+- **Complete annotations.** Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, enforced by a registry test.
+
 ## Configuration
 
 | Variable | Required | Default | Description |
