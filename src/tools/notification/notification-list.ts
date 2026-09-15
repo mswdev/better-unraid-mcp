@@ -96,7 +96,12 @@ export function registerNotificationList(server: McpServer, client: GraphQLExecu
       description:
         "Read-only. Lists notifications of one `type` (`unread` or `archive`), newest first. Optional `importance` filter (alert/warning/info); paginate with `offset` (default 0) and `limit` (default 25). The source of truth for which notifications exist and their ids.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createNotificationListHandler(client),
   );

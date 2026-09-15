@@ -145,7 +145,12 @@ export function registerDockerContainerLogs(
       description:
         "Read-only. Returns recent log lines for a container. `id` is the container id from docker_container_list. `tail` = trailing lines (default 200, max 2000). `since` = inclusive ISO-8601 lower bound; re-pass the returned `cursor` as `since` to page (the boundary line repeats — de-dupe). The API can miss containers that log only to stderr; when SSH is configured, this tool automatically falls back to `docker logs` for those.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerContainerLogsHandler(client, shell),
   );

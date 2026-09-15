@@ -7,6 +7,7 @@ interface Registration {
   hasConfig: boolean;
   hasHandler: boolean;
   annotations: unknown;
+  hasOutputSchema: boolean;
 }
 
 function fakeServer() {
@@ -14,12 +15,17 @@ function fakeServer() {
   return {
     registrations,
     server: {
-      registerTool: (name: string, config: { annotations?: unknown }, handler: unknown) => {
+      registerTool: (
+        name: string,
+        config: { annotations?: unknown; outputSchema?: unknown },
+        handler: unknown,
+      ) => {
         registrations.push({
           name,
           hasConfig: typeof config === "object" && config !== null,
           hasHandler: typeof handler === "function",
           annotations: config?.annotations,
+          hasOutputSchema: config?.outputSchema !== undefined,
         });
       },
     },
@@ -279,6 +285,42 @@ describe("read-only mode", () => {
       expect(registrations).toHaveLength(1);
       const annotations = registrations[0].annotations as { readOnlyHint?: boolean };
       expect(entry.isMutating).toBe(annotations.readOnlyHint !== true);
+    }
+  });
+});
+
+describe("annotation audit", () => {
+  it("every tool declares the full annotation set", () => {
+    for (const entry of TOOL_REGISTRATIONS) {
+      const { server, registrations } = fakeServer();
+
+      // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+      entry.register(server as any, { client: noopClient, shell: null, readOnly: false });
+
+      const annotations = registrations[0].annotations as Record<string, unknown>;
+      for (const hint of ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]) {
+        expect(typeof annotations[hint], `${registrations[0].name} is missing ${hint}`).toBe(
+          "boolean",
+        );
+      }
+    }
+  });
+});
+
+describe("structured output tools", () => {
+  it("the four structured reads declare an outputSchema", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    for (const name of [
+      "system_health",
+      "system_metrics",
+      "array_status",
+      "docker_container_list",
+    ]) {
+      const reg = registrations.find((r) => r.name === name);
+      expect(reg?.hasOutputSchema, `${name} should declare outputSchema`).toBe(true);
     }
   });
 });

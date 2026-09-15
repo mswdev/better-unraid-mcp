@@ -60,3 +60,37 @@ still wanted.
 - **Why:** The spec asked for "session map with idle expiry" without a knob;
   YAGNI until a user reports needing longer-lived idle sessions.
 - **Owner input:** Not needed.
+
+## Phase 3 — 0.0.6 "Modern MCP"
+
+### D6: Elicitation channel is created per-registration from the McpServer
+
+- **Decided:** Each gated tool's `registerX` builds the channel via
+  `createElicitationChannel(server)` and passes it as an optional trailing
+  factory parameter; capability detection happens lazily per call.
+- **Why:** Register functions already receive the server; handler factories
+  keep their fake-friendly signatures (tests omit the channel → argument
+  path). Lazy `getClientCapabilities()` matters because capabilities are
+  unknown until after initialization.
+- **Alternatives:** Threading the channel through `RegistryOptions`
+  (rejected: widens every registration for 14 consumers); reading
+  elicitation support from `extra` (the SDK does not expose it there).
+- **Owner input:** Not needed.
+
+### D7: A cancelled elicitation counts as declined; a failed one falls back
+
+- **Decided:** `cancel` and accept-with-false map to a refusal ("the user
+  declined"); a thrown elicitation error maps to the argument-fallback path.
+- **Why:** Cancel is a human choice — refusing is honest. A protocol error is
+  an environment problem — punishing the model with a refusal it can never
+  satisfy would be wrong, so it gets the classic instructions instead.
+- **Owner input:** Not needed.
+
+### D8: Structured content is redacted by JSON round-trip
+
+- **Decided:** `formatStructuredResponse` redacts by
+  `JSON.parse(redactSecrets(JSON.stringify(payload)))`.
+- **Why:** Keeps the "no secrets in any output" guarantee for the new
+  `structuredContent` channel with one implementation; the redactor already
+  guarantees parseable JSON output.
+- **Owner input:** Not needed.

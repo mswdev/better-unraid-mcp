@@ -70,7 +70,12 @@ export function registerDockerNetworkList(server: McpServer, client: GraphQLExec
       title: "List Docker Networks",
       description: "Read-only. Lists Docker networks (driver, scope, IPv6/internal/attachable).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerNetworkListHandler(client),
   );

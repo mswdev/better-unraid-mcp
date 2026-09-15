@@ -31,6 +31,7 @@ describe("system_health", () => {
     const result = await handler({ response_format: "concise" });
 
     expect(firstText(result)).toContain("OVERALL: OK");
+    expect(result.structuredContent).toMatchObject({ overall: "ok" });
   });
 
   it("flags critical capacity above 95 percent", async () => {

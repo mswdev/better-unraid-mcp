@@ -3,7 +3,11 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ArraySetStateDocument, type ArrayStateInputState } from "../../types/unraid/graphql.js";
-import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
+import {
+  requireConfirmationInteractive,
+  requireRiskAcknowledgementInteractive,
+} from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_action";
@@ -75,14 +79,23 @@ interface ArrayActionArgs {
  * @param args - The action and both gate flags.
  * @returns `null` when gated through, otherwise an error `CallToolResult`.
  */
-function gateRefusal(args: ArrayActionArgs): CallToolResult | null {
+async function gateRefusal(
+  args: ArrayActionArgs,
+  channel?: ElicitationChannel | null,
+): Promise<CallToolResult | null> {
   if (args.action !== "stop") {
-    return requireConfirmation(args.confirm, `${args.action} the array`);
+    return requireConfirmationInteractive({
+      confirm: args.confirm,
+      actionDescription: `${args.action} the array`,
+      channel,
+    });
   }
-  return requireRiskAcknowledgement(
-    args,
-    'Refusing to stop the array: Unraid will take every share, Docker container, and VM offline until the array is started again. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
-  );
+  return requireRiskAcknowledgementInteractive({
+    flags: args,
+    refusalMessage:
+      'Refusing to stop the array: Unraid will take every share, Docker container, and VM offline until the array is started again. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
+    channel,
+  });
 }
 
 /** Inputs for mapping a thrown message to a known, non-generic result. */
@@ -126,10 +139,13 @@ function mapKnownError(input: KnownErrorInput): CallToolResult | null {
  * @param client - The GraphQL executor used to run the setState mutation.
  * @returns An MCP handler that starts/stops the array behind the gate.
  */
-export function createArrayActionHandler(client: GraphQLExecutor) {
+export function createArrayActionHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: ArrayActionArgs): Promise<CallToolResult> => {
     const { response_format, action } = args;
-    const refusal = gateRefusal(args);
+    const refusal = await gateRefusal(args, channel);
     if (refusal) {
       return refusal;
     }
@@ -168,8 +184,13 @@ export function registerArrayAction(server: McpServer, client: GraphQLExecutor):
       description:
         "Starts or stops the array. ⚠ stop: Unraid takes every share, Docker container, and VM offline (the API does not check for active services first). Requires `confirm: true`; stop additionally requires `acknowledge_risk: true`. The mutation cannot report the resulting state — run array_status afterward to confirm (state reads may lag a few seconds). Requires an Unraid API key with ADMIN role. Encrypted arrays cannot be started by this tool (no decryption inputs) — use the web UI.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    createArrayActionHandler(client),
+    createArrayActionHandler(client, createElicitationChannel(server)),
   );
 }

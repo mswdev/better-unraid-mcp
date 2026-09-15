@@ -146,7 +146,12 @@ export function registerUpsStatus(server: McpServer, client: GraphQLExecutor): v
       description:
         "Read-only. Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. ONLINE, ONBATT, LOWBATT, COMMLOST), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or the apcupsd service is not running — not a server failure. When apcupsd reports no device, the Unraid API may return placeholder values; this tool reports that as 'no live UPS data' rather than a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createUpsStatusHandler(client),
   );

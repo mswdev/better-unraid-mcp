@@ -5,7 +5,7 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
 import { ArrayStatusDocument, type ArrayStatusQuery } from "../../types/unraid/graphql.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_status";
 const PERCENT = 100;
@@ -33,6 +33,17 @@ const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
 };
 
+/** Shape of the structuredContent payload (deep disk typing adds no safety). */
+const outputSchema = {
+  state: z.string(),
+  capacity: z.unknown(),
+  parityCheckStatus: z.unknown(),
+  parities: z.unknown(),
+  disks: z.unknown(),
+  caches: z.unknown(),
+  data_age_ms: z.number(),
+};
+
 /** Builds a one-line summary of the array's health. */
 function summarize(data: ArrayStatusQuery): string {
   const { array } = data;
@@ -57,7 +68,7 @@ export function createArrayStatusHandler(client: GraphQLExecutor) {
     try {
       const data = await client.execute(ArrayStatusDocument);
       const detailed = { ...data.array, data_age_ms: cacheAgeMs(data) ?? 0 };
-      return formatResponse(response_format, summarize(data), detailed);
+      return formatStructuredResponse(response_format, summarize(data), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch array status: ${message}`);
@@ -79,9 +90,11 @@ export function registerArrayStatus(server: McpServer, client: GraphQLExecutor):
       description:
         "Read-only. Returns the array state, capacity, current parity-check status, and a per-disk health summary (data, parity, and cache disks).",
       inputSchema,
+      outputSchema,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
+        idempotentHint: true,
         openWorldHint: false,
       },
     },

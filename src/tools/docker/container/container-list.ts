@@ -7,7 +7,7 @@ import {
   DockerContainerListDocument,
   type DockerContainerListQuery,
 } from "../../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../../_shared/respond.js";
+import { type ResponseFormat, formatStructuredResponse, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_list";
@@ -15,6 +15,12 @@ const TOOL_NAME = "docker_container_list";
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   name: z.string().optional(),
+};
+
+/** Shape of the structuredContent payload. */
+const outputSchema = {
+  containers: z.array(z.unknown()),
+  data_age_ms: z.number(),
 };
 
 type Containers = DockerContainerListQuery["docker"]["containers"];
@@ -59,7 +65,7 @@ export function createDockerContainerListHandler(client: GraphQLExecutor) {
       const data = await client.execute(DockerContainerListDocument);
       const containers = filterByName(data.docker.containers, name);
       const detailed = { containers, data_age_ms: cacheAgeMs(data) ?? 0 };
-      return formatResponse(response_format, summarize(containers), detailed);
+      return formatStructuredResponse(response_format, summarize(containers), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch Docker containers: ${message}`);
@@ -81,7 +87,13 @@ export function registerDockerContainerList(server: McpServer, client: GraphQLEx
       description:
         "Read-only. Lists Docker containers with state, image, and whether an update is available. Use `name` to filter by a container-name substring.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      outputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerContainerListHandler(client),
   );

@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginAddDocument } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { formatResponse, toolError } from "../_shared/respond.js";
 import {
   type PluginNamesInput,
@@ -28,13 +29,20 @@ const RESTART = true;
  * const handler = createPluginAddHandler(client);
  * await handler({ response_format: "concise", names: ["unraid-api-plugin-x"], confirm: true });
  */
-export function createPluginAddHandler(client: GraphQLExecutor) {
+export function createPluginAddHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (input: PluginNamesInput): Promise<CallToolResult> => {
     const invalid = firstInvalidName(input.names);
     if (invalid !== null) {
       return toolError(buildInvalidNameError("add", invalid));
     }
-    const refusal = requireConfirmation(input.confirm, `add plugin(s) ${input.names.join(", ")}`);
+    const refusal = await requireConfirmationInteractive({
+      confirm: input.confirm,
+      actionDescription: `add plugin(s) ${input.names.join(", ")}`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -66,8 +74,13 @@ export function registerPluginAdd(server: McpServer, client: GraphQLExecutor): v
       description:
         "⚠ Installs one or more Unraid API plugins by npm package name (`names`). This runs `npm install`, which executes the package's lifecycle scripts on the server (supply-chain / code-execution risk), then RESTARTS the Unraid API to load them — your connection will drop briefly. `names` must be bare or scoped package names (no URLs, git refs, paths, or version suffixes). Requires `confirm: true` and a key with CONFIG write permission (UPDATE_ANY). Reports submission; verify with plugin_list after the API reconnects.",
       inputSchema: pluginNamesSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
-    createPluginAddHandler(client),
+    createPluginAddHandler(client, createElicitationChannel(server)),
   );
 }

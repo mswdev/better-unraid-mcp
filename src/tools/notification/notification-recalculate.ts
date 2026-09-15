@@ -46,7 +46,12 @@ export function registerNotificationRecalculate(server: McpServer, client: Graph
       description:
         "Re-syncs the notification overview counts from disk (corrects cache drift after bulk changes). Returns the refreshed counts.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createNotificationRecalculateHandler(client),
   );
