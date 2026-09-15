@@ -17,7 +17,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 37 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 58 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
@@ -27,9 +27,13 @@ The 37 tools cover most of what you would normally do over SSH or in the WebGUI:
 - Triage notifications: read, archive, and clear the alerts you have been putting off
 - Watch the UPS during an outage: battery charge, runtime estimate, load
 - Go past the API when you need to (optional, via SSH): read any file on the host, such as `/boot/logs/syslog-previous`, or run a confirmed one-off command
+- Work with ZFS: pool health, datasets, snapshots (create, destroy, rollback), and ARC usage
+- Reach the host when the API can't: processes, GPU metrics, disk spin, SMART deep reports, User Scripts, VM snapshots
+- Manage the platform itself: API keys, native `.plg` plugin installs, mover control, reboot/shutdown
+- Watch things live: WebSocket-fed resources for parity progress, docker stats, system metrics, and log following (`unraid://live/*`, `unraid://logs/{path}`)
 - Reach the rest of the API surface with raw `graphql_query` and confirm-gated `graphql_mutation`, so nothing is off limits while dedicated tools catch up
 
-The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM) require a second `acknowledge_risk` flag on top. Every read works with a viewer-level API key.
+The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM, rebooting the host) require a second `acknowledge_risk` flag on top. When your client supports MCP elicitation, those gates become real interactive prompts instead. Every read works with a viewer-level API key — and `MCP_READ_ONLY=true` removes every state-changing tool from the listing entirely.
 
 There is nothing to install on the server itself. The MCP server runs on your machine, talks to Unraid's built-in GraphQL API with a single key, and starts with one `npx` command.
 
@@ -122,6 +126,10 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 </details>
 
 If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To enable the optional host-shell tools (reading files like `/boot/logs/syslog-previous`, running commands, per-container stats), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). Using `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.0.1`) if you prefer fully predictable behavior.
+
+### Cautious quickstart (read-only)
+
+Not ready to let a model touch anything? Add `MCP_READ_ONLY=true` to the environment above and the server registers only read-only tools — the state-changing ones aren't rejected at call time, they simply don't exist. Combined with a VIEWER-role API key, nothing in this server can change your machine.
 
 ### 3. Try it
 

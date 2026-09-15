@@ -85,8 +85,9 @@ describe("docker_stats", () => {
     const result = await handler({ response_format: "detailed" });
 
     const payload = JSON.parse(firstText(result));
-    expect(payload).toHaveLength(2);
-    expect(payload[0]).toMatchObject({ Name: "hog" });
+    expect(payload.source).toBe("ssh");
+    expect(payload.containers).toHaveLength(2);
+    expect(payload.containers[0]).toMatchObject({ Name: "hog" });
   });
 
   it("maps transport failures to a tool error", async () => {
@@ -96,5 +97,48 @@ describe("docker_stats", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("ETIMEDOUT");
+  });
+});
+
+describe("docker_stats live subscription preference", () => {
+  const liveSample = {
+    containers: {
+      "c-1": {
+        id: "c-1",
+        cpuPercent: 42.5,
+        memUsage: "1GiB / 8GiB",
+        memPercent: 12.5,
+        netIO: "1MB / 2MB",
+        blockIO: "0B / 0B",
+      },
+    },
+  };
+
+  function storeWith(ageMs: number) {
+    return {
+      get: (topic: string) =>
+        topic === "dockerContainerStats" ? { data: liveSample, ageMs } : null,
+    } as never;
+  }
+
+  it("serves a fresh live sample without touching the shell", async () => {
+    const { shell, calls } = recordingShell(twoContainers);
+    const handler = createDockerStatsHandler(shell, storeWith(2_000));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(calls).toHaveLength(0);
+    expect(firstText(result)).toContain("source: live subscription");
+    expect(firstText(result)).toContain("c-1");
+  });
+
+  it("falls back to SSH when the live sample is stale and says so", async () => {
+    const { shell, calls } = recordingShell(twoContainers);
+    const handler = createDockerStatsHandler(shell, storeWith(60_000));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(calls).toHaveLength(1);
+    expect(firstText(result)).toContain("(source: ssh)");
   });
 });
