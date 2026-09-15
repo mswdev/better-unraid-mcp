@@ -213,10 +213,10 @@ describe("registerAllTools host-level tools", () => {
     });
   });
 
-  it("registers 37 tools in total", () => {
+  it("registers 38 tools in total", () => {
     const { server, registrations } = fakeServer();
     registerAll(server);
-    expect(registrations).toHaveLength(37);
+    expect(registrations).toHaveLength(38);
   });
 });
 
@@ -230,6 +230,18 @@ describe("registerAllTools raw GraphQL tools", () => {
     const mutation = registrations.find((r) => r.name === "graphql_mutation");
     expect(mutation?.hasHandler).toBe(true);
     expect(mutation?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+  });
+});
+
+describe("registerAllTools mover_action", () => {
+  it("registers mover_action as destructive", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    const reg = registrations.find((r) => r.name === "mover_action");
+    expect(reg?.hasHandler).toBe(true);
+    expect(reg?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
   });
 });
 

@@ -19,6 +19,7 @@ import { registerGraphqlMutation } from "./graphql/graphql-mutation.js";
 import { registerGraphqlQuery } from "./graphql/graphql-query.js";
 import { registerLogList } from "./log/log-list.js";
 import { registerLogRead } from "./log/log-read.js";
+import { registerMoverAction } from "./mover/mover-action.js";
 import { registerMoverStatus } from "./mover/mover-status.js";
 import { registerNotificationAlerts } from "./notification/notification-alerts.js";
 import { registerNotificationArchive } from "./notification/notification-archive.js";
@@ -132,6 +133,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { client }) => registerPluginRemove(server, client) },
   { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
   { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
+  { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
