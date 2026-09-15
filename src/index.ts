@@ -4,6 +4,7 @@ import { UnraidClient } from "./graphql/client.js";
 import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
+import { registerSecretValues } from "./tools/_shared/redact.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
 
@@ -35,6 +36,7 @@ function buildShellExecutor(env: Env): ShellExecutor | null {
 /** Wires config → client → server → transport and starts the MCP server. */
 async function main(): Promise<void> {
   const env = loadEnv();
+  registerSecretValues([env.UNRAID_API_KEY, env.UNRAID_SSH_PASSWORD, env.MCP_HTTP_BEARER_TOKEN]);
   const logger = createLogger(env.LOG_LEVEL);
   installProcessGuards(logger);
   const client = new UnraidClient({

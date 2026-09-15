@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { redactSecrets } from "./redact.js";
 import { truncateJsonPayload } from "./truncate-output.js";
 
 /** Number of spaces used when pretty-printing detailed JSON responses. */
@@ -8,23 +9,26 @@ const JSON_INDENT_SPACES = 2;
 export type ResponseFormat = "concise" | "detailed";
 
 /**
- * Wraps plain text as a successful tool result.
+ * Wraps plain text as a successful tool result. Secrets (configured values,
+ * credential-shaped key-values, JWTs) are redacted — this is the choke point
+ * every tool's text output flows through.
  *
  * @param text - The text content to return.
  * @returns A successful `CallToolResult`.
  */
 export function toolText(text: string): CallToolResult {
-  return { content: [{ type: "text", text }] };
+  return { content: [{ type: "text", text: redactSecrets(text) }] };
 }
 
 /**
- * Wraps a message as an error tool result (sets `isError`).
+ * Wraps a message as an error tool result (sets `isError`). Secrets are
+ * redacted the same way as in `toolText`.
  *
  * @param message - The error message to return to the client.
  * @returns An error `CallToolResult`.
  */
 export function toolError(message: string): CallToolResult {
-  return { content: [{ type: "text", text: message }], isError: true };
+  return { content: [{ type: "text", text: redactSecrets(message) }], isError: true };
 }
 
 /**
