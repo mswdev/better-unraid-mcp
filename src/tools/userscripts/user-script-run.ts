@@ -5,7 +5,7 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
@@ -18,6 +18,9 @@ const MAX_TIMEOUT_SECONDS = 300;
 
 /** Script folder names: no path separators, ever. */
 const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9 ._-]+$/;
+
+/** "." and ".." pass the character class but escape the scripts directory. */
+const DOT_ONLY_PATTERN = /^\.+$/;
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
@@ -83,11 +86,10 @@ export function createUserScriptRunHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: UserScriptRunArgs): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
-    if (!SCRIPT_NAME_PATTERN.test(args.name)) {
+    if (!SCRIPT_NAME_PATTERN.test(args.name) || DOT_ONLY_PATTERN.test(args.name)) {
       return toolError(`Invalid script name: ${args.name}. No changes were made.`);
     }
     const refusal = await requireRiskAcknowledgementInteractive({

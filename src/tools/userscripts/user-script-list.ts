@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "user_script_list";
@@ -26,9 +26,8 @@ const inputSchema = {
  */
 export function createUserScriptListHandler(shell: ShellExecutor | null) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     try {
       const result = await shell.execute(LIST_COMMAND, COMMAND_TIMEOUT_MS);

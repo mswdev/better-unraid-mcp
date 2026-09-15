@@ -41,9 +41,15 @@ export interface SshSettings {
   idleSeconds?: number;
 }
 
+/**
+ * A remote process that finished without reporting an exit status (killed by
+ * a signal, or the channel dropped mid-run). Never 0: success must be earned.
+ */
+export const EXIT_CODE_UNKNOWN = -1;
+
 /** One open SSH connection, reduced to what the executor needs. Test seam. */
 export interface SshConnection {
-  exec(command: string): Promise<ShellResult>;
+  exec(command: string, timeoutMs: number): Promise<ShellResult>;
   end(): void;
   onClose(listener: () => void): void;
 }
@@ -103,7 +109,7 @@ export class SshShellExecutor implements ShellExecutor {
     const connection = await withTimeout(this.acquireConnection(), timeoutMs, "connect");
     await this.acquireChannel();
     try {
-      return await withTimeout(connection.exec(command), timeoutMs, "run the command");
+      return await connection.exec(command, timeoutMs);
     } finally {
       this.releaseChannel();
     }
@@ -137,7 +143,11 @@ export class SshShellExecutor implements ShellExecutor {
     }
   }
 
-  /** Takes a channel slot, waiting when all slots are busy. */
+  /**
+   * Takes a channel slot, waiting when all slots are busy. A resumed waiter
+   * INHERITS the releasing call's slot (the counter never dips), so a
+   * concurrently arriving caller cannot slip past the bound.
+   */
   private async acquireChannel(): Promise<void> {
     this.clearIdleTimer();
     if (this.activeChannels < MAX_CONCURRENT_CHANNELS) {
@@ -145,17 +155,16 @@ export class SshShellExecutor implements ShellExecutor {
       return;
     }
     await new Promise<void>((resolve) => this.waiters.push(resolve));
-    this.activeChannels += 1;
   }
 
-  /** Frees a channel slot, waking a waiter or arming the idle timer. */
+  /** Hands the slot to a waiter (counter unchanged) or frees it. */
   private releaseChannel(): void {
-    this.activeChannels -= 1;
     const next = this.waiters.shift();
     if (next) {
       next();
       return;
     }
+    this.activeChannels -= 1;
     if (this.activeChannels === 0) {
       this.scheduleIdleDisconnect();
     }
@@ -186,7 +195,7 @@ export class SshShellExecutor implements ShellExecutor {
 async function openSshConnection(config: ConnectConfig): Promise<SshConnection> {
   const client = await connect(config);
   return {
-    exec: (command) => run(client, command),
+    exec: (command, timeoutMs) => run(client, command, timeoutMs),
     end: () => client.end(),
     onClose: (listener) => {
       client.on("close", listener);
@@ -205,20 +214,39 @@ function connect(config: ConnectConfig): Promise<Client> {
   });
 }
 
-/** Executes one command on an open connection and collects its result. */
-function run(connection: Client, command: string): Promise<ShellResult> {
+/**
+ * Executes one command on an open connection under a hard deadline. On
+ * timeout the channel is closed (freeing the ssh session slot and stopping
+ * output buffering); note the remote process itself may keep running.
+ */
+function run(connection: Client, command: string, timeoutMs: number): Promise<ShellResult> {
   return new Promise((resolve, reject) => {
     connection.exec(command, (error, stream) => {
       if (error) {
         reject(error);
         return;
       }
-      collect(stream, resolve);
+      const timer = setTimeout(() => {
+        stream.close();
+        reject(
+          new Error(
+            `Timed out after ${timeoutMs} ms trying to run the command over SSH. The channel was closed, but the remote process may still be running.`,
+          ),
+        );
+      }, timeoutMs);
+      collect(stream, (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      });
     });
   });
 }
 
-/** Accumulates a stream's stdout/stderr and resolves with the exit code on close. */
+/**
+ * Accumulates a stream's stdout/stderr and resolves with the exit code on
+ * close. A null code (signal kill, dropped channel) maps to
+ * EXIT_CODE_UNKNOWN, never 0 — success must come from a real exit status.
+ */
 function collect(stream: ClientChannel, resolve: (result: ShellResult) => void): void {
   let stdout = "";
   let stderr = "";
@@ -228,7 +256,9 @@ function collect(stream: ClientChannel, resolve: (result: ShellResult) => void):
   stream.stderr.on("data", (chunk: Buffer) => {
     stderr += chunk.toString("utf8");
   });
-  stream.on("close", (code: number | null) => resolve({ stdout, stderr, exitCode: code ?? 0 }));
+  stream.on("close", (code: number | null) =>
+    resolve({ stdout, stderr, exitCode: code ?? EXIT_CODE_UNKNOWN }),
+  );
 }
 
 /** Races a promise against a deadline, rejecting with a descriptive timeout error. */

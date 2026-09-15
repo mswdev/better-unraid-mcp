@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "disk_spin";
@@ -78,9 +78,8 @@ export function createDiskSpinHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: DiskSpinArgs): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     const invalid = validateTarget(args);
     if (invalid) {

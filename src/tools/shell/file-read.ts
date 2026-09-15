@@ -3,7 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
@@ -87,9 +87,8 @@ function renderResult(input: FileReadInput, result: ShellResult): CallToolResult
  */
 export function createFileReadHandler(shell: ShellExecutor | null) {
   return async (input: FileReadInput): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     if (!input.path.startsWith("/")) {
       return toolError(`path must be absolute (start with "/"); got "${input.path}".`);

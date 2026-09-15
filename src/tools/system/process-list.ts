@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "process_list";
@@ -69,9 +69,8 @@ export function createProcessListHandler(shell: ShellExecutor | null) {
     sort_by: "cpu" | "memory";
     count: number;
   }): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     try {
       const command = `ps axo pid,pcpu,pmem,rss,etime,comm --sort=${SORT_KEYS[input.sort_by]} | head -n ${input.count + 1}`;

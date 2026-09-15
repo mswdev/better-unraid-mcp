@@ -163,3 +163,27 @@ describe("system_health", () => {
     expect(result.isError).toBe(true);
   });
 });
+
+describe("system_health UPS semantics", () => {
+  it("treats a status-less phantom UPS device as absence, not an outage", async () => {
+    const fixture = healthyFixture();
+    fixture.upsDevices = [{ name: "ups", status: "", battery: { chargeLevel: 0 } }];
+    const { executor } = recordingExecutor(fixture);
+    const handler = createSystemHealthHandler(executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("OVERALL: OK");
+  });
+
+  it("accepts multi-token statuses containing ONLINE", async () => {
+    const fixture = healthyFixture();
+    fixture.upsDevices = [{ name: "ups", status: "ONLINE SLAVE", battery: { chargeLevel: 100 } }];
+    const { executor } = recordingExecutor(fixture);
+    const handler = createSystemHealthHandler(executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("OVERALL: OK");
+  });
+});

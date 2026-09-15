@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { PROBE_TIMEOUT_MS, ZFS_COMMAND_TIMEOUT_MS, probeZfs } from "./_shared.js";
 
@@ -84,9 +84,8 @@ function summarize(pools: PoolStatus[], arcText: string): string {
  */
 export function createZfsStatusHandler(shell: ShellExecutor | null) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     try {
       const missing = await probeZfs(shell);

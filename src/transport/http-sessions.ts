@@ -37,6 +37,8 @@ interface SessionRecord {
   transport: TransportLike;
   server: McpServer;
   lastSeenAt: number;
+  /** True while a long-lived SSE (GET) stream is open — exempt from sweep. */
+  streaming: boolean;
 }
 
 /** True when the JSON-RPC body is (or contains) an `initialize` request. */
@@ -58,6 +60,10 @@ function readSessionId(request: IncomingMessage): string | undefined {
 
 /** Writes a JSON-RPC-shaped error for session routing failures. */
 function writeSessionError(response: ServerResponse, status: number, message: string): void {
+  if (response.headersSent) {
+    response.end();
+    return;
+  }
   const body = JSON.stringify({
     jsonrpc: "2.0",
     error: { code: JSON_RPC_INVALID_REQUEST, message },
@@ -117,10 +123,10 @@ export class SessionStore {
     return this.sessions.size;
   }
 
-  /** Closes every session idle past the expiry window. */
+  /** Closes every session idle past the expiry window (open streams exempt). */
   sweep(): void {
     for (const [id, record] of this.sessions) {
-      if (this.now() - record.lastSeenAt > SESSION_IDLE_EXPIRY_MS) {
+      if (!record.streaming && this.now() - record.lastSeenAt > SESSION_IDLE_EXPIRY_MS) {
         void this.remove(id);
       }
     }
@@ -139,9 +145,28 @@ export class SessionStore {
       return;
     }
     record.lastSeenAt = this.now();
+    if (input.request.method === "GET") {
+      this.trackStream(record, input.response);
+    }
     await record.transport.handleRequest(input.request, input.response, input.body);
     if (input.request.method === "DELETE") {
       await this.remove(input.sessionId);
+    }
+  }
+
+  /**
+   * A GET opens the long-lived SSE stream: notifications flowing outward
+   * never touch lastSeenAt, so the session is sweep-exempt until the stream
+   * closes (then the idle clock restarts).
+   */
+  private trackStream(record: SessionRecord, response: ServerResponse): void {
+    record.streaming = true;
+    const listener = () => {
+      record.streaming = false;
+      record.lastSeenAt = this.now();
+    };
+    if (typeof response.on === "function") {
+      response.on("close", listener);
     }
   }
 
@@ -154,13 +179,34 @@ export class SessionStore {
     const server = this.options.buildServer();
     // biome-ignore lint/style/useConst: assigned below, referenced by the callback closure.
     let transport: TransportLike;
+    let initialized = false;
     const onInitialized = (sessionId: string) => {
-      this.sessions.set(sessionId, { transport, server, lastSeenAt: this.now() });
+      initialized = true;
+      this.sessions.set(sessionId, { transport, server, lastSeenAt: this.now(), streaming: false });
       this.options.logger.info(`MCP session ${sessionId} started`);
     };
     transport = this.buildTransport(onInitialized);
     await server.connect(transport as never);
     await transport.handleRequest(request, response, body);
+    if (!initialized) {
+      // Failed initialization must not accumulate connected server/transport
+      // pairs that no session entry will ever close.
+      await this.closePair(transport, server, "(uninitialized)");
+    }
+  }
+
+  /** Closes a transport/server pair; failures are logged, not thrown. */
+  private async closePair(
+    transport: TransportLike,
+    server: McpServer,
+    label: string,
+  ): Promise<void> {
+    try {
+      await transport.close();
+      await server.close();
+    } catch (error) {
+      this.options.logger.warn({ err: error }, `Failed to close MCP session ${label}`);
+    }
   }
 
   /** Closes and forgets one session; close failures are logged, not thrown. */
@@ -170,12 +216,7 @@ export class SessionStore {
       return;
     }
     this.sessions.delete(sessionId);
-    try {
-      await record.transport.close();
-      await record.server.close();
-    } catch (error) {
-      this.options.logger.warn({ err: error }, `Failed to close MCP session ${sessionId}`);
-    }
+    await this.closePair(record.transport, record.server, sessionId);
   }
 
   /** The real SDK transport: session ids, SSE responses, rebinding guard. */
