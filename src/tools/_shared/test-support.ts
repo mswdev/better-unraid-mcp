@@ -145,3 +145,30 @@ export function throwingShell(message: string): ShellExecutor {
     },
   };
 }
+
+/**
+ * Builds a fake shell executor that returns (or throws) each result in
+ * order — for tools that run several commands (probe, then work).
+ *
+ * @param results - One entry per expected `execute` call; an `Error` throws.
+ * @returns The fake executor and the array of recorded calls.
+ */
+export function sequencedShell(results: Array<ShellResult | Error>): {
+  shell: ShellExecutor;
+  calls: RecordedShellCall[];
+} {
+  const calls: RecordedShellCall[] = [];
+  let index = 0;
+  const shell: ShellExecutor = {
+    execute: async (command, timeoutMs) => {
+      calls.push({ command, timeoutMs });
+      const result = results[index];
+      index += 1;
+      if (result instanceof Error) {
+        throw result;
+      }
+      return result;
+    },
+  };
+  return { shell, calls };
+}

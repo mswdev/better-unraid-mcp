@@ -47,6 +47,10 @@ import { registerSystemPower } from "./system/system-power.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
+import { registerZfsDatasetList } from "./zfs/zfs-dataset-list.js";
+import { registerZfsSnapshotAction } from "./zfs/zfs-snapshot-action.js";
+import { registerZfsSnapshotList } from "./zfs/zfs-snapshot-list.js";
+import { registerZfsStatus } from "./zfs/zfs-status.js";
 
 /** Dependencies and mode shared by every tool registration. */
 export interface RegistryOptions {
@@ -155,6 +159,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
+  { isMutating: false, register: (server, { shell }) => registerZfsStatus(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerZfsDatasetList(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
