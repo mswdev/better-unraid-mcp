@@ -13,7 +13,7 @@ import {
   VmStartDocument,
   VmStopDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 /** The number of colon-separated parts a prefixed `PrefixedID` (`serverId:rawId`) has. */
@@ -80,14 +80,12 @@ interface VmActionArgs {
  * @returns `null` when gated through, otherwise an error `CallToolResult`.
  */
 function gateRefusal(args: VmActionArgs): CallToolResult | null {
-  const { action, confirm, acknowledge_risk, vm } = args;
+  const { action, vm } = args;
   if (!UNGRACEFUL.has(action)) {
-    return requireConfirmation(confirm, `${action} VM ${vm}`);
+    return requireConfirmation(args.confirm, `${action} VM ${vm}`);
   }
-  if (confirm === true && acknowledge_risk === true) {
-    return null;
-  }
-  return toolError(
+  return requireRiskAcknowledgement(
+    args,
     `Refusing to ${action} VM ${vm}: this ungraceful action can corrupt the guest filesystem (like pulling the power). Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`,
   );
 }

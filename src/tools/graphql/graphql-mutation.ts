@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
 import { toolError } from "../_shared/respond.js";
 import { findRiskyFields, parseSingleOperation, renderJsonResult } from "./_shared.js";
 
@@ -22,11 +22,9 @@ interface GraphqlMutationInput {
   acknowledge_risk?: boolean;
 }
 
-/** One combined refusal for risky fields, so callers learn both flags at once. */
-function riskyRefusal(fields: string[]): CallToolResult {
-  return toolError(
-    `Refusing to run this mutation: it selects ${fields.join(", ")}, which can stop the array, hard-kill a VM, or rewrite the system shutdown configuration. Re-call with both "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`,
-  );
+/** One combined refusal message for risky fields, naming both flags at once. */
+function riskyRefusalMessage(fields: string[]): string {
+  return `Refusing to run this mutation: it selects ${fields.join(", ")}, which can stop the array, hard-kill a VM, or rewrite the system shutdown configuration. Re-call with both "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`;
 }
 
 /**
@@ -52,8 +50,11 @@ export function createGraphqlMutationHandler(client: GraphQLExecutor) {
         );
       }
       const riskyFields = findRiskyFields(parsed.document);
-      if (riskyFields.length > 0 && (input.confirm !== true || input.acknowledge_risk !== true)) {
-        return riskyRefusal(riskyFields);
+      if (riskyFields.length > 0) {
+        const riskRefusal = requireRiskAcknowledgement(input, riskyRefusalMessage(riskyFields));
+        if (riskRefusal) {
+          return riskRefusal;
+        }
       }
       const refusal = requireConfirmation(
         input.confirm,
