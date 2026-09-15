@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import type { LiveSnapshotStore } from "../../graphql/live-store.js";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
@@ -13,6 +14,47 @@ const TOOL_NAME = "docker_stats";
 const STATS_COMMAND = "docker stats --no-stream --format '{{json .}}'";
 /** docker stats takes one sampling interval (~2s) per call; allow slow daemons. */
 const STATS_TIMEOUT_MS = 30_000;
+
+/** A live subscription sample this fresh beats a new SSH round-trip. */
+const LIVE_FRESHNESS_MS = 10_000;
+
+/** The live store topic the docker-stats subscription fills. */
+const LIVE_TOPIC = "dockerContainerStats";
+
+/** One container's live sample from the GraphQL subscription. */
+interface LiveContainerStats {
+  id: string;
+  cpuPercent: number;
+  memUsage: string;
+  memPercent: number;
+  netIO: string;
+  blockIO: string;
+}
+
+/** Renders the live-sample view (subscription events carry ids, not names). */
+function summarizeLive(containers: LiveContainerStats[], ageMs: number): string {
+  const sorted = [...containers].sort((a, b) => b.cpuPercent - a.cpuPercent);
+  const lines = sorted.map(
+    (row) =>
+      `${row.id}: CPU ${row.cpuPercent}%, MEM ${row.memUsage} (${row.memPercent}%), NET ${row.netIO}, IO ${row.blockIO}`,
+  );
+  return [
+    `Per-container usage (${sorted.length} containers, source: live subscription, age ${ageMs} ms):`,
+    ...lines,
+  ].join("\n");
+}
+
+/** Extracts the aggregated live container map, when present and well-formed. */
+function liveContainers(data: unknown): LiveContainerStats[] | null {
+  if (typeof data !== "object" || data === null) {
+    return null;
+  }
+  const containers = (data as { containers?: Record<string, LiveContainerStats> }).containers;
+  if (!containers || Object.keys(containers).length === 0) {
+    return null;
+  }
+  return Object.values(containers);
+}
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
@@ -82,8 +124,20 @@ function summarize(rows: StatsRow[]): string {
  * const handler = createDockerStatsHandler(shell);
  * await handler({ response_format: "concise" });
  */
-export function createDockerStatsHandler(shell: ShellExecutor | null) {
+export function createDockerStatsHandler(
+  shell: ShellExecutor | null,
+  liveStore?: LiveSnapshotStore | null,
+) {
   return async (input: DockerStatsInput): Promise<CallToolResult> => {
+    const live = liveStore?.get(LIVE_TOPIC);
+    const containers = live && live.ageMs <= LIVE_FRESHNESS_MS ? liveContainers(live.data) : null;
+    if (live && containers) {
+      return formatResponse(input.response_format, summarizeLive(containers, live.ageMs), {
+        source: "live-subscription",
+        age_ms: live.ageMs,
+        containers,
+      });
+    }
     const unavailable = requireShell(shell);
     if (unavailable || !shell) {
       return unavailable ?? toolError("SSH is not configured.");
@@ -95,7 +149,10 @@ export function createDockerStatsHandler(shell: ShellExecutor | null) {
         return toolError(`docker stats failed (exit ${result.exitCode}): ${detail}`);
       }
       const rows = parseRows(result.stdout);
-      return formatResponse(input.response_format, summarize(rows), rows);
+      return formatResponse(input.response_format, `${summarize(rows)}\n(source: ssh)`, {
+        source: "ssh",
+        containers: rows,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to collect docker stats over SSH: ${message}`);
@@ -110,13 +167,17 @@ export function createDockerStatsHandler(shell: ShellExecutor | null) {
  * @param shell - The SSH executor the tool uses (or `null` when unconfigured).
  * @returns Nothing; registers the tool as a side effect.
  */
-export function registerDockerStats(server: McpServer, shell: ShellExecutor | null): void {
+export function registerDockerStats(
+  server: McpServer,
+  shell: ShellExecutor | null,
+  liveStore?: LiveSnapshotStore | null,
+): void {
   server.registerTool(
     TOOL_NAME,
     {
       title: "Docker Container Stats",
       description:
-        "Read-only. Point-in-time per-container resource usage (CPU %, memory, network IO, block IO, PIDs) from `docker stats --no-stream`, sorted hungriest CPU first: use it to find which container is eating the box. Takes a couple of seconds (one stats sampling interval). Runs over SSH because the GraphQL API only exposes these numbers as a subscription; requires SSH to be configured (UNRAID_SSH_* environment variables).",
+        "Read-only. Per-container resource usage (CPU %, memory, network IO, block IO), hungriest first. Prefers fresh data from the live WebSocket subscription (subscribe to unraid://live/docker-stats to keep it warm) and falls back to `docker stats --no-stream` over SSH; the response says which source served it. The SSH path requires UNRAID_SSH_* configuration.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
@@ -125,6 +186,6 @@ export function registerDockerStats(server: McpServer, shell: ShellExecutor | nu
         openWorldHint: false,
       },
     },
-    createDockerStatsHandler(shell),
+    createDockerStatsHandler(shell, liveStore),
   );
 }

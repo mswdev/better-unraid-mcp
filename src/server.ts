@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAllPrompts } from "./prompts/registry.js";
+import { registerLiveResources } from "./resources/live-resources.js";
 import { registerAllResources } from "./resources/registry.js";
 import { type RegistryOptions, registerAllTools } from "./tools/registry.js";
 import { SERVER_VERSION } from "./version.js";
@@ -17,5 +18,8 @@ export function buildServer(options: RegistryOptions): McpServer {
   registerAllTools(server, options);
   registerAllResources(server, options);
   registerAllPrompts(server);
+  if (options.feed && options.liveStore) {
+    registerLiveResources(server, { feed: options.feed, store: options.liveStore });
+  }
   return server;
 }

@@ -1,7 +1,9 @@
 import type { Logger } from "pino";
 import { type Env, loadEnv } from "./config/env.js";
 import { UnraidClient } from "./graphql/client.js";
+import { LiveSnapshotStore } from "./graphql/live-store.js";
 import { CachingExecutor } from "./graphql/snapshot-cache.js";
+import { SubscriptionFeed } from "./graphql/subscription-feed.js";
 import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
@@ -49,7 +51,15 @@ async function main(): Promise<void> {
   });
   const shell = buildShellExecutor(env);
   const executor = new CachingExecutor(client);
-  const registryOptions = { client: executor, shell, readOnly: env.MCP_READ_ONLY };
+  const feed = new SubscriptionFeed({ endpoint: env.UNRAID_API_URL, apiKey: env.UNRAID_API_KEY });
+  const liveStore = new LiveSnapshotStore();
+  const registryOptions = {
+    client: executor,
+    shell,
+    readOnly: env.MCP_READ_ONLY,
+    feed,
+    liveStore,
+  };
 
   if (env.MCP_TRANSPORT === "http") {
     if (!env.MCP_HTTP_BEARER_TOKEN) {
