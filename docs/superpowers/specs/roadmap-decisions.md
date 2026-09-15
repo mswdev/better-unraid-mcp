@@ -94,3 +94,39 @@ still wanted.
   `structuredContent` channel with one implementation; the redactor already
   guarantees parseable JSON output.
 - **Owner input:** Not needed.
+
+## Phase 4 — 0.0.7 "Coverage: GraphQL"
+
+### D9: rclone remotes + flash backup DESCOPED (spec item 4) ⚠ owner review
+
+- **Decided:** Phase 4's "rclone remotes + flash backup" item ships nothing.
+- **Why:** Validated upstream findings (2026-09-14, unraid/api v4.35.0 + main):
+  `initiateFlashBackup` is a Not-implemented stub; rclone is disabled in
+  production builds — `rclone.remotes` silently returns `[]` and the config
+  mutations throw; the config reads that do work leak unredacted credentials.
+  The same findings already removed backup scope from PR #9. Tools against a
+  dead API would fail confusingly on every real server.
+- **Alternatives:** Shipping the tools with "may not work" copy (rejected:
+  guaranteed-broken is worse than absent); SSH-based flash backup via
+  shell_exec guidance (already possible through the escape hatch).
+- **Owner input:** WANTED — confirm the descope, and whether to add a
+  post-roadmap reminder to revisit when upstream ships a working backup API.
+
+### D10: Disk-op preconditions probe array state before mutating
+
+- **Decided:** `array_disk_action` runs a 1-field array-state probe after the
+  gate and refuses add/remove unless STOPPED, mount/unmount/clear unless
+  STARTED, naming the actual state and the `array_action` fix.
+- **Why:** The upstream error for wrong-state disk ops is unhelpful; the spec
+  asked for precondition checks. Probing after the gate keeps declined calls
+  free of any server traffic.
+- **Owner input:** Not needed.
+
+### D11: API key management is two tools, not five
+
+- **Decided:** `apikey_list` (read) + consolidated `apikey_manage`
+  (create/update/add_role/remove_role/delete), matching the owner's
+  consolidated-workflow tool preference; list never selects the `key` field;
+  create disclosed the key value once, phrased to bypass the redactor's
+  key:value pattern deliberately.
+- **Owner input:** Not needed.

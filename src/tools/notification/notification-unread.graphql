@@ -1,0 +1,7 @@
+mutation NotificationUnread($id: PrefixedID!) {
+  unreadNotification(id: $id) {
+    id
+    title
+    importance
+  }
+}

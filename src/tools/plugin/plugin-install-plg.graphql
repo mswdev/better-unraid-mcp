@@ -1,0 +1,10 @@
+mutation PluginInstallPlg($input: InstallPluginInput!) {
+  unraidPlugins {
+    installPlugin(input: $input) {
+      id
+      url
+      name
+      status
+    }
+  }
+}
