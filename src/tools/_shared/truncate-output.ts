@@ -20,18 +20,35 @@ export function truncateOutput(output: string): string {
 }
 
 /**
- * Caps output at the rendering limit, keeping the head. Use this for
- * structured payloads like JSON, where the opening braces and top-level keys
- * are what make a truncated result interpretable; tail-keeping would return
- * an unparseable fragment with no hint of what it belongs to.
- *
- * @param output - The raw serialized text (e.g. pretty-printed JSON).
- * @returns The original text, or its head suffixed with a truncation note.
+ * Head length carried inside the truncation envelope. Smaller than
+ * MAX_OUTPUT_CHARS because JSON-escaping the head (quotes, newlines) expands
+ * it; 20k keeps the worst-case envelope safely inside the output budget.
  */
-export function truncateOutputKeepingHead(output: string): string {
-  if (output.length <= MAX_OUTPUT_CHARS) {
-    return output;
+const TRUNCATED_HEAD_CHARS = 20_000;
+
+/** Remediation copy carried in the truncation envelope. */
+const TRUNCATION_HINT =
+  "Narrow the selection, add filters, or page the data to fit under the output cap.";
+
+/**
+ * Caps serialized JSON while keeping the output parseable. Oversized payloads
+ * become a small JSON envelope whose `partial_json_head` field carries the
+ * head of the original serialization as an escaped string, so clients can
+ * always JSON.parse a tool's detailed output.
+ *
+ * @param serialized - The pretty-printed JSON string to cap.
+ * @returns The original string, or a parseable truncation envelope.
+ */
+export function truncateJsonPayload(serialized: string): string {
+  if (serialized.length <= MAX_OUTPUT_CHARS) {
+    return serialized;
   }
-  const dropped = output.length - MAX_OUTPUT_CHARS;
-  return `${output.slice(0, MAX_OUTPUT_CHARS)}\n[truncated ${dropped} characters from the end; narrow the selection or page the data]`;
+  const head = serialized.slice(0, TRUNCATED_HEAD_CHARS);
+  const envelope = {
+    truncated: true,
+    dropped_chars: serialized.length - head.length,
+    hint: TRUNCATION_HINT,
+    partial_json_head: head,
+  };
+  return JSON.stringify(envelope, null, 2);
 }

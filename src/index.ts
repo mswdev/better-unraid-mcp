@@ -4,6 +4,7 @@ import { UnraidClient } from "./graphql/client.js";
 import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
+import { registerSecretValues } from "./tools/_shared/redact.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
 
@@ -35,6 +36,7 @@ function buildShellExecutor(env: Env): ShellExecutor | null {
 /** Wires config → client → server → transport and starts the MCP server. */
 async function main(): Promise<void> {
   const env = loadEnv();
+  registerSecretValues([env.UNRAID_API_KEY, env.UNRAID_SSH_PASSWORD, env.MCP_HTTP_BEARER_TOKEN]);
   const logger = createLogger(env.LOG_LEVEL);
   installProcessGuards(logger);
   const client = new UnraidClient({
@@ -43,18 +45,25 @@ async function main(): Promise<void> {
     allowSelfSigned: env.UNRAID_ALLOW_SELF_SIGNED,
   });
   const shell = buildShellExecutor(env);
+  const registryOptions = { client, shell, readOnly: env.MCP_READ_ONLY };
 
   if (env.MCP_TRANSPORT === "http") {
+    if (!env.MCP_HTTP_BEARER_TOKEN) {
+      logger.warn(
+        "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
+      );
+    }
     await startHttp({
-      buildServer: () => buildServer(client, shell),
+      buildServer: () => buildServer(registryOptions),
       port: env.MCP_HTTP_PORT,
       host: env.MCP_HTTP_HOST,
       allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+      bearerToken: env.MCP_HTTP_BEARER_TOKEN,
       logger,
     });
     return;
   }
-  await startStdio(buildServer(client, shell), logger);
+  await startStdio(buildServer(registryOptions), logger);
 }
 
 main().catch((error) => {
