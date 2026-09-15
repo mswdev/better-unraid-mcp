@@ -40,6 +40,8 @@ import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
 import { registerConnectionDoctor } from "./system/connection-doctor.js";
+import { registerGpuMetrics } from "./system/gpu-metrics.js";
+import { registerProcessList } from "./system/process-list.js";
 import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
@@ -159,6 +161,8 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerMoverAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
+  { isMutating: false, register: (server, { shell }) => registerGpuMetrics(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerProcessList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsStatus(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsDatasetList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
