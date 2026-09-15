@@ -46,11 +46,17 @@ async function main(): Promise<void> {
   const registryOptions = { client, shell, readOnly: env.MCP_READ_ONLY };
 
   if (env.MCP_TRANSPORT === "http") {
+    if (!env.MCP_HTTP_BEARER_TOKEN) {
+      logger.warn(
+        "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
+      );
+    }
     await startHttp({
       buildServer: () => buildServer(registryOptions),
       port: env.MCP_HTTP_PORT,
       host: env.MCP_HTTP_HOST,
       allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+      bearerToken: env.MCP_HTTP_BEARER_TOKEN,
       logger,
     });
     return;
