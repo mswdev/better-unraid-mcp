@@ -30,6 +30,7 @@ function buildShellExecutor(env: Env): ShellExecutor | null {
     username: env.UNRAID_SSH_USER,
     password: env.UNRAID_SSH_PASSWORD,
     privateKeyPath: env.UNRAID_SSH_KEY_PATH,
+    idleSeconds: env.UNRAID_SSH_IDLE_SECONDS,
   });
 }
 
