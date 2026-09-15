@@ -11,39 +11,105 @@ const JSON_INDENT_SPACES = 2;
 
 const LOGS_URI_PREFIX = "unraid://logs/";
 
-/** One live topic: its resource URI, feed subscription, and store key. */
-interface LiveTopic {
-  uri: string;
+/** One upstream GraphQL subscription: its store key and document text. */
+interface LiveSubscriptionSpec {
   topic: string;
   query: string;
+  variables?: Record<string, unknown>;
+}
+
+/** One subscribable resource, backed by one or more upstream subscriptions. */
+interface LiveTopic {
+  uri: string;
   title: string;
   description: string;
+  subscriptions: LiveSubscriptionSpec[];
 }
 
 /** The static live topics (log follow is templated separately). */
 const LIVE_TOPICS: LiveTopic[] = [
   {
     uri: "unraid://live/parity",
-    topic: "parityHistorySubscription",
-    query:
-      "subscription { parityHistorySubscription { date duration speed status errors progress correcting paused running } }",
     title: "Live Parity Progress",
     description: "Parity check progress pushed over WebSocket as it changes.",
+    subscriptions: [
+      {
+        topic: "parityHistorySubscription",
+        query:
+          "subscription { parityHistorySubscription { date duration speed status errors progress correcting paused running } }",
+      },
+    ],
   },
   {
     uri: "unraid://live/docker-stats",
-    topic: "dockerContainerStats",
-    query:
-      "subscription { dockerContainerStats { id cpuPercent memUsage memPercent netIO blockIO } }",
     title: "Live Docker Stats",
     description: "Per-container CPU/memory/IO samples pushed over WebSocket.",
+    subscriptions: [
+      {
+        topic: "dockerContainerStats",
+        query:
+          "subscription { dockerContainerStats { id cpuPercent memUsage memPercent netIO blockIO } }",
+      },
+    ],
   },
   {
     uri: "unraid://live/metrics",
-    topic: "systemMetricsCpu",
-    query: "subscription { systemMetricsCpu { percentTotal cpus { percentTotal } } }",
     title: "Live System Metrics",
-    description: "CPU utilization samples pushed over WebSocket.",
+    description:
+      "CPU, memory, network, and temperature samples pushed over WebSocket, merged into one resource.",
+    subscriptions: [
+      {
+        topic: "systemMetricsCpu",
+        query: "subscription { systemMetricsCpu { percentTotal cpus { percentTotal } } }",
+      },
+      {
+        topic: "systemMetricsMemory",
+        query: "subscription { systemMetricsMemory { total used free available percentTotal } }",
+      },
+      {
+        topic: "systemMetricsNetwork",
+        query:
+          "subscription { systemMetricsNetwork { name operstate rxSec txSec utilizationPercent } }",
+      },
+      {
+        topic: "systemMetricsTemperature",
+        query:
+          "subscription { systemMetricsTemperature { sensors { name current { value unit } } summary { average warningCount criticalCount } } }",
+      },
+    ],
+  },
+  {
+    uri: "unraid://live/ups",
+    title: "Live UPS Telemetry",
+    description: "UPS status and battery samples pushed over WebSocket.",
+    subscriptions: [
+      {
+        topic: "upsUpdates",
+        query: "subscription { upsUpdates { id name model status battery { chargeLevel } } }",
+      },
+    ],
+  },
+  {
+    uri: "unraid://live/array",
+    title: "Live Array State",
+    description: "Array state and capacity updates pushed over WebSocket.",
+    subscriptions: [
+      {
+        topic: "arraySubscription",
+        query: "subscription { arraySubscription { state capacity { kilobytes { used total } } } }",
+      },
+    ],
+  },
+  {
+    uri: "unraid://live/notifications",
+    title: "Live Notifications",
+    description: "The most recent server notification, pushed over WebSocket as it arrives.",
+    subscriptions: [
+      {
+        topic: "notificationAdded",
+        query: "subscription { notificationAdded { id title subject importance timestamp } }",
+      },
+    ],
   },
 ];
 
@@ -57,33 +123,42 @@ export interface LiveResourceDeps {
   store: LiveSnapshotStore;
 }
 
-/** Renders the latest sample for a topic, or an honest waiting note. */
-function renderSample(store: LiveSnapshotStore, topic: string): string {
-  const sample = store.get(topic);
-  if (!sample) {
-    return JSON.stringify(
-      {
-        waiting: true,
-        hint: "No live sample yet — subscribe to this resource (stdio or session-mode HTTP); samples arrive over the WebSocket subscription.",
-      },
-      null,
-      JSON_INDENT_SPACES,
-    );
+/** The honest not-yet envelope shared by every unfilled live resource. */
+const WAITING_ENVELOPE = {
+  waiting: true,
+  hint: "No live sample yet — subscribe to this resource (stdio or session-mode HTTP); samples arrive over the WebSocket subscription.",
+};
+
+/**
+ * Renders a resource's latest state: single-topic resources return
+ * `{data, age_ms}`, merged resources return per-topic `parts`; either shape
+ * becomes the waiting envelope until a first sample lands.
+ */
+function renderResource(store: LiveSnapshotStore, topics: string[]): string {
+  if (topics.length === 1) {
+    const sample = store.get(topics[0]);
+    const body = sample ? { data: sample.data, age_ms: sample.ageMs } : WAITING_ENVELOPE;
+    return JSON.stringify(body, null, JSON_INDENT_SPACES);
   }
-  return JSON.stringify({ data: sample.data, age_ms: sample.ageMs }, null, JSON_INDENT_SPACES);
+  const parts: Record<string, { data: unknown; age_ms: number } | null> = {};
+  let any = false;
+  for (const topic of topics) {
+    const sample = store.get(topic);
+    parts[topic] = sample ? { data: sample.data, age_ms: sample.ageMs } : null;
+    any = any || sample !== null;
+  }
+  return JSON.stringify(any ? { parts } : WAITING_ENVELOPE, null, JSON_INDENT_SPACES);
 }
 
-/** Resolves a subscribed URI to its topic + query + variables. */
-function resolveSubscription(
-  uri: string,
-): { topic: string; query: string; variables?: Record<string, unknown> } | null {
+/** Resolves a subscribed URI to its upstream subscription list. */
+function resolveSubscriptions(uri: string): LiveSubscriptionSpec[] | null {
   const staticTopic = LIVE_TOPICS.find((entry) => entry.uri === uri);
   if (staticTopic) {
-    return { topic: staticTopic.topic, query: staticTopic.query };
+    return staticTopic.subscriptions;
   }
   if (uri.startsWith(LOGS_URI_PREFIX)) {
     const path = decodeURIComponent(uri.slice(LOGS_URI_PREFIX.length));
-    return { topic: uri, query: LOG_QUERY, variables: { path } };
+    return [{ topic: uri, query: LOG_QUERY, variables: { path } }];
   }
   return null;
 }
@@ -91,13 +166,14 @@ function resolveSubscription(
 /** Registers the readable side of the static live resources. */
 function registerReadables(server: McpServer, store: LiveSnapshotStore): void {
   for (const entry of LIVE_TOPICS) {
+    const topics = entry.subscriptions.map((subscription) => subscription.topic);
     server.registerResource(
       entry.uri.replace("unraid://", "unraid-").replace("/", "-"),
       entry.uri,
       { title: entry.title, description: entry.description, mimeType: "application/json" },
       async () => ({
         contents: [
-          { uri: entry.uri, mimeType: "application/json", text: renderSample(store, entry.topic) },
+          { uri: entry.uri, mimeType: "application/json", text: renderResource(store, topics) },
         ],
       }),
     );
@@ -113,7 +189,7 @@ function registerReadables(server: McpServer, store: LiveSnapshotStore): void {
     },
     async (uri) => ({
       contents: [
-        { uri: uri.href, mimeType: "application/json", text: renderSample(store, uri.href) },
+        { uri: uri.href, mimeType: "application/json", text: renderResource(store, [uri.href]) },
       ],
     }),
   );
@@ -121,7 +197,8 @@ function registerReadables(server: McpServer, store: LiveSnapshotStore): void {
 
 /**
  * Registers subscribable live resources: parity progress, docker stats,
- * system metrics, and log follow — fed by the graphql-ws subscription
+ * system metrics (CPU + memory + network + temperature), UPS, array state,
+ * notifications, and log follow — fed by the graphql-ws subscription
  * client, with `notifications/resources/updated` on every sample. Updates
  * reach stdio and session-mode HTTP clients (stateless HTTP drops them).
  *
@@ -144,7 +221,7 @@ export function registerLiveResources(server: McpServer, deps: LiveResourceDeps)
   });
 }
 
-/** Starts (idempotently) the feed subscription behind one resource URI. */
+/** Starts (idempotently) every feed subscription behind one resource URI. */
 function startLiveSubscription(input: {
   server: McpServer;
   deps: LiveResourceDeps;
@@ -155,18 +232,26 @@ function startLiveSubscription(input: {
   if (active.has(uri)) {
     return;
   }
-  const resolved = resolveSubscription(uri);
-  if (!resolved) {
+  const specs = resolveSubscriptions(uri);
+  if (!specs) {
     throw new Error(`Resource ${uri} does not support subscriptions`);
   }
-  const storeKey = uri.startsWith(LOGS_URI_PREFIX) ? uri : resolved.topic;
-  const stop = deps.feed.subscribe(resolved.query, resolved.variables, {
-    onData: (data) => {
-      deps.store.set(storeKey, reduceSample(storeKey, deps.store.get(storeKey)?.data, data));
-      void server.server.sendResourceUpdated({ uri }).catch(() => {});
-    },
+  const stops = specs.map((spec) =>
+    deps.feed.subscribe(spec.query, spec.variables, {
+      onData: (data) => {
+        deps.store.set(
+          spec.topic,
+          reduceSample(spec.topic, deps.store.get(spec.topic)?.data, data),
+        );
+        void server.server.sendResourceUpdated({ uri }).catch(() => {});
+      },
+    }),
+  );
+  active.set(uri, () => {
+    for (const stop of stops) {
+      stop();
+    }
   });
-  active.set(uri, stop);
 }
 
 /**

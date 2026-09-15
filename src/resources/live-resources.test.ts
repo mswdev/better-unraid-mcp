@@ -102,13 +102,35 @@ describe("registerLiveResources", () => {
     expect(subs[0].query).toContain("logFile");
   });
 
-  it("stops the feed subscription on unsubscribe", async () => {
+  it("fans unraid://live/metrics out across cpu, memory, network, and temperature", async () => {
+    const { subs, subscribe } = setup();
+
+    await subscribe({ params: { uri: "unraid://live/metrics" } });
+
+    expect(subs.map((sub) => sub.query)).toEqual([
+      expect.stringContaining("systemMetricsCpu"),
+      expect.stringContaining("systemMetricsMemory"),
+      expect.stringContaining("systemMetricsNetwork"),
+      expect.stringContaining("systemMetricsTemperature"),
+    ]);
+  });
+
+  it("registers the ups, array, and notifications live resources", () => {
+    const { fake } = setup();
+    const names = fake.resources.map((resource) => resource.name);
+
+    expect(names).toContain("unraid-live-ups");
+    expect(names).toContain("unraid-live-array");
+    expect(names).toContain("unraid-live-notifications");
+  });
+
+  it("stops every fanned-out feed subscription on unsubscribe", async () => {
     const { stopped, subscribe, unsubscribe } = setup();
     await subscribe({ params: { uri: "unraid://live/metrics" } });
 
     await unsubscribe({ params: { uri: "unraid://live/metrics" } });
 
-    expect(stopped).toEqual([0]);
+    expect(stopped).toEqual([0, 1, 2, 3]);
   });
 
   it("rejects subscriptions to unknown uris", async () => {

@@ -30,7 +30,7 @@ The 58 tools cover most of what you would normally do over SSH or in the WebGUI:
 - Work with ZFS: pool health, datasets, snapshots (create, destroy, rollback), and ARC usage
 - Reach the host when the API can't: processes, GPU metrics, disk spin, SMART deep reports, User Scripts, VM snapshots
 - Manage the platform itself: API keys, native `.plg` plugin installs, mover control, reboot/shutdown
-- Watch things live: WebSocket-fed resources for parity progress, docker stats, system metrics, and log following (`unraid://live/*`, `unraid://logs/{path}`)
+- Watch things live: WebSocket-fed resources for parity progress, docker stats, system metrics (CPU, memory, network, temperature), UPS, array state, notifications, and log following (`unraid://live/*`, `unraid://logs/{path}`)
 - Reach the rest of the API surface with raw `graphql_query` and confirm-gated `graphql_mutation`, so nothing is off limits while dedicated tools catch up
 
 The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM, rebooting the host) require a second `acknowledge_risk` flag on top. When your client supports MCP elicitation, those gates become real interactive prompts instead. Every read works with a viewer-level API key — and `MCP_READ_ONLY=true` removes every state-changing tool from the listing entirely.

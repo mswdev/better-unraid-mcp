@@ -178,8 +178,11 @@ still wanted.
   resource out across four upstream subscriptions multiplies reconnect and
   merge states for little launch value. The `system_metrics` tool still
   covers everything on demand.
-- **Owner input:** Optional — say the word and the remaining metric topics
-  get wired the same way.
+- **Owner input:** RESOLVED 2026-09-15 — the owner asked for the full set.
+  `unraid://live/metrics` now fans out across systemMetricsCpu/Memory/
+  Network/Temperature (merged `parts` payload), and `unraid://live/ups`,
+  `unraid://live/array`, and `unraid://live/notifications` were added
+  (upsUpdates / arraySubscription / notificationAdded).
 
 ### D16: New runtime dependencies graphql-ws + ws
 
