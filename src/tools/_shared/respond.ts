@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { truncateJsonPayload } from "./truncate-output.js";
 
 /** Number of spaces used when pretty-printing detailed JSON responses. */
 const JSON_INDENT_SPACES = 2;
@@ -30,6 +31,8 @@ export function toolError(message: string): CallToolResult {
  * Formats a tool response, returning a human summary for `concise` and
  * pretty-printed JSON for `detailed`.
  *
+ * Detailed payloads are capped by a parseable truncation envelope when oversized.
+ *
  * @param format - Requested verbosity.
  * @param concise - Pre-built one-line/short human summary.
  * @param detailed - The full structured payload.
@@ -41,7 +44,7 @@ export function formatResponse(
   detailed: unknown,
 ): CallToolResult {
   if (format === "detailed") {
-    return toolText(JSON.stringify(detailed, null, JSON_INDENT_SPACES));
+    return toolText(truncateJsonPayload(JSON.stringify(detailed, null, JSON_INDENT_SPACES)));
   }
   return toolText(concise);
 }
