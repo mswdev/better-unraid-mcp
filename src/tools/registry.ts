@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import type { ShellExecutor } from "../shell/executor.js";
 import { registerArrayAction } from "./array/array-action.js";
+import { registerArrayDiskAction } from "./array/array-disk-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
@@ -68,6 +69,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerLogRead(server, client) },
   { isMutating: false, register: (server, { client }) => registerArrayStatus(server, client) },
   { isMutating: true, register: (server, { client }) => registerArrayAction(server, client) },
+  { isMutating: true, register: (server, { client }) => registerArrayDiskAction(server, client) },
   { isMutating: false, register: (server, { client }) => registerParityHistory(server, client) },
   { isMutating: true, register: (server, { client }) => registerParityCheck(server, client) },
   { isMutating: false, register: (server, { client }) => registerDiskList(server, client) },
