@@ -76,6 +76,11 @@ describe("loadEnv HTTP authentication", () => {
     expect(env.MCP_HTTP_ALLOW_UNAUTHENTICATED).toBe(true);
   });
 
+  it("defaults MCP_HTTP_SESSIONS to false and parses true", () => {
+    expect(loadEnv(valid).MCP_HTTP_SESSIONS).toBe(false);
+    expect(loadEnv({ ...valid, MCP_HTTP_SESSIONS: "true" }).MCP_HTTP_SESSIONS).toBe(true);
+  });
+
   it("keeps stdio transport free of the bearer requirement", () => {
     const env = loadEnv(valid);
 

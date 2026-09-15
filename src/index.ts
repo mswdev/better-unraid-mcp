@@ -6,6 +6,7 @@ import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
+import { SessionStore } from "./transport/http-sessions.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
 
@@ -56,12 +57,21 @@ async function main(): Promise<void> {
         "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
       );
     }
+    const buildForRequest = () => buildServer(registryOptions);
+    const sessionStore = env.MCP_HTTP_SESSIONS
+      ? new SessionStore({
+          buildServer: buildForRequest,
+          allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+          logger,
+        })
+      : undefined;
     await startHttp({
-      buildServer: () => buildServer(registryOptions),
+      buildServer: buildForRequest,
       port: env.MCP_HTTP_PORT,
       host: env.MCP_HTTP_HOST,
       allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
       bearerToken: env.MCP_HTTP_BEARER_TOKEN,
+      sessionStore,
       logger,
     });
     return;

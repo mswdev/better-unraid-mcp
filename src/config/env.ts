@@ -33,6 +33,10 @@ const EnvSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    MCP_HTTP_SESSIONS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     UNRAID_ALLOW_SELF_SIGNED: z
       .enum(["true", "false"])
       .default("false")
