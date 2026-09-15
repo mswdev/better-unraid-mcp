@@ -34,6 +34,7 @@ import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
+import { registerConnectionDoctor } from "./system/connection-doctor.js";
 import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
@@ -143,6 +144,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
   { isMutating: false, register: (server, { client }) => registerGraphqlQuery(server, client) },
   { isMutating: true, register: (server, { client }) => registerGraphqlMutation(server, client) },
+  {
+    isMutating: false,
+    register: (server, options) => registerConnectionDoctor(server, options),
+  },
 ];
 
 /**

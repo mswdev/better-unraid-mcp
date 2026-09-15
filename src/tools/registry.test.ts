@@ -213,10 +213,10 @@ describe("registerAllTools host-level tools", () => {
     });
   });
 
-  it("registers 40 tools in total", () => {
+  it("registers 41 tools in total", () => {
     const { server, registrations } = fakeServer();
     registerAll(server);
-    expect(registrations).toHaveLength(40);
+    expect(registrations).toHaveLength(41);
   });
 });
 
@@ -263,7 +263,7 @@ describe("read-only mode", () => {
 
     registerAll(server, true);
 
-    expect(registrations).toHaveLength(23);
+    expect(registrations).toHaveLength(24);
     for (const registration of registrations) {
       expect(registration.annotations).toMatchObject({ readOnlyHint: true });
     }
