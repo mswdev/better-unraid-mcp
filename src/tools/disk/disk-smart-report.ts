@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
@@ -29,9 +29,8 @@ const inputSchema = {
  */
 export function createDiskSmartReportHandler(shell: ShellExecutor | null) {
   return async (input: { device: string }): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     if (!DEVICE_PATTERN.test(input.device)) {
       return toolError(`Invalid device: ${input.device} (expected /dev/sdX or /dev/nvmeXnY).`);

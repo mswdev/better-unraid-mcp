@@ -178,8 +178,11 @@ still wanted.
   resource out across four upstream subscriptions multiplies reconnect and
   merge states for little launch value. The `system_metrics` tool still
   covers everything on demand.
-- **Owner input:** Optional — say the word and the remaining metric topics
-  get wired the same way.
+- **Owner input:** RESOLVED 2026-09-15 — the owner asked for the full set.
+  `unraid://live/metrics` now fans out across systemMetricsCpu/Memory/
+  Network/Temperature (merged `parts` payload), and `unraid://live/ups`,
+  `unraid://live/array`, and `unraid://live/notifications` were added
+  (upsUpdates / arraySubscription / notificationAdded).
 
 ### D16: New runtime dependencies graphql-ws + ws
 
@@ -187,4 +190,26 @@ still wanted.
   for Node 20) as runtime dependencies.
 - **Why:** The spec mandates the graphql-transport-ws subprotocol; Node 20
   (the package's floor) lacks a stable global WebSocket.
+- **Owner input:** Not needed.
+
+## Post-roadmap review round (0.0.10)
+
+### D17: Code-review findings fixed; two items deliberately deferred
+
+- **Decided:** A high-effort review of v0.0.3..HEAD produced 10 consolidated
+  findings plus angle-scan extras; 14 correctness items were fixed in 0.0.10
+  (live-subscription teardown on server close, error self-heal + re-subscribe,
+  docker-stats per-container eviction via a shared merge contract, mutation
+  invalidation of the snapshot cache, system_power false-success
+  classification, SSH null-exit-code = failure, exec-deadline channel close,
+  channel-semaphore slot handoff, session init-failure cleanup, SSE-stream
+  sweep exemption, headersSent guard, bounded truncation envelope, dot-name
+  script confinement, UPS phantom/multi-token status handling) plus the
+  25-line-cap refactors and the requireShell narrowing cleanup.
+- **Deferred:** (a) unifying the two JSON-RPC error writers across transport
+  files into one shared helper (guard added; dedup is cosmetic); (b) a timed-
+  out SSH command's REMOTE process may keep running — the channel is now
+  closed (freeing the session slot and stopping buffering) and the timeout
+  message says so, but killing the remote process would need wrapper/pty
+  machinery.
 - **Owner input:** Not needed.

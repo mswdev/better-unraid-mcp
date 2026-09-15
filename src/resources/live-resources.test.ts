@@ -102,13 +102,35 @@ describe("registerLiveResources", () => {
     expect(subs[0].query).toContain("logFile");
   });
 
-  it("stops the feed subscription on unsubscribe", async () => {
+  it("fans unraid://live/metrics out across cpu, memory, network, and temperature", async () => {
+    const { subs, subscribe } = setup();
+
+    await subscribe({ params: { uri: "unraid://live/metrics" } });
+
+    expect(subs.map((sub) => sub.query)).toEqual([
+      expect.stringContaining("systemMetricsCpu"),
+      expect.stringContaining("systemMetricsMemory"),
+      expect.stringContaining("systemMetricsNetwork"),
+      expect.stringContaining("systemMetricsTemperature"),
+    ]);
+  });
+
+  it("registers the ups, array, and notifications live resources", () => {
+    const { fake } = setup();
+    const names = fake.resources.map((resource) => resource.name);
+
+    expect(names).toContain("unraid-live-ups");
+    expect(names).toContain("unraid-live-array");
+    expect(names).toContain("unraid-live-notifications");
+  });
+
+  it("stops every fanned-out feed subscription on unsubscribe", async () => {
     const { stopped, subscribe, unsubscribe } = setup();
     await subscribe({ params: { uri: "unraid://live/metrics" } });
 
     await unsubscribe({ params: { uri: "unraid://live/metrics" } });
 
-    expect(stopped).toEqual([0]);
+    expect(stopped).toEqual([0, 1, 2, 3]);
   });
 
   it("rejects subscriptions to unknown uris", async () => {
@@ -117,5 +139,41 @@ describe("registerLiveResources", () => {
     await expect(subscribe({ params: { uri: "unraid://nope" } })).rejects.toThrow(
       /does not support subscriptions/,
     );
+  });
+});
+
+describe("live subscription lifecycle hardening", () => {
+  it("stops every active subscription when the server closes", async () => {
+    const { stopped, subscribe, fake } = setup();
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+    await subscribe({ params: { uri: "unraid://live/ups" } });
+
+    (fake.server.server as unknown as { onclose: () => void }).onclose();
+
+    expect(stopped.sort()).toEqual([0, 1]);
+  });
+
+  it("self-heals after a subscription error: the next subscribe restarts the feed", async () => {
+    const { subs, subscribe } = setup();
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+
+    subs[0].handlers.onError?.(new Error("socket gone"));
+    await subscribe({ params: { uri: "unraid://live/parity" } });
+
+    expect(subs).toHaveLength(2);
+  });
+
+  it("evicts stale containers from the docker-stats aggregate", async () => {
+    const { subs, store, subscribe } = setup();
+    await subscribe({ params: { uri: "unraid://live/docker-stats" } });
+
+    subs[0].handlers.onData({
+      dockerContainerStats: { id: "old", cpuPercent: 90 },
+    });
+    const aggregate = store.get("dockerContainerStats")?.data as {
+      containers: Record<string, { id: string }>;
+    };
+
+    expect(Object.keys(aggregate.containers)).toEqual(["old"]);
   });
 });

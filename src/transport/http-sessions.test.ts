@@ -21,6 +21,7 @@ function fakeRequest(method: string, sessionId?: string): IncomingMessage {
 
 function fakeResponse() {
   const calls = { status: 0, body: "" };
+  const closeListeners: Array<() => void> = [];
   const response = {
     headersSent: false,
     writeHead(status: number) {
@@ -32,8 +33,19 @@ function fakeResponse() {
         calls.body = body;
       }
     },
+    on(event: string, listener: () => void) {
+      if (event === "close") {
+        closeListeners.push(listener);
+      }
+      return this;
+    },
   };
-  return { response: response as unknown as ServerResponse, calls };
+  const closeStream = () => {
+    for (const listener of closeListeners) {
+      listener();
+    }
+  };
+  return { response: response as unknown as ServerResponse, calls, closeStream };
 }
 
 const fakeServer = () =>
@@ -47,10 +59,14 @@ function fakeTransportFactory() {
   const factory = (onInitialized: (id: string) => void): TransportLike => {
     counter += 1;
     const id = `session-${counter}`;
+    let initialized = false;
     return {
       handleRequest: async (_request, _response, body) => {
         handled.push(body);
-        onInitialized(id);
+        if (!initialized) {
+          initialized = true;
+          onInitialized(id);
+        }
       },
       close: async () => {
         closed.push(id);
@@ -167,5 +183,57 @@ describe("SessionStore", () => {
     store.sweep();
 
     expect(store.size()).toBe(1);
+  });
+});
+
+describe("SessionStore hardening", () => {
+  it("keeps a session with an open SSE stream through the sweep, expiring after close", async () => {
+    let nowMs = 0;
+    const { store } = storeWith(() => nowMs);
+
+    await store.handle(fakeRequest("POST"), fakeResponse().response, initializeBody);
+    const stream = fakeResponse();
+    await store.handle(fakeRequest("GET", "session-1"), stream.response, undefined);
+    nowMs = SESSION_IDLE_EXPIRY_MS * 3;
+    store.sweep();
+
+    expect(store.size()).toBe(1);
+
+    stream.closeStream();
+    nowMs += SESSION_IDLE_EXPIRY_MS + 1_000;
+    store.sweep();
+    await Promise.resolve();
+
+    expect(store.size()).toBe(0);
+  });
+
+  it("closes the server/transport pair when initialization never completes", async () => {
+    const handled: unknown[] = [];
+    const closed: string[] = [];
+    let counter = 0;
+    const factory = (_onInitialized: (id: string) => void): TransportLike => {
+      counter += 1;
+      const id = `dead-${counter}`;
+      return {
+        handleRequest: async (_request, _response, body) => {
+          handled.push(body);
+          // never calls onInitialized: initialization failed
+        },
+        close: async () => {
+          closed.push(id);
+        },
+      };
+    };
+    const store = new SessionStore({
+      buildServer: fakeServer,
+      logger: noopLogger,
+      now: () => 0,
+      buildTransport: factory,
+    });
+
+    await store.handle(fakeRequest("POST"), fakeResponse().response, initializeBody);
+
+    expect(store.size()).toBe(0);
+    expect(closed).toEqual(["dead-1"]);
   });
 });

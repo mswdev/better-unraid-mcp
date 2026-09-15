@@ -43,12 +43,31 @@ export function truncateJsonPayload(serialized: string): string {
   if (serialized.length <= MAX_OUTPUT_CHARS) {
     return serialized;
   }
-  const head = serialized.slice(0, TRUNCATED_HEAD_CHARS);
-  const envelope = {
-    truncated: true,
-    dropped_chars: serialized.length - head.length,
-    hint: TRUNCATION_HINT,
-    partial_json_head: head,
-  };
-  return JSON.stringify(envelope, null, 2);
+  // Escape-heavy heads (quotes, backslashes, newlines) can double when
+  // re-stringified, so shrink until the ENVELOPE fits the output budget.
+  let headLength = TRUNCATED_HEAD_CHARS;
+  let envelope = renderEnvelope(serialized, headLength);
+  while (envelope.length > MAX_OUTPUT_CHARS && headLength > MIN_HEAD_CHARS) {
+    headLength = Math.floor(headLength / 2);
+    envelope = renderEnvelope(serialized, headLength);
+  }
+  return envelope;
+}
+
+/** Smallest head still worth carrying in the envelope. */
+const MIN_HEAD_CHARS = 1_000;
+
+/** Builds the parseable truncation envelope for one head length. */
+function renderEnvelope(serialized: string, headLength: number): string {
+  const head = serialized.slice(0, headLength);
+  return JSON.stringify(
+    {
+      truncated: true,
+      dropped_chars: serialized.length - head.length,
+      hint: TRUNCATION_HINT,
+      partial_json_head: head,
+    },
+    null,
+    2,
+  );
 }

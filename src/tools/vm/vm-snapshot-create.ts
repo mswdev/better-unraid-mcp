@@ -5,7 +5,7 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import { probeVirsh } from "./vm-snapshot-list.js";
 
@@ -52,9 +52,8 @@ export function createVmSnapshotCreateHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: VmSnapshotCreateArgs): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     if (!SNAPSHOT_NAME_PATTERN.test(args.name)) {
       return toolError(`Invalid snapshot name: ${args.name}. No changes were made.`);

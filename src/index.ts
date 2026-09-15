@@ -8,6 +8,7 @@ import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
+import type { RegistryOptions } from "./tools/registry.js";
 import { SessionStore } from "./transport/http-sessions.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
@@ -62,31 +63,40 @@ async function main(): Promise<void> {
   };
 
   if (env.MCP_TRANSPORT === "http") {
-    if (!env.MCP_HTTP_BEARER_TOKEN) {
-      logger.warn(
-        "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
-      );
-    }
-    const buildForRequest = () => buildServer(registryOptions);
-    const sessionStore = env.MCP_HTTP_SESSIONS
-      ? new SessionStore({
-          buildServer: buildForRequest,
-          allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
-          logger,
-        })
-      : undefined;
-    await startHttp({
-      buildServer: buildForRequest,
-      port: env.MCP_HTTP_PORT,
-      host: env.MCP_HTTP_HOST,
-      allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
-      bearerToken: env.MCP_HTTP_BEARER_TOKEN,
-      sessionStore,
-      logger,
-    });
+    await startHttpTransport(env, registryOptions, logger);
     return;
   }
   await startStdio(buildServer(registryOptions), logger);
+}
+
+/** Starts the HTTP transport with its auth warning and optional session store. */
+async function startHttpTransport(
+  env: Env,
+  registryOptions: RegistryOptions,
+  logger: Logger,
+): Promise<void> {
+  if (!env.MCP_HTTP_BEARER_TOKEN) {
+    logger.warn(
+      "HTTP transport is running WITHOUT authentication (MCP_HTTP_ALLOW_UNAUTHENTICATED=true)",
+    );
+  }
+  const buildForRequest = () => buildServer(registryOptions);
+  const sessionStore = env.MCP_HTTP_SESSIONS
+    ? new SessionStore({
+        buildServer: buildForRequest,
+        allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+        logger,
+      })
+    : undefined;
+  await startHttp({
+    buildServer: buildForRequest,
+    port: env.MCP_HTTP_PORT,
+    host: env.MCP_HTTP_HOST,
+    allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
+    bearerToken: env.MCP_HTTP_BEARER_TOKEN,
+    sessionStore,
+    logger,
+  });
 }
 
 main().catch((error) => {

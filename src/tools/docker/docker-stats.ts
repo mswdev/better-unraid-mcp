@@ -1,9 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { LiveSnapshotStore } from "../../graphql/live-store.js";
+import {
+  DOCKER_STATS_TOPIC,
+  type DockerStatsAggregate,
+  type LiveSnapshotStore,
+  type TimestampedContainerStats,
+} from "../../graphql/live-store.js";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_stats";
@@ -18,21 +23,8 @@ const STATS_TIMEOUT_MS = 30_000;
 /** A live subscription sample this fresh beats a new SSH round-trip. */
 const LIVE_FRESHNESS_MS = 10_000;
 
-/** The live store topic the docker-stats subscription fills. */
-const LIVE_TOPIC = "dockerContainerStats";
-
-/** One container's live sample from the GraphQL subscription. */
-interface LiveContainerStats {
-  id: string;
-  cpuPercent: number;
-  memUsage: string;
-  memPercent: number;
-  netIO: string;
-  blockIO: string;
-}
-
 /** Renders the live-sample view (subscription events carry ids, not names). */
-function summarizeLive(containers: LiveContainerStats[], ageMs: number): string {
+function summarizeLive(containers: TimestampedContainerStats[], ageMs: number): string {
   const sorted = [...containers].sort((a, b) => b.cpuPercent - a.cpuPercent);
   const lines = sorted.map(
     (row) =>
@@ -44,12 +36,12 @@ function summarizeLive(containers: LiveContainerStats[], ageMs: number): string 
   ].join("\n");
 }
 
-/** Extracts the aggregated live container map, when present and well-formed. */
-function liveContainers(data: unknown): LiveContainerStats[] | null {
+/** Extracts the aggregated live container list, when present and non-empty. */
+function liveContainers(data: unknown): TimestampedContainerStats[] | null {
   if (typeof data !== "object" || data === null) {
     return null;
   }
-  const containers = (data as { containers?: Record<string, LiveContainerStats> }).containers;
+  const containers = (data as DockerStatsAggregate).containers;
   if (!containers || Object.keys(containers).length === 0) {
     return null;
   }
@@ -129,7 +121,7 @@ export function createDockerStatsHandler(
   liveStore?: LiveSnapshotStore | null,
 ) {
   return async (input: DockerStatsInput): Promise<CallToolResult> => {
-    const live = liveStore?.get(LIVE_TOPIC);
+    const live = liveStore?.get(DOCKER_STATS_TOPIC);
     const containers = live && live.ageMs <= LIVE_FRESHNESS_MS ? liveContainers(live.data) : null;
     if (live && containers) {
       return formatResponse(input.response_format, summarizeLive(containers, live.ageMs), {
@@ -138,9 +130,8 @@ export function createDockerStatsHandler(
         containers,
       });
     }
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     try {
       const result = await shell.execute(STATS_COMMAND, STATS_TIMEOUT_MS);

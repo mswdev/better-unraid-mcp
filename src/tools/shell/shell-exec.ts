@@ -5,7 +5,7 @@ import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
-import { requireShell } from "../_shared/require-shell.js";
+import { sshUnavailableError } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
@@ -65,9 +65,8 @@ export function createShellExecHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (input: ShellExecInput, extra?: unknown): Promise<CallToolResult> => {
-    const unavailable = requireShell(shell);
-    if (unavailable || !shell) {
-      return unavailable ?? toolError("SSH is not configured.");
+    if (!shell) {
+      return sshUnavailableError();
     }
     const refusal = await requireConfirmationInteractive({
       confirm: input.confirm,
