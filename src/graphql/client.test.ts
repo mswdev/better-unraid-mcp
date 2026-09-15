@@ -10,6 +10,19 @@ const PingDoc = parse("query Ping { online }") as unknown as TypedDocumentNode<
   never
 >;
 
+const ArchiveDoc = parse(
+  "mutation Archive { archiveAll { total } }",
+) as unknown as TypedDocumentNode<{ archiveAll: { total: number } }, never>;
+
+const serverError = { ok: false, status: 500, statusText: "Server Error" } as Response;
+
+const okOnline = {
+  ok: true,
+  status: 200,
+  statusText: "OK",
+  json: async () => ({ data: { online: true } }),
+} as unknown as Response;
+
 function clientWith(body: unknown) {
   return new UnraidClient({
     endpoint: "http://x/graphql",
@@ -64,7 +77,22 @@ describe("UnraidClient rate limiting and retry", () => {
     expect(data).toEqual({ online: true });
   });
 
-  it("does not retry non-429 HTTP failures", async () => {
+  it("retries a query after a 500 and succeeds", async () => {
+    const responses = [serverError, okOnline];
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: async () => responses.shift() as Response,
+      sleep: async () => {},
+    });
+
+    const data = await client.execute(PingDoc);
+
+    expect(data).toEqual({ online: true });
+  });
+
+  it("does not retry a mutation after a 500", async () => {
     let callCount = 0;
     const client = new UnraidClient({
       endpoint: "http://x/graphql",
@@ -72,13 +100,52 @@ describe("UnraidClient rate limiting and retry", () => {
       allowSelfSigned: false,
       fetchImpl: async () => {
         callCount += 1;
-        return { ok: false, status: 500, statusText: "Server Error" } as Response;
+        return serverError;
+      },
+      sleep: async () => {},
+    });
+
+    await expect(client.execute(ArchiveDoc)).rejects.toThrow(/HTTP 500/);
+    expect(callCount).toBe(1);
+  });
+
+  it("does not retry a query on a GraphQL-level error", async () => {
+    let callCount = 0;
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: async () => {
+        callCount += 1;
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({ errors: [{ message: "forbidden" }] }),
+        } as unknown as Response;
+      },
+      sleep: async () => {},
+    });
+
+    await expect(client.execute(PingDoc)).rejects.toThrow(/forbidden/);
+    expect(callCount).toBe(1);
+  });
+
+  it("bounds query retries at three total attempts", async () => {
+    let callCount = 0;
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: async () => {
+        callCount += 1;
+        return serverError;
       },
       sleep: async () => {},
     });
 
     await expect(client.execute(PingDoc)).rejects.toThrow(/HTTP 500/);
-    expect(callCount).toBe(1);
+    expect(callCount).toBe(3);
   });
 
   it("acquires a rate-limit token before each request", async () => {
