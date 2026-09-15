@@ -1,15 +1,15 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { GraphQLExecutor } from "../../graphql/client.js";
-import type { ShellExecutor } from "../../shell/executor.js";
+import type { GraphQLExecutor } from "../../../graphql/client.js";
+import type { ShellExecutor } from "../../../shell/executor.js";
 import {
   DockerContainerLogsDocument,
   type DockerContainerLogsQuery,
-} from "../../types/unraid/graphql.js";
-import { quoteForShell } from "../_shared/quote-shell.js";
-import { type ResponseFormat, formatResponse, toolError, toolText } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+} from "../../../types/unraid/graphql.js";
+import { quoteForShell } from "../../_shared/quote-shell.js";
+import { type ResponseFormat, formatResponse, toolError, toolText } from "../../_shared/respond.js";
+import { truncateOutput } from "../../_shared/truncate-output.js";
 
 const TOOL_NAME = "docker_container_logs";
 const DEFAULT_TAIL = 200;

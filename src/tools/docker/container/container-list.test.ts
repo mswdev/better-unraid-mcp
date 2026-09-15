@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { GraphQLExecutor } from "../../graphql/client.js";
-import type { DockerContainerListQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import type { GraphQLExecutor } from "../../../graphql/client.js";
+import type { DockerContainerListQuery } from "../../../types/unraid/graphql.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerListHandler } from "./container-list.js";
 
 const data = {

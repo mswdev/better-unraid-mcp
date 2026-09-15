@@ -3,8 +3,8 @@ import {
   type DockerUpdateAllMutation,
   DockerUpdateContainersDocument,
   type DockerUpdateContainersMutation,
-} from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+} from "../../../types/unraid/graphql.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerUpdateHandler } from "./container-update.js";
 
 describe("docker_container_update handler", () => {

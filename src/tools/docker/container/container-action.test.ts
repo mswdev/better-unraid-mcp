@@ -8,8 +8,8 @@ import {
   type DockerStopMutation,
   DockerUnpauseDocument,
   type DockerUnpauseMutation,
-} from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+} from "../../../types/unraid/graphql.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerActionHandler } from "./container-action.js";
 
 // Per-action fixtures are typed `satisfies <Op>Mutation` so codegen/selection
