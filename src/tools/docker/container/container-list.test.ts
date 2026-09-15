@@ -34,6 +34,16 @@ function fakeExecutor(result: DockerContainerListQuery): GraphQLExecutor {
 }
 
 describe("docker_container_list handler", () => {
+  it("returns detailed JSON with containers and data_age_ms", async () => {
+    const result = await createDockerContainerListHandler(fakeExecutor(data))({
+      response_format: "detailed",
+    });
+
+    const parsed = JSON.parse(firstText(result)) as { containers: unknown[]; data_age_ms: number };
+    expect(parsed.containers).toHaveLength(data.docker.containers.length);
+    expect(parsed.data_age_ms).toBe(0);
+  });
+
   it("summarizes each container by stripped name, state and image", async () => {
     const result = await createDockerContainerListHandler(fakeExecutor(data))({
       response_format: "concise",

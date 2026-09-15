@@ -7,6 +7,7 @@ import {
   DockerUpdateContainersDocument,
 } from "../../../types/unraid/graphql.js";
 import { requireConfirmation } from "../../_shared/confirm.js";
+import { progressContextFrom, sendProgress } from "../../_shared/progress.js";
 import { type ResponseFormat, formatResponse, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
@@ -84,28 +85,31 @@ function summarize(containers: UpdatedContainer[]): string {
  * @returns An MCP handler that pulls latest images and recreates containers.
  */
 export function createDockerContainerUpdateHandler(client: GraphQLExecutor) {
-  return async ({
-    response_format,
-    ids,
-    all,
-    confirm,
-  }: {
-    response_format: ResponseFormat;
-    ids?: string[];
-    all?: boolean;
-    confirm?: boolean;
-  }): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(confirm, "update Docker container(s)");
+  return async (
+    input: {
+      response_format: ResponseFormat;
+      ids?: string[];
+      all?: boolean;
+      confirm?: boolean;
+    },
+    extra?: unknown,
+  ): Promise<CallToolResult> => {
+    const refusal = requireConfirmation(input.confirm, "update Docker container(s)");
     if (refusal) {
       return refusal;
     }
-    const target = resolveTarget(ids, all);
+    const target = resolveTarget(input.ids, input.all);
     if ("error" in target) {
       return toolError(target.error);
     }
+    const progress = progressContextFrom(extra);
+    const label =
+      "ids" in target ? `${target.ids.length} container(s)` : "all updatable containers";
     try {
+      await sendProgress(progress, { progress: 0, total: 1, message: `Updating ${label}...` });
       const containers = await runUpdate(client, target);
-      return formatResponse(response_format, summarize(containers), containers);
+      await sendProgress(progress, { progress: 1, total: 1, message: "Update finished." });
+      return formatResponse(input.response_format, summarize(containers), containers);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to update Docker container(s): ${message}`);

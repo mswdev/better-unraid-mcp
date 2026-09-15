@@ -287,7 +287,7 @@ describe("system_metrics handler", () => {
     expect(firstText(result)).toMatch(/Network: no interfaces reported/);
   });
 
-  it("returns the pinned raw payload for detailed", async () => {
+  it("returns the pinned raw payload plus data_age_ms for detailed", async () => {
     const { executor } = recordingExecutor(full);
 
     const result = await createSystemMetricsHandler(executor)({
@@ -295,7 +295,7 @@ describe("system_metrics handler", () => {
       include_temperature: true,
     });
 
-    expect(JSON.parse(firstText(result))).toEqual(full);
+    expect(JSON.parse(firstText(result))).toEqual({ ...full, data_age_ms: 0 });
   });
 
   it("returns an error result when the client throws", async () => {

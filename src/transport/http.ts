@@ -3,6 +3,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from "node:ht
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Logger } from "pino";
+import { SESSION_SWEEP_INTERVAL_MS, type SessionStore } from "./http-sessions.js";
 
 const MCP_PATH = "/mcp";
 const STATUS_BAD_REQUEST = 400;
@@ -27,7 +28,20 @@ export interface HttpTransportOptions {
    * omit only for an explicitly unauthenticated server.
    */
   bearerToken?: string;
+  /** When present, requests are routed through stateful MCP sessions. */
+  sessionStore?: SessionStore;
   logger: Logger;
+}
+
+/** HTTP methods the session-mode endpoint accepts (GET carries the SSE stream). */
+const SESSION_METHODS = new Set(["POST", "GET", "DELETE"]);
+
+/** True when the method is acceptable for the configured mode. */
+function isSupportedMethod(method: string | undefined, sessions: boolean): boolean {
+  if (sessions) {
+    return SESSION_METHODS.has(method ?? "");
+  }
+  return method === "POST";
 }
 
 /** Thrown when a request body exceeds the configured size limit. */
@@ -160,6 +174,21 @@ async function handleMcpRequest(
   await transport.handleRequest(request, response, body);
 }
 
+/** Sends the request through the session store when enabled, else stateless. */
+async function dispatchMcpRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  options: HttpTransportOptions,
+): Promise<void> {
+  if (options.sessionStore) {
+    const body =
+      request.method === "POST" ? await readJsonBody(request, MAX_BODY_BYTES) : undefined;
+    await options.sessionStore.handle(request, response, body);
+    return;
+  }
+  await handleMcpRequest(request, response, options);
+}
+
 /**
  * Routes one HTTP request, mapping parse/size/internal failures to clean
  * error responses instead of crashing the process.
@@ -174,7 +203,8 @@ export async function routeRequest(
   response: ServerResponse,
   options: HttpTransportOptions,
 ): Promise<void> {
-  if (request.method !== "POST" || requestPath(request) !== MCP_PATH) {
+  const sessions = options.sessionStore !== undefined;
+  if (!isSupportedMethod(request.method, sessions) || requestPath(request) !== MCP_PATH) {
     writeNotFound(response);
     return;
   }
@@ -183,7 +213,7 @@ export async function routeRequest(
     return;
   }
   try {
-    await handleMcpRequest(request, response, options);
+    await dispatchMcpRequest(request, response, options);
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
       writeJsonRpcError(response, {
@@ -232,6 +262,10 @@ export function startHttp(options: HttpTransportOptions): Promise<void> {
       options.logger.error({ err: error }, "HTTP server error");
       reject(error);
     });
+    if (options.sessionStore) {
+      const sweeper = setInterval(() => options.sessionStore?.sweep(), SESSION_SWEEP_INTERVAL_MS);
+      sweeper.unref?.();
+    }
     httpServer.listen(options.port, options.host, () => {
       options.logger.info(
         `better-unraid-mcp ready (http transport on ${options.host}:${options.port}${MCP_PATH})`,

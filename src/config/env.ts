@@ -6,6 +6,7 @@ const DEFAULT_HTTP_PORT = 3000;
 const DEFAULT_HTTP_HOST = "127.0.0.1";
 const DEFAULT_SSH_PORT = 22;
 const DEFAULT_SSH_USER = "root";
+const DEFAULT_SSH_IDLE_SECONDS = 90;
 
 /** Splits a comma-separated host list into a trimmed array, or `undefined` when empty. */
 function parseAllowedHosts(value: string | undefined): string[] | undefined {
@@ -32,6 +33,10 @@ const EnvSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    MCP_HTTP_SESSIONS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     UNRAID_ALLOW_SELF_SIGNED: z
       .enum(["true", "false"])
       .default("false")
@@ -46,6 +51,7 @@ const EnvSchema = z
     UNRAID_SSH_USER: z.string().min(1).default(DEFAULT_SSH_USER),
     UNRAID_SSH_PASSWORD: z.string().min(1).optional(),
     UNRAID_SSH_KEY_PATH: z.string().min(1).optional(),
+    UNRAID_SSH_IDLE_SECONDS: z.coerce.number().int().positive().default(DEFAULT_SSH_IDLE_SECONDS),
   })
   .superRefine((env, context) => {
     if (env.UNRAID_SSH_HOST && !env.UNRAID_SSH_PASSWORD && !env.UNRAID_SSH_KEY_PATH) {

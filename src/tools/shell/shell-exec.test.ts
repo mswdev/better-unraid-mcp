@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createShellExecHandler } from "./shell-exec.js";
 
@@ -108,5 +108,38 @@ describe("shell_exec", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("Timed out");
+  });
+});
+
+describe("shell_exec progress heartbeat", () => {
+  it("emits heartbeats while the command runs when a token is supplied", async () => {
+    const notifications: Array<{ params: { message?: string } }> = [];
+    const extra = {
+      _meta: { progressToken: "tok" },
+      sendNotification: async (notification: { params: { message?: string } }) => {
+        notifications.push(notification);
+      },
+    };
+    let release: (() => void) | undefined;
+    const slowShell = {
+      execute: () =>
+        new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
+          release = () => resolve({ stdout: "done\n", stderr: "", exitCode: 0 });
+        }),
+    };
+    const handler = createShellExecHandler(slowShell);
+
+    vi.useFakeTimers();
+    const pending = handler(
+      { response_format: "concise", command: "sleep 10", timeout_seconds: 30, confirm: true },
+      extra,
+    );
+    await vi.advanceTimersByTimeAsync(10_000);
+    release?.();
+    vi.useRealTimers();
+    await pending;
+
+    expect(notifications.length).toBeGreaterThanOrEqual(1);
+    expect(notifications[0].params.message).toContain("sleep 10");
   });
 });
