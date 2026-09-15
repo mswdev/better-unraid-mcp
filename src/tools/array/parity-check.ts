@@ -8,7 +8,8 @@ import {
   ParityCheckResumeDocument,
   ParityCheckStartDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_check";
@@ -64,13 +65,20 @@ function describeAction(args: ParityCheckArgs): string {
  * @param args - The validated handler arguments.
  * @returns `null` to proceed, or a refusal/validation error to return as-is.
  */
-function gateRefusal(args: ParityCheckArgs): CallToolResult | null {
+async function gateRefusal(
+  args: ParityCheckArgs,
+  channel?: ElicitationChannel | null,
+): Promise<CallToolResult | null> {
   if (args.correct !== undefined && args.action !== "start") {
     return toolError(
       '`correct` is only valid with action "start" (it selects a correcting check). No changes were made.',
     );
   }
-  return requireConfirmation(args.confirm, describeAction(args));
+  return requireConfirmationInteractive({
+    confirm: args.confirm,
+    actionDescription: describeAction(args),
+    channel,
+  });
 }
 
 /**
@@ -149,10 +157,13 @@ function mapKnownError(input: KnownErrorInput): CallToolResult | null {
  * @param client - The GraphQL executor used to run the parity mutations.
  * @returns An MCP handler controlling the parity job behind the confirm gate.
  */
-export function createParityCheckHandler(client: GraphQLExecutor) {
+export function createParityCheckHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: ParityCheckArgs): Promise<CallToolResult> => {
     const { response_format, action } = args;
-    const refusal = gateRefusal(args);
+    const refusal = await gateRefusal(args, channel);
     if (refusal) {
       return refusal;
     }
@@ -187,6 +198,6 @@ export function registerParityCheck(server: McpServer, client: GraphQLExecutor):
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createParityCheckHandler(client),
+    createParityCheckHandler(client, createElicitationChannel(server)),
   );
 }

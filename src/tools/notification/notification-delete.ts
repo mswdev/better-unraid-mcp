@@ -6,7 +6,8 @@ import {
   DeleteArchivedNotificationsDocument,
   DeleteNotificationDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { type Overview, TYPE_TO_API, type TypeInput } from "./_shared.js";
 
@@ -65,9 +66,16 @@ function summarize(scope: Scope, overview: Overview): string {
  * @param client - The GraphQL executor used to delete notifications.
  * @returns An MCP handler that permanently deletes notifications behind a confirm gate.
  */
-export function createNotificationDeleteHandler(client: GraphQLExecutor) {
+export function createNotificationDeleteHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: DeleteArgs): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(args.confirm, `delete notifications (${args.scope})`);
+    const refusal = await requireConfirmationInteractive({
+      confirm: args.confirm,
+      actionDescription: `delete notifications (${args.scope})`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -101,6 +109,6 @@ export function registerNotificationDelete(server: McpServer, client: GraphQLExe
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createNotificationDeleteHandler(client),
+    createNotificationDeleteHandler(client, createElicitationChannel(server)),
   );
 }

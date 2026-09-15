@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgement } from "../_shared/confirm.js";
+import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
@@ -68,13 +69,20 @@ function mapPowerError(action: PowerAction, message: string): CallToolResult {
  * @returns An MCP handler that reboots or shuts down the host behind the
  *   two-flag gate.
  */
-export function createSystemPowerHandler(shell: ShellExecutor | null) {
+export function createSystemPowerHandler(
+  shell: ShellExecutor | null,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: SystemPowerArgs): Promise<CallToolResult> => {
     const unavailable = requireShell(shell);
     if (unavailable || !shell) {
       return unavailable ?? toolError("SSH is not configured.");
     }
-    const refusal = requireRiskAcknowledgement(args, refusalMessage(args.action));
+    const refusal = await requireRiskAcknowledgementInteractive({
+      flags: args,
+      refusalMessage: refusalMessage(args.action),
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -111,6 +119,6 @@ export function registerSystemPower(server: McpServer, shell: ShellExecutor | nu
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createSystemPowerHandler(shell),
+    createSystemPowerHandler(shell, createElicitationChannel(server)),
   );
 }

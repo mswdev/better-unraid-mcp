@@ -13,7 +13,11 @@ import {
   VmStartDocument,
   VmStopDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
+import {
+  requireConfirmationInteractive,
+  requireRiskAcknowledgementInteractive,
+} from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
 /** The number of colon-separated parts a prefixed `PrefixedID` (`serverId:rawId`) has. */
@@ -79,15 +83,23 @@ interface VmActionArgs {
  * @param args - The action, both gate flags, and the raw `vm` target for the message.
  * @returns `null` when gated through, otherwise an error `CallToolResult`.
  */
-function gateRefusal(args: VmActionArgs): CallToolResult | null {
+async function gateRefusal(
+  args: VmActionArgs,
+  channel?: ElicitationChannel | null,
+): Promise<CallToolResult | null> {
   const { action, vm } = args;
   if (!UNGRACEFUL.has(action)) {
-    return requireConfirmation(args.confirm, `${action} VM ${vm}`);
+    return requireConfirmationInteractive({
+      confirm: args.confirm,
+      actionDescription: `${action} VM ${vm}`,
+      channel,
+    });
   }
-  return requireRiskAcknowledgement(
-    args,
-    `Refusing to ${action} VM ${vm}: this ungraceful action can corrupt the guest filesystem (like pulling the power). Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`,
-  );
+  return requireRiskAcknowledgementInteractive({
+    flags: args,
+    refusalMessage: `Refusing to ${action} VM ${vm}: this ungraceful action can corrupt the guest filesystem (like pulling the power). Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`,
+    channel,
+  });
 }
 
 /** True when the input matches the VM's id directly or after stripping either server prefix. */
@@ -166,10 +178,13 @@ function summarize(action: VmAction, label: string, ok: boolean): string {
  * @param client - The GraphQL executor used to resolve the VM and run the mutation.
  * @returns An MCP handler that changes a VM's run state behind the confirm gate.
  */
-export function createVmActionHandler(client: GraphQLExecutor) {
+export function createVmActionHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: VmActionArgs): Promise<CallToolResult> => {
     const { response_format, vm, action } = args;
-    const refusal = gateRefusal(args);
+    const refusal = await gateRefusal(args, channel);
     if (refusal) {
       return refusal;
     }
@@ -206,6 +221,6 @@ export function registerVmAction(server: McpServer, client: GraphQLExecutor): vo
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createVmActionHandler(client),
+    createVmActionHandler(client, createElicitationChannel(server)),
   );
 }

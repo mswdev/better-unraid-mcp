@@ -3,7 +3,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import { DockerRemoveContainerDocument } from "../../../types/unraid/graphql.js";
-import { requireConfirmation } from "../../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../../_shared/respond.js";
 
 const TOOL_NAME = "docker_container_remove";
@@ -30,7 +31,10 @@ function summarize(id: string, removed: boolean, withImage: boolean | undefined)
  * @param client - The GraphQL executor used to run the remove mutation.
  * @returns An MCP handler that permanently removes a container.
  */
-export function createDockerContainerRemoveHandler(client: GraphQLExecutor) {
+export function createDockerContainerRemoveHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async ({
     response_format,
     id,
@@ -42,7 +46,11 @@ export function createDockerContainerRemoveHandler(client: GraphQLExecutor) {
     with_image?: boolean;
     confirm?: boolean;
   }): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(confirm, `remove container ${id}`);
+    const refusal = await requireConfirmationInteractive({
+      confirm,
+      actionDescription: `remove container ${id}`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -76,6 +84,6 @@ export function registerDockerContainerRemove(server: McpServer, client: GraphQL
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createDockerContainerRemoveHandler(client),
+    createDockerContainerRemoveHandler(client, createElicitationChannel(server)),
   );
 }

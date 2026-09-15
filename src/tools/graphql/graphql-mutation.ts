@@ -2,7 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { requireConfirmation, requireRiskAcknowledgement } from "../_shared/confirm.js";
+import {
+  requireConfirmationInteractive,
+  requireRiskAcknowledgementInteractive,
+} from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { toolError } from "../_shared/respond.js";
 import { findRiskyFields, parseSingleOperation, renderJsonResult } from "./_shared.js";
 
@@ -40,7 +44,10 @@ function riskyRefusalMessage(fields: string[]): string {
  * const handler = createGraphqlMutationHandler(client);
  * await handler({ mutation: "mutation { archiveAll { total } }", confirm: true });
  */
-export function createGraphqlMutationHandler(client: GraphQLExecutor) {
+export function createGraphqlMutationHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (input: GraphqlMutationInput): Promise<CallToolResult> => {
     try {
       const parsed = parseSingleOperation(input.mutation);
@@ -51,15 +58,20 @@ export function createGraphqlMutationHandler(client: GraphQLExecutor) {
       }
       const riskyFields = findRiskyFields(parsed.document);
       if (riskyFields.length > 0) {
-        const riskRefusal = requireRiskAcknowledgement(input, riskyRefusalMessage(riskyFields));
+        const riskRefusal = await requireRiskAcknowledgementInteractive({
+          flags: input,
+          refusalMessage: riskyRefusalMessage(riskyFields),
+          channel,
+        });
         if (riskRefusal) {
           return riskRefusal;
         }
       }
-      const refusal = requireConfirmation(
-        input.confirm,
-        "run a raw GraphQL mutation against the Unraid API",
-      );
+      const refusal = await requireConfirmationInteractive({
+        confirm: input.confirm,
+        actionDescription: "run a raw GraphQL mutation against the Unraid API",
+        channel,
+      });
       if (refusal) {
         return refusal;
       }
@@ -89,6 +101,6 @@ export function registerGraphqlMutation(server: McpServer, client: GraphQLExecut
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createGraphqlMutationHandler(client),
+    createGraphqlMutationHandler(client, createElicitationChannel(server)),
   );
 }

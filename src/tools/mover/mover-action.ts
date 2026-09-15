@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { requireShell } from "../_shared/require-shell.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 
@@ -48,13 +49,20 @@ interface MoverActionArgs {
  * const handler = createMoverActionHandler(shell);
  * await handler({ response_format: "concise", action: "start", confirm: true });
  */
-export function createMoverActionHandler(shell: ShellExecutor | null) {
+export function createMoverActionHandler(
+  shell: ShellExecutor | null,
+  channel?: ElicitationChannel | null,
+) {
   return async (args: MoverActionArgs): Promise<CallToolResult> => {
     const unavailable = requireShell(shell);
     if (unavailable || !shell) {
       return unavailable ?? toolError("SSH is not configured.");
     }
-    const refusal = requireConfirmation(args.confirm, `${args.action} the mover`);
+    const refusal = await requireConfirmationInteractive({
+      confirm: args.confirm,
+      actionDescription: `${args.action} the mover`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -90,6 +98,6 @@ export function registerMoverAction(server: McpServer, shell: ShellExecutor | nu
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createMoverActionHandler(shell),
+    createMoverActionHandler(shell, createElicitationChannel(server)),
   );
 }

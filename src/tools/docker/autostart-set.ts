@@ -8,7 +8,8 @@ import {
   type DockerAutostartStateQuery,
   DockerSetAutostartDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
@@ -151,7 +152,10 @@ function summarize({ ok, changes, containers, persist }: SummaryOptions): string
  * @param client - The GraphQL executor used to read containers and write autostart.
  * @returns An MCP handler that merge-safely sets container autostart on boot.
  */
-export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
+export function createDockerAutostartSetHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async ({
     response_format,
     changes,
@@ -163,7 +167,11 @@ export function createDockerAutostartSetHandler(client: GraphQLExecutor) {
     persist: boolean;
     confirm?: boolean;
   }): Promise<CallToolResult> => {
-    const refusal = requireConfirmation(confirm, "change Docker autostart configuration");
+    const refusal = await requireConfirmationInteractive({
+      confirm,
+      actionDescription: "change Docker autostart configuration",
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -206,6 +214,6 @@ export function registerDockerAutostartSet(server: McpServer, client: GraphQLExe
       inputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createDockerAutostartSetHandler(client),
+    createDockerAutostartSetHandler(client, createElicitationChannel(server)),
   );
 }

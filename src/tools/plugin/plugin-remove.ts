@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginRemoveDocument } from "../../types/unraid/graphql.js";
-import { requireConfirmation } from "../_shared/confirm.js";
+import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
 import { formatResponse, toolError } from "../_shared/respond.js";
 import {
   type PluginNamesInput,
@@ -28,16 +29,20 @@ const RESTART = true;
  * const handler = createPluginRemoveHandler(client);
  * await handler({ response_format: "concise", names: ["unraid-api-plugin-x"], confirm: true });
  */
-export function createPluginRemoveHandler(client: GraphQLExecutor) {
+export function createPluginRemoveHandler(
+  client: GraphQLExecutor,
+  channel?: ElicitationChannel | null,
+) {
   return async (input: PluginNamesInput): Promise<CallToolResult> => {
     const invalid = firstInvalidName(input.names);
     if (invalid !== null) {
       return toolError(buildInvalidNameError("remove", invalid));
     }
-    const refusal = requireConfirmation(
-      input.confirm,
-      `remove plugin(s) ${input.names.join(", ")}`,
-    );
+    const refusal = await requireConfirmationInteractive({
+      confirm: input.confirm,
+      actionDescription: `remove plugin(s) ${input.names.join(", ")}`,
+      channel,
+    });
     if (refusal) {
       return refusal;
     }
@@ -71,6 +76,6 @@ export function registerPluginRemove(server: McpServer, client: GraphQLExecutor)
       inputSchema: pluginNamesSchema,
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
-    createPluginRemoveHandler(client),
+    createPluginRemoveHandler(client, createElicitationChannel(server)),
   );
 }
