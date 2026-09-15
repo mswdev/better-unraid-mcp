@@ -9,6 +9,7 @@ import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
 import { registerDiskList } from "./disk/disk-list.js";
+import { registerDiskSmartReport } from "./disk/disk-smart-report.js";
 import { registerDiskSpin } from "./disk/disk-spin.js";
 import { registerDockerAutostartSet } from "./docker/autostart-set.js";
 import { registerDockerContainerAction } from "./docker/container/container-action.js";
@@ -52,6 +53,8 @@ import { registerUserScriptList } from "./userscripts/user-script-list.js";
 import { registerUserScriptRun } from "./userscripts/user-script-run.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
+import { registerVmSnapshotCreate } from "./vm/vm-snapshot-create.js";
+import { registerVmSnapshotList } from "./vm/vm-snapshot-list.js";
 import { registerZfsDatasetList } from "./zfs/zfs-dataset-list.js";
 import { registerZfsSnapshotAction } from "./zfs/zfs-snapshot-action.js";
 import { registerZfsSnapshotList } from "./zfs/zfs-snapshot-list.js";
@@ -165,6 +168,9 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerSystemPower(server, shell) },
   { isMutating: false, register: (server, { client }) => registerSystemHealth(server, client) },
   { isMutating: true, register: (server, { shell }) => registerDiskSpin(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerDiskSmartReport(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerVmSnapshotList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerVmSnapshotCreate(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerUserScriptList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerUserScriptRun(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerGpuMetrics(server, shell) },
