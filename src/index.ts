@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import { type Env, loadEnv } from "./config/env.js";
 import { UnraidClient } from "./graphql/client.js";
+import { CachingExecutor } from "./graphql/snapshot-cache.js";
 import { createLogger } from "./logging.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
@@ -46,7 +47,8 @@ async function main(): Promise<void> {
     allowSelfSigned: env.UNRAID_ALLOW_SELF_SIGNED,
   });
   const shell = buildShellExecutor(env);
-  const registryOptions = { client, shell, readOnly: env.MCP_READ_ONLY };
+  const executor = new CachingExecutor(client);
+  const registryOptions = { client: executor, shell, readOnly: env.MCP_READ_ONLY };
 
   if (env.MCP_TRANSPORT === "http") {
     if (!env.MCP_HTTP_BEARER_TOKEN) {

@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
+import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
 import { ArrayStatusDocument, type ArrayStatusQuery } from "../../types/unraid/graphql.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
 import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
@@ -55,7 +56,8 @@ export function createArrayStatusHandler(client: GraphQLExecutor) {
   }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ArrayStatusDocument);
-      return formatResponse(response_format, summarize(data), data.array);
+      const detailed = { ...data.array, data_age_ms: cacheAgeMs(data) ?? 0 };
+      return formatResponse(response_format, summarize(data), detailed);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch array status: ${message}`);

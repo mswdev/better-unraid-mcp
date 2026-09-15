@@ -111,12 +111,13 @@ describe("array_status handler", () => {
     expect(firstText(result)).toMatch(/1\/2 data OK/);
   });
 
-  it("returns detailed JSON when asked", async () => {
+  it("returns detailed JSON with data_age_ms when asked", async () => {
     const result = await createArrayStatusHandler(fakeExecutor(started))({
       response_format: "detailed",
     });
 
     expect(firstText(result)).toContain('"state": "STARTED"');
+    expect(JSON.parse(firstText(result)).data_age_ms).toBe(0);
   });
 
   it("returns an error result when the client throws", async () => {
