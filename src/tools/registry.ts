@@ -39,56 +39,118 @@ import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerVmAction } from "./vm/vm-action.js";
 import { registerVmList } from "./vm/vm-list.js";
 
+/** Dependencies and mode shared by every tool registration. */
+export interface RegistryOptions {
+  client: GraphQLExecutor;
+  shell: ShellExecutor | null;
+  readOnly: boolean;
+}
+
+/** One tool's registry entry: whether it mutates server state, and how to register it. */
+export interface ToolRegistration {
+  isMutating: boolean;
+  register: (server: McpServer, options: RegistryOptions) => void;
+}
+
 /**
- * Registers every tool on the server. New tools are added here as the API
- * surface grows — one `register*` call per tool module. GraphQL-backed tools
- * take the GraphQL executor; host-level tools take the shell executor, which
- * is `null` when SSH is not configured (they then refuse with guidance).
+ * Every tool, in registration order. `isMutating` must mirror the tool's
+ * `readOnlyHint` annotation (enforced by registry tests); read-only mode
+ * skips mutating entries entirely, so they never appear in the listing.
+ */
+export const TOOL_REGISTRATIONS: ToolRegistration[] = [
+  { isMutating: false, register: (server, { client }) => registerSystemInfo(server, client) },
+  { isMutating: false, register: (server, { client }) => registerSystemMetrics(server, client) },
+  { isMutating: false, register: (server, { client }) => registerLogList(server, client) },
+  { isMutating: false, register: (server, { client }) => registerLogRead(server, client) },
+  { isMutating: false, register: (server, { client }) => registerArrayStatus(server, client) },
+  { isMutating: true, register: (server, { client }) => registerArrayAction(server, client) },
+  { isMutating: false, register: (server, { client }) => registerParityHistory(server, client) },
+  { isMutating: true, register: (server, { client }) => registerParityCheck(server, client) },
+  { isMutating: false, register: (server, { client }) => registerDiskList(server, client) },
+  { isMutating: false, register: (server, { client }) => registerShareList(server, client) },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerDockerAutostartSet(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerDockerContainerAction(server, client),
+  },
+  {
+    isMutating: false,
+    register: (server, { client }) => registerDockerContainerList(server, client),
+  },
+  {
+    isMutating: false,
+    register: (server, { client, shell }) => registerDockerContainerLogs(server, client, shell),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerDockerContainerRemove(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerDockerContainerUpdate(server, client),
+  },
+  {
+    isMutating: false,
+    register: (server, { client }) => registerDockerNetworkList(server, client),
+  },
+  {
+    isMutating: false,
+    register: (server, { client }) => registerDockerPortConflicts(server, client),
+  },
+  { isMutating: false, register: (server, { client }) => registerVmList(server, client) },
+  { isMutating: true, register: (server, { client }) => registerVmAction(server, client) },
+  {
+    isMutating: false,
+    register: (server, { client }) => registerNotificationOverview(server, client),
+  },
+  { isMutating: false, register: (server, { client }) => registerNotificationList(server, client) },
+  {
+    isMutating: false,
+    register: (server, { client }) => registerNotificationAlerts(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerNotificationArchive(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerNotificationDelete(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerNotificationCreate(server, client),
+  },
+  {
+    isMutating: true,
+    register: (server, { client }) => registerNotificationRecalculate(server, client),
+  },
+  { isMutating: false, register: (server, { client }) => registerPluginList(server, client) },
+  { isMutating: true, register: (server, { client }) => registerPluginAdd(server, client) },
+  { isMutating: true, register: (server, { client }) => registerPluginRemove(server, client) },
+  { isMutating: false, register: (server, { client }) => registerUpsStatus(server, client) },
+  { isMutating: false, register: (server, { client }) => registerMoverStatus(server, client) },
+  { isMutating: false, register: (server, { shell }) => registerDockerStats(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerFileRead(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShellExec(server, shell) },
+  { isMutating: false, register: (server, { client }) => registerGraphqlQuery(server, client) },
+  { isMutating: true, register: (server, { client }) => registerGraphqlMutation(server, client) },
+];
+
+/**
+ * Registers every tool on the server. In read-only mode mutating tools are
+ * skipped entirely — absent from the listing, not rejected at call time.
  *
  * @param server - The MCP server to register tools on.
- * @param client - The GraphQL executor passed to each GraphQL-backed tool.
- * @param shell - The SSH executor passed to host-level tools, or `null`.
+ * @param options - Executors plus the read-only flag.
  */
-export function registerAllTools(
-  server: McpServer,
-  client: GraphQLExecutor,
-  shell: ShellExecutor | null,
-): void {
-  registerSystemInfo(server, client);
-  registerSystemMetrics(server, client);
-  registerLogList(server, client);
-  registerLogRead(server, client);
-  registerArrayStatus(server, client);
-  registerArrayAction(server, client);
-  registerParityHistory(server, client);
-  registerParityCheck(server, client);
-  registerDiskList(server, client);
-  registerShareList(server, client);
-  registerDockerAutostartSet(server, client);
-  registerDockerContainerAction(server, client);
-  registerDockerContainerList(server, client);
-  registerDockerContainerLogs(server, client, shell);
-  registerDockerContainerRemove(server, client);
-  registerDockerContainerUpdate(server, client);
-  registerDockerNetworkList(server, client);
-  registerDockerPortConflicts(server, client);
-  registerVmList(server, client);
-  registerVmAction(server, client);
-  registerNotificationOverview(server, client);
-  registerNotificationList(server, client);
-  registerNotificationAlerts(server, client);
-  registerNotificationArchive(server, client);
-  registerNotificationDelete(server, client);
-  registerNotificationCreate(server, client);
-  registerNotificationRecalculate(server, client);
-  registerPluginList(server, client);
-  registerPluginAdd(server, client);
-  registerPluginRemove(server, client);
-  registerUpsStatus(server, client);
-  registerMoverStatus(server, client);
-  registerDockerStats(server, shell);
-  registerFileRead(server, shell);
-  registerShellExec(server, shell);
-  registerGraphqlQuery(server, client);
-  registerGraphqlMutation(server, client);
+export function registerAllTools(server: McpServer, options: RegistryOptions): void {
+  for (const tool of TOOL_REGISTRATIONS) {
+    if (options.readOnly && tool.isMutating) {
+      continue;
+    }
+    tool.register(server, options);
+  }
 }

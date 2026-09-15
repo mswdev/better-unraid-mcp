@@ -31,6 +31,10 @@ const EnvSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    MCP_READ_ONLY: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
     UNRAID_SSH_HOST: z.string().min(1).optional(),
     UNRAID_SSH_PORT: z.coerce.number().int().positive().default(DEFAULT_SSH_PORT),

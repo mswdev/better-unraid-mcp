@@ -43,10 +43,11 @@ async function main(): Promise<void> {
     allowSelfSigned: env.UNRAID_ALLOW_SELF_SIGNED,
   });
   const shell = buildShellExecutor(env);
+  const registryOptions = { client, shell, readOnly: env.MCP_READ_ONLY };
 
   if (env.MCP_TRANSPORT === "http") {
     await startHttp({
-      buildServer: () => buildServer(client, shell),
+      buildServer: () => buildServer(registryOptions),
       port: env.MCP_HTTP_PORT,
       host: env.MCP_HTTP_HOST,
       allowedHosts: env.MCP_HTTP_ALLOWED_HOSTS,
@@ -54,7 +55,7 @@ async function main(): Promise<void> {
     });
     return;
   }
-  await startStdio(buildServer(client, shell), logger);
+  await startStdio(buildServer(registryOptions), logger);
 }
 
 main().catch((error) => {

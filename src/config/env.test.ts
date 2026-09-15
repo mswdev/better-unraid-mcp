@@ -29,6 +29,18 @@ describe("loadEnv", () => {
   it("throws when the URL is not a valid URL", () => {
     expect(() => loadEnv({ ...valid, UNRAID_API_URL: "tower.local" })).toThrow(/UNRAID_API_URL/);
   });
+
+  it("defaults MCP_READ_ONLY to false", () => {
+    const env = loadEnv(valid);
+
+    expect(env.MCP_READ_ONLY).toBe(false);
+  });
+
+  it("parses MCP_READ_ONLY=true", () => {
+    const env = loadEnv({ ...valid, MCP_READ_ONLY: "true" });
+
+    expect(env.MCP_READ_ONLY).toBe(true);
+  });
 });
 
 describe("loadEnv SSH configuration", () => {

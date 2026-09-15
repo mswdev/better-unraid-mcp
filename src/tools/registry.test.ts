@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../graphql/client.js";
-import { registerAllTools } from "./registry.js";
+import { TOOL_REGISTRATIONS, registerAllTools } from "./registry.js";
 
 interface Registration {
   name: string;
@@ -28,12 +28,16 @@ function fakeServer() {
 
 const noopClient: GraphQLExecutor = { execute: async () => ({}) as never };
 
+// biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+function registerAll(server: any, readOnly = false): void {
+  registerAllTools(server, { client: noopClient, shell: null, readOnly });
+}
+
 describe("registerAllTools", () => {
   it("registers system_info with a config and handler", () => {
     const { server, registrations } = fakeServer();
 
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
 
     const info = registrations.find((registration) => registration.name === "system_info");
     expect(info).toBeDefined();
@@ -44,8 +48,7 @@ describe("registerAllTools", () => {
   it("registers vm_list as read-only", () => {
     const { server, registrations } = fakeServer();
 
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
 
     const list = registrations.find((registration) => registration.name === "vm_list");
     expect(list?.hasHandler).toBe(true);
@@ -55,8 +58,7 @@ describe("registerAllTools", () => {
   it("registers vm_action as destructive", () => {
     const { server, registrations } = fakeServer();
 
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
 
     const action = registrations.find((registration) => registration.name === "vm_action");
     expect(action?.hasHandler).toBe(true);
@@ -66,8 +68,7 @@ describe("registerAllTools", () => {
   it("registers array_action as destructive and not read-only", () => {
     const { server, registrations } = fakeServer();
 
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
 
     const action = registrations.find((registration) => registration.name === "array_action");
     expect(action?.hasHandler).toBe(true);
@@ -81,8 +82,7 @@ describe("registerAllTools", () => {
   it("registers parity_check as destructive and not read-only", () => {
     const { server, registrations } = fakeServer();
 
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
 
     const check = registrations.find((registration) => registration.name === "parity_check");
     expect(check?.hasHandler).toBe(true);
@@ -95,8 +95,7 @@ describe("registerAllTools", () => {
 
   it("registers the three notification reads as read-only", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     for (const name of ["notification_overview", "notification_list", "notification_alerts"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -106,8 +105,7 @@ describe("registerAllTools", () => {
 
   it("registers notification_archive/create/recalculate as ungated non-destructive writes", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     for (const name of [
       "notification_archive",
       "notification_create",
@@ -125,8 +123,7 @@ describe("registerAllTools", () => {
 
   it("registers notification_delete as destructive", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const reg = registrations.find((r) => r.name === "notification_delete");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({ destructiveHint: true });
@@ -134,8 +131,7 @@ describe("registerAllTools", () => {
 
   it("registers plugin_list as read-only", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const reg = registrations.find((r) => r.name === "plugin_list");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -147,8 +143,7 @@ describe("registerAllTools", () => {
 
   it("registers plugin_add/plugin_remove as destructive", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     for (const name of ["plugin_add", "plugin_remove"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -158,8 +153,7 @@ describe("registerAllTools", () => {
 
   it("registers the observability reads as read-only", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     for (const name of ["log_list", "log_read", "system_metrics"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -173,8 +167,7 @@ describe("registerAllTools", () => {
 
   it("registers ups_status as read-only", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const reg = registrations.find((r) => r.name === "ups_status");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -188,8 +181,7 @@ describe("registerAllTools", () => {
 describe("registerAllTools host-level tools", () => {
   it("registers mover_status as read-only", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const reg = registrations.find((r) => r.name === "mover_status");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -201,8 +193,7 @@ describe("registerAllTools host-level tools", () => {
 
   it("registers docker_stats and file_read as read-only even without SSH", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     for (const name of ["docker_stats", "file_read"]) {
       const reg = registrations.find((r) => r.name === name);
       expect(reg?.hasHandler).toBe(true);
@@ -212,8 +203,7 @@ describe("registerAllTools host-level tools", () => {
 
   it("registers shell_exec as destructive and open-world", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const reg = registrations.find((r) => r.name === "shell_exec");
     expect(reg?.hasHandler).toBe(true);
     expect(reg?.annotations).toMatchObject({
@@ -225,8 +215,7 @@ describe("registerAllTools host-level tools", () => {
 
   it("registers 37 tools in total", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     expect(registrations).toHaveLength(37);
   });
 });
@@ -234,13 +223,38 @@ describe("registerAllTools host-level tools", () => {
 describe("registerAllTools raw GraphQL tools", () => {
   it("registers graphql_query as read-only and graphql_mutation as destructive", () => {
     const { server, registrations } = fakeServer();
-    // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-    registerAllTools(server as any, noopClient, null);
+    registerAll(server);
     const query = registrations.find((r) => r.name === "graphql_query");
     expect(query?.hasHandler).toBe(true);
     expect(query?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const mutation = registrations.find((r) => r.name === "graphql_mutation");
     expect(mutation?.hasHandler).toBe(true);
     expect(mutation?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+  });
+});
+
+describe("read-only mode", () => {
+  it("registers only read-only tools when readOnly is true", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server, true);
+
+    expect(registrations).toHaveLength(22);
+    for (const registration of registrations) {
+      expect(registration.annotations).toMatchObject({ readOnlyHint: true });
+    }
+  });
+
+  it("isMutating mirrors readOnlyHint for every entry", () => {
+    for (const entry of TOOL_REGISTRATIONS) {
+      const { server, registrations } = fakeServer();
+
+      // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+      entry.register(server as any, { client: noopClient, shell: null, readOnly: false });
+
+      expect(registrations).toHaveLength(1);
+      const annotations = registrations[0].annotations as { readOnlyHint?: boolean };
+      expect(entry.isMutating).toBe(annotations.readOnlyHint !== true);
+    }
   });
 });
