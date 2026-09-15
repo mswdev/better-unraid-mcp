@@ -82,7 +82,12 @@ export function registerDockerContainerRemove(server: McpServer, client: GraphQL
       description:
         "Permanently deletes a container; force-kills it if running (no graceful stop); irreversible. `with_image` also attempts to delete the image (best-effort — may report success without deleting a shared/in-use image). Requires `confirm: true`. Needs Unraid OS 7.3+.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createDockerContainerRemoveHandler(client, createElicitationChannel(server)),
   );

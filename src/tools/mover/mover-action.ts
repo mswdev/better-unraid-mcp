@@ -96,7 +96,12 @@ export function registerMoverAction(server: McpServer, shell: ShellExecutor | nu
       description:
         "Starts or stops the mover (the process migrating data from the cache pool to the array) via `/usr/local/sbin/mover` over SSH. Requires `confirm: true` and SSH to be configured (UNRAID_SSH_* variables). ⚠ stop interrupts in-flight transfers and can leave partial files on the destination. Check mover_status first; progress appears in the syslog.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createMoverActionHandler(shell, createElicitationChannel(server)),
   );

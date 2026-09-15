@@ -81,7 +81,12 @@ export function registerDockerContainerList(server: McpServer, client: GraphQLEx
       description:
         "Read-only. Lists Docker containers with state, image, and whether an update is available. Use `name` to filter by a container-name substring.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerContainerListHandler(client),
   );

@@ -112,7 +112,12 @@ export function registerShellExec(server: McpServer, shell: ShellExecutor | null
       description:
         "⚠ Runs an arbitrary shell command on the Unraid host over SSH as the SSH user (typically root, i.e. full control of the server). Requires `confirm: true` on every call; without it the tool refuses and nothing runs. Use file_read for plain file reads (it is ungated). Non-zero exit codes are reported as results, not errors. `timeout_seconds` defaults to 30 (max 120). Requires SSH to be configured (UNRAID_SSH_* environment variables).",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     createShellExecHandler(shell, createElicitationChannel(server)),
   );

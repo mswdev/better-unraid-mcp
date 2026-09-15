@@ -148,7 +148,12 @@ export function registerDockerContainerAction(server: McpServer, client: GraphQL
       description:
         "Changes a container's run state (start | stop | pause | unpause | restart). restart is composed stop-then-start (the API has no restart mutation). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause/restart disrupt a running container; start/unpause are restorative but still gated for consistency.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createDockerContainerActionHandler(client, createElicitationChannel(server)),
   );

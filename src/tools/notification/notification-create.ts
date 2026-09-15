@@ -100,7 +100,12 @@ export function registerNotificationCreate(server: McpServer, client: GraphQLExe
       description:
         "Creates a notification in Unraid's notification center. `mode: always` always creates; `mode: if_unique` skips creation when an equivalent unread one already exists. `importance`: alert/warning/info.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createNotificationCreateHandler(client),
   );

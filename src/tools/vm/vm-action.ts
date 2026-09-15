@@ -219,7 +219,12 @@ export function registerVmAction(server: McpServer, client: GraphQLExecutor): vo
       description:
         "Changes a VM's run state. `action`: start/resume (bring up / un-pause), stop (graceful ACPI shutdown — waits ~10s then force-kills if the guest doesn't respond), reboot (graceful — fails if the guest ignores ACPI within ~10s; use forceStop then start), pause (freeze in memory), or forceStop/reset (⚠ ungraceful hard kill / hard kill-and-cold-boot that can corrupt the guest filesystem). `vm` accepts a VM name or id. Requires `confirm: true`; forceStop and reset additionally require `acknowledge_risk: true`. The configured Unraid API key must have VM permission.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createVmActionHandler(client, createElicitationChannel(server)),
   );

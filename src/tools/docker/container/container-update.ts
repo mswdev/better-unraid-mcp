@@ -139,7 +139,12 @@ export function registerDockerContainerUpdate(server: McpServer, client: GraphQL
       description:
         "Pulls the latest image(s) and recreates container(s). `ids` updates those containers (force-pull regardless of update-available); `all` updates every container with a known-available update (returns none if the cache is cold — not an error). Updating an orphaned container with no template is a silent no-op. Requires `confirm: true`. Needs Unraid OS 7.3+.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createDockerContainerUpdateHandler(client, createElicitationChannel(server)),
   );

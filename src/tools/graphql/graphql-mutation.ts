@@ -99,7 +99,12 @@ export function registerGraphqlMutation(server: McpServer, client: GraphQLExecut
       description:
         "⚠ Advanced escape hatch. Runs an arbitrary GraphQL *mutation* against the Unraid API, reaching write operations no dedicated tool covers yet (share edits, user/API-key management, disk operations, ...). Requires `confirm: true` on every call, and additionally `acknowledge_risk: true` when the mutation selects a known-dangerous field (setState, forceStop, reset, configureUps); without them the tool refuses and never touches your server. Prefer the dedicated gated tools when one exists: they encode server quirks (stale read-backs, replace-vs-merge semantics) this passthrough does not, so verify results with a follow-up read. Only `mutation` operations are accepted. The schema is in this package's schema/unraid.graphql; results are subject to the API key's permissions.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createGraphqlMutationHandler(client, createElicitationChannel(server)),
   );

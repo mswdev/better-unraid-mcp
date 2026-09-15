@@ -282,3 +282,21 @@ describe("read-only mode", () => {
     }
   });
 });
+
+describe("annotation audit", () => {
+  it("every tool declares the full annotation set", () => {
+    for (const entry of TOOL_REGISTRATIONS) {
+      const { server, registrations } = fakeServer();
+
+      // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
+      entry.register(server as any, { client: noopClient, shell: null, readOnly: false });
+
+      const annotations = registrations[0].annotations as Record<string, unknown>;
+      for (const hint of ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]) {
+        expect(typeof annotations[hint], `${registrations[0].name} is missing ${hint}`).toBe(
+          "boolean",
+        );
+      }
+    }
+  });
+});

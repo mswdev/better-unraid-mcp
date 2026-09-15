@@ -74,7 +74,12 @@ export function registerPluginRemove(server: McpServer, client: GraphQLExecutor)
       description:
         "⚠ Uninstalls one or more Unraid API plugins by npm package name (`names`, as shown by plugin_list) and RESTARTS the Unraid API to unload them — your connection will drop briefly. Only plugins currently in the API config are affected (unknown names are a no-op). `names` must be bare or scoped package names. Requires `confirm: true` and a key with CONFIG write permission (DELETE_ANY). Reports submission; verify with plugin_list after the API reconnects.",
       inputSchema: pluginNamesSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createPluginRemoveHandler(client, createElicitationChannel(server)),
   );

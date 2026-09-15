@@ -161,7 +161,12 @@ export function registerConnectionDoctor(server: McpServer, deps: DoctorDeps): v
       description:
         "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createConnectionDoctorHandler(deps),
   );

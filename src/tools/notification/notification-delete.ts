@@ -107,7 +107,12 @@ export function registerNotificationDelete(server: McpServer, client: GraphQLExe
       description:
         "⚠ Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived` (every archived notification). Requires `confirm: true`. Reports the resulting counts.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createNotificationDeleteHandler(client, createElicitationChannel(server)),
   );

@@ -72,7 +72,12 @@ export function registerVmList(server: McpServer, client: GraphQLExecutor): void
       description:
         "Read-only. Lists virtual machines with their run state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substring.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createVmListHandler(client),
   );

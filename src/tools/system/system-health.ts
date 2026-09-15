@@ -237,7 +237,12 @@ export function registerSystemHealth(server: McpServer, client: GraphQLExecutor)
       description:
         "Read-only. One severity-scored health report (OK / WARNING / CRITICAL) across array state, capacity, disk status and temperatures, parity errors, unread notifications, UPS, and pending container updates — start here instead of assembling health from separate reads. Thresholds: capacity warns at 90% and goes critical at 95%; disk temps warn at 50°C and go critical at 60°C. Follow up with array_status, disk_list, or notification_alerts for depth.",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createSystemHealthHandler(client),
   );

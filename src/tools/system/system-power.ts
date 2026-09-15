@@ -117,7 +117,12 @@ export function registerSystemPower(server: McpServer, shell: ShellExecutor | nu
       description:
         "⚠ Reboots (`/sbin/reboot`) or shuts down (`/sbin/poweroff`) the entire Unraid server over SSH. Unraid performs a clean array stop on the way down. Every share, Docker container, and VM goes offline; shutdown requires physical/WoL access to power back on. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_* variables). The SSH connection dropping after the command is expected.",
       inputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     createSystemPowerHandler(shell, createElicitationChannel(server)),
   );

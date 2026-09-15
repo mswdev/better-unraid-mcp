@@ -118,7 +118,12 @@ export function registerDockerStats(server: McpServer, shell: ShellExecutor | nu
       description:
         "Read-only. Point-in-time per-container resource usage (CPU %, memory, network IO, block IO, PIDs) from `docker stats --no-stream`, sorted hungriest CPU first: use it to find which container is eating the box. Takes a couple of seconds (one stats sampling interval). Runs over SSH because the GraphQL API only exposes these numbers as a subscription; requires SSH to be configured (UNRAID_SSH_* environment variables).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createDockerStatsHandler(shell),
   );

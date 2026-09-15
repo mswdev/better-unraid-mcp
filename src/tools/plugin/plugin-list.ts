@@ -75,7 +75,12 @@ export function registerPluginList(server: McpServer, client: GraphQLExecutor): 
       description:
         "Read-only. Lists installed plugins. `plugins` are the API's active/loaded set (config-declared, installed, and schema-valid) captured as a boot snapshot that changes only after an API restart; `installedUnraidPlugins` are the live OS `.plg` filenames. An empty list is NOT a definitive zero — it can also mean safe mode (api plugins) or an unreadable plugin directory (OS `.plg`). Requires CONFIG read permission (any viewer-level key).",
       inputSchema,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     createPluginListHandler(client),
   );
