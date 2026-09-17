@@ -41,6 +41,8 @@ import { registerPluginAdd } from "./plugin/plugin-add.js";
 import { registerPluginInstallPlg } from "./plugin/plugin-install-plg.js";
 import { registerPluginList } from "./plugin/plugin-list.js";
 import { registerPluginRemove } from "./plugin/plugin-remove.js";
+import { registerServiceAction } from "./service/service-action.js";
+import { registerServiceList } from "./service/service-list.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
@@ -189,6 +191,8 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerFlashBackup(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerServiceList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerServiceAction(server, shell) },
   {
     isMutating: false,
     register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),
