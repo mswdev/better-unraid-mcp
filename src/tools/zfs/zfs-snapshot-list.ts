@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
@@ -9,10 +8,10 @@ import { DATASET_PATTERN, ZFS_COMMAND_TIMEOUT_MS, probeZfs } from "./_shared.js"
 
 const TOOL_NAME = "zfs_snapshot_list";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   dataset: z.string().optional(),
-};
+});
 
 /** One snapshot row. */
 interface SnapshotRow {

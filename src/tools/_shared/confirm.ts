@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { ElicitationChannel } from "./elicitation.js";
 import { toolError } from "./respond.js";
 

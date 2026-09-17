@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ParityHistoryDocument, type ParityHistoryQuery } from "../../types/unraid/graphql.js";
@@ -9,10 +8,10 @@ const TOOL_NAME = "parity_history";
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 50;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   limit: z.number().int().positive().max(MAX_LIMIT).default(DEFAULT_LIMIT),
-};
+});
 
 type Checks = ParityHistoryQuery["parityHistory"];
 

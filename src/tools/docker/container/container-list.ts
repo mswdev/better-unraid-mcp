@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import { cacheAgeMs } from "../../../graphql/snapshot-cache.js";
@@ -12,16 +11,16 @@ import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_list";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   name: z.string().optional(),
-};
+});
 
 /** Shape of the structuredContent payload. */
-const outputSchema = {
+const outputSchema = z.object({
   containers: z.array(z.unknown()),
   data_age_ms: z.number(),
-};
+});
 
 type Containers = DockerContainerListQuery["docker"]["containers"];
 

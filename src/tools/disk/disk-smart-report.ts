@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
@@ -14,9 +13,9 @@ const COMMAND_TIMEOUT_MS = 60_000;
 /** SATA or NVMe block devices. */
 const DEVICE_PATTERN = /^\/dev\/(sd[a-z]+|nvme[0-9]+n[0-9]+)$/;
 
-const inputSchema = {
+const inputSchema = z.object({
   device: z.string().min(1),
-};
+});
 
 /**
  * Creates the `disk_smart_report` handler bound to a shell executor.

@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { LiveSnapshotStore } from "../graphql/live-store.js";
 import type { FeedHandlers, SubscriptionFeed } from "../graphql/subscription-feed.js";
@@ -41,8 +41,8 @@ function fakeMcpServer() {
     },
     server: {
       registerCapabilities: (caps: unknown) => capabilities.push(caps),
-      setRequestHandler: (schema: { shape: { method: { value: string } } }, handler: unknown) => {
-        handlers.set(schema.shape.method.value, handler as SchemaHandler);
+      setRequestHandler: (method: string, handler: unknown) => {
+        handlers.set(method, handler as SchemaHandler);
       },
       sendResourceUpdated: async (params: { uri: string }) => {
         updated.push(params.uri);

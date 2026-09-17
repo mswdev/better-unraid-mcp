@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { registerAllPrompts } from "./prompts/registry.js";
 import { registerLiveResources } from "./resources/live-resources.js";
 import { registerAllResources } from "./resources/registry.js";

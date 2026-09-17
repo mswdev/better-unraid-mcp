@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import type { LiveSnapshotStore } from "../graphql/live-store.js";
 import type { MetricsHistoryRecorder } from "../graphql/metrics-history.js";

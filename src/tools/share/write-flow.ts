@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";

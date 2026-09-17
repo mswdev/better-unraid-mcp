@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -34,12 +33,12 @@ interface MergedEntry {
   order: number | null;
 }
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   changes: z.array(changeSchema).nonempty(),
   persist: z.boolean().default(false),
   confirm: z.boolean().optional(),
-};
+});
 
 /** Rejects duplicate ids and ids absent from the live container set. */
 function validateChanges(changes: Change[], containers: Containers): string | null {

@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
@@ -12,7 +11,7 @@ import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from 
 
 const TOOL_NAME = "share_edit";
 
-const inputSchema = { name: z.string().min(1), ...shareSettingsSchema };
+const inputSchema = z.object({ name: z.string().min(1), ...shareSettingsSchema });
 
 function hasChanges(args: ShareWriteArgs): boolean {
   return Object.values(settingsOf(args)).some((value) => value !== undefined);

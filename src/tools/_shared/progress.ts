@@ -41,29 +41,43 @@ export interface HeartbeatOptions {
  * @param extra - The SDK extra object (or undefined on direct handler calls).
  * @returns The token and sender when the client requested progress.
  */
+/** The v2 handler context carries the request meta and notifier under `mcpReq`. */
+interface V2Context {
+  mcpReq?: {
+    _meta?: { progressToken?: string | number };
+    notify?: (notification: ProgressNotification) => Promise<void>;
+  };
+}
+
+/** The v1 `extra` shape (kept so fakes and older embedders keep working). */
+interface V1Extra {
+  _meta?: { progressToken?: string | number };
+  sendNotification?: (notification: ProgressNotification) => Promise<void>;
+}
+
+/**
+ * Extracts the progress token and notifier from a tool handler's context,
+ * accepting both the SDK v2 `ctx` (`ctx.mcpReq._meta`, `ctx.mcpReq.notify`) and
+ * the v1 `extra` (`extra._meta`, `extra.sendNotification`) shapes.
+ *
+ * @param extra - The second argument the SDK passes to a tool callback.
+ * @returns A context that `sendProgress` can use; empty when no token was sent.
+ */
 export function progressContextFrom(extra: unknown): ProgressContext {
   if (typeof extra !== "object" || extra === null) {
     return {};
   }
-  const candidate = extra as {
-    _meta?: { progressToken?: string | number };
-    sendNotification?: (notification: ProgressNotification) => Promise<void>;
-  };
+  const v2 = (extra as V2Context).mcpReq;
+  if (v2) {
+    return { progressToken: v2._meta?.progressToken, sendNotification: v2.notify?.bind(v2) };
+  }
+  const v1 = extra as V1Extra;
   return {
-    progressToken: candidate._meta?.progressToken,
-    sendNotification: candidate.sendNotification?.bind(candidate),
+    progressToken: v1._meta?.progressToken,
+    sendNotification: v1.sendNotification?.bind(v1),
   };
 }
 
-/**
- * Sends one progress notification. A no-op unless the client supplied a
- * progress token AND the transport can carry server-initiated messages;
- * failures are swallowed — progress is best-effort by design.
- *
- * @param context - Token + sender from `progressContextFrom`.
- * @param update - Progress amount, optional total and message.
- * @returns Resolves once sent (or immediately when inert).
- */
 export async function sendProgress(
   context: ProgressContext,
   update: ProgressUpdate,

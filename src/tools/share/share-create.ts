@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
@@ -23,7 +22,7 @@ export const shareSettingsSchema = {
   acknowledge_risk: z.boolean().optional(),
 };
 
-const inputSchema = { name: z.string().min(1), ...shareSettingsSchema };
+const inputSchema = z.object({ name: z.string().min(1), ...shareSettingsSchema });
 
 /** The validated handler input. */
 export interface ShareWriteArgs extends ShareSettings {

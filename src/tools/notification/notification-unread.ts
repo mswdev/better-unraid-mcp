@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationUnreadDocument } from "../../types/unraid/graphql.js";
@@ -7,9 +6,9 @@ import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "notification_unread";
 
-const inputSchema = {
+const inputSchema = z.object({
   id: z.string().min(1),
-};
+});
 
 /**
  * Creates the `notification_unread` handler bound to a GraphQL executor.

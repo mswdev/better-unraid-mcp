@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { UpsStatusDocument, type UpsStatusQuery } from "../../types/unraid/graphql.js";
@@ -46,9 +45,9 @@ const APCACCESS_EMPTY_MARKER = "No UPS data returned from apcaccess";
 const APCACCESS_EMPTY_NOTE =
   "No live UPS data — apcaccess returned nothing (apcupsd is not running or no UPS is attached). The Unraid API only reads apcupsd; a NUT-managed UPS is invisible here — check the NUT plugin's UI instead.";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 /** The validated handler input. */
 interface UpsStatusInput {

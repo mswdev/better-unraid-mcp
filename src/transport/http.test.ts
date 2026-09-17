@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { Logger } from "pino";
 import { describe, expect, it } from "vitest";
 import { type HttpTransportOptions, readJsonBody, requestPath, routeRequest } from "./http.js";

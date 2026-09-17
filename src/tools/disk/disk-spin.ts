@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
@@ -28,12 +27,12 @@ const DEVICE_PATTERN = /^\/dev\/sd[a-z]+$/;
 
 type SpinAction = "up" | "down";
 
-const inputSchema = {
+const inputSchema = z.object({
   action: z.enum(["up", "down"]),
   disk: z.string().optional(),
   device: z.string().optional(),
   confirm: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface DiskSpinArgs {
