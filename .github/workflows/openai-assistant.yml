@@ -200,7 +200,7 @@ jobs:
       issues: write
     steps:
       - name: Post response
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex-response.outputs.final_message }}
           ENTITY_NUMBER: ${{ needs.codex-response.outputs.entity_number }}
