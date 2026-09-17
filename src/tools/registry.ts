@@ -10,6 +10,7 @@ import { registerArrayDiskAction } from "./array/array-disk-action.js";
 import { registerArrayStatus } from "./array/array-status.js";
 import { registerParityCheck } from "./array/parity-check.js";
 import { registerParityHistory } from "./array/parity-history.js";
+import { registerFlashBackup } from "./backup/flash-backup.js";
 import { registerDiskList } from "./disk/disk-list.js";
 import { registerDiskSmartReport } from "./disk/disk-smart-report.js";
 import { registerDiskSpin } from "./disk/disk-spin.js";
@@ -187,6 +188,7 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { shell }) => registerZfsDatasetList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerFlashBackup(server, shell) },
   {
     isMutating: false,
     register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),
