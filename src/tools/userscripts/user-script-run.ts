@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
@@ -22,7 +21,7 @@ const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9 ._-]+$/;
 /** "." and ".." pass the character class but escape the scripts directory. */
 const DOT_ONLY_PATTERN = /^\.+$/;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   name: z.string().min(1),
   timeout_seconds: z
@@ -33,7 +32,7 @@ const inputSchema = {
     .default(DEFAULT_TIMEOUT_SECONDS),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface UserScriptRunArgs {

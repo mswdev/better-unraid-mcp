@@ -103,4 +103,22 @@ describe("startProgressHeartbeat", () => {
 
     expect(notifications).toHaveLength(0);
   });
+
+  it("reads the v2 handler context shape (ctx.mcpReq._meta + ctx.mcpReq.notify)", async () => {
+    const sent: RecordedNotification[] = [];
+    const ctx = {
+      mcpReq: {
+        _meta: { progressToken: "tok-v2" },
+        notify: async (notification: RecordedNotification) => {
+          sent.push(notification);
+        },
+      },
+    };
+
+    const context = progressContextFrom(ctx);
+    await sendProgress(context, { progress: 1, message: "hi" });
+
+    expect(context.progressToken).toBe("tok-v2");
+    expect(sent[0]?.params.progressToken).toBe("tok-v2");
+  });
 });

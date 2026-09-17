@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -19,13 +18,13 @@ const TOOL_NAME = "notification_list";
 const DEFAULT_OFFSET = 0;
 const DEFAULT_LIMIT = 25;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   type: z.enum(["unread", "archive"]),
   importance: z.enum(["alert", "warning", "info"]).optional(),
   offset: z.number().int().nonnegative().default(DEFAULT_OFFSET),
   limit: z.number().int().positive().default(DEFAULT_LIMIT),
-};
+});
 
 // `offset`/`limit` are optional here even though the Zod schema defaults them: a unit
 // test calls the handler directly (bypassing Zod), so the handler also defaults them.

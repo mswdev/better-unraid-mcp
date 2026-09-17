@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
@@ -43,14 +42,14 @@ const SECRETS_WARNING =
 
 type BackupScope = "config" | "full";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   share: z.string().min(1),
   full: z.boolean().optional(),
   keep: z.number().int().positive().optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler input. */
 export interface FlashBackupArgs {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { Logger } from "pino";
 
 /** How long a session may sit idle before the sweeper closes it. */
@@ -221,7 +221,7 @@ export class SessionStore {
 
   /** The real SDK transport: session ids, SSE responses, rebinding guard. */
   private realTransport(onInitialized: (sessionId: string) => void): TransportLike {
-    return new StreamableHTTPServerTransport({
+    return new NodeStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: false,
       enableDnsRebindingProtection: this.options.allowedHosts !== undefined,

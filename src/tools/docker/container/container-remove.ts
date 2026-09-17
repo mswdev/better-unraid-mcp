@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import { DockerRemoveContainerDocument } from "../../../types/unraid/graphql.js";
@@ -9,12 +8,12 @@ import { type ResponseFormat, formatResponse, toolError } from "../../_shared/re
 
 const TOOL_NAME = "docker_container_remove";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   id: z.string(),
   with_image: z.boolean().optional(),
   confirm: z.boolean().optional(),
-};
+});
 
 /** Builds the concise summary for a remove result. */
 function summarize(id: string, removed: boolean, withImage: boolean | undefined): string {

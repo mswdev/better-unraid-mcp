@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { MetricTopic } from "../../graphql/metric-subscriptions.js";
 import {
@@ -23,7 +22,7 @@ const MS_PER_SECOND = 1000;
 export const HISTORY_OFF_TEXT =
   "Metric history is off. Start the server with MCP_METRICS_HISTORY=true to record CPU, memory, and network at 30-second resolution for 24 hours (in memory only; cleared on restart).";
 
-const inputSchema = {
+const inputSchema = z.object({
   topic: z.enum(["cpu", "memory", "network"]),
   window_minutes: z
     .number()
@@ -32,7 +31,7 @@ const inputSchema = {
     .max(MAX_WINDOW_MINUTES)
     .default(DEFAULT_WINDOW_MINUTES),
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 /** The validated handler input. */
 export interface MetricsHistoryInput {

@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginInstallPlgDocument } from "../../types/unraid/graphql.js";
@@ -12,13 +11,13 @@ const TOOL_NAME = "plugin_install_plg";
 /** Native Unraid plugin files end in .plg; anything else is a wrong URL. */
 const PLG_SUFFIX = ".plg";
 
-const inputSchema = {
+const inputSchema = z.object({
   url: z.string().url(),
   name: z.string().min(1).optional(),
   forced: z.boolean().optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface PluginInstallPlgArgs {

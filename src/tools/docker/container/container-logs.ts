@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import type { ShellExecutor } from "../../../shell/executor.js";
@@ -24,12 +23,12 @@ const FALLBACK_TIMEOUT_MS = 30_000;
  */
 export const sinceSchema = z.string().datetime({ offset: true }).optional();
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   id: z.string(),
   since: sinceSchema,
   tail: z.number().int().positive().max(MAX_TAIL).default(DEFAULT_TAIL),
-};
+});
 
 type Logs = DockerContainerLogsQuery["docker"]["logs"];
 

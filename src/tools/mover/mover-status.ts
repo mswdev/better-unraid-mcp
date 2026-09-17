@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { MoverStatusDocument, type MoverStatusQuery } from "../../types/unraid/graphql.js";
@@ -7,9 +6,9 @@ import { type ResponseFormat, formatResponse, toolError } from "../_shared/respo
 
 const TOOL_NAME = "mover_status";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 interface MoverStatusInput {
   response_format: ResponseFormat;

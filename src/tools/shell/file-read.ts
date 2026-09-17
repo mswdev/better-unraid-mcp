@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
@@ -17,12 +16,12 @@ const GREP_NO_MATCH_EXIT = 1;
 /** Matches the single trailing newline tail/grep output ends with. */
 const TRAILING_NEWLINE = /\n$/;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   path: z.string().min(1),
   lines: z.number().int().positive().max(MAX_LINES).default(DEFAULT_LINES),
   pattern: z.string().min(1).optional(),
-};
+});
 
 /** The validated handler input (lines is always present via the zod default). */
 interface FileReadInput {

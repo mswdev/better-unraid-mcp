@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { MetricsHistoryRecorder } from "../graphql/metrics-history.js";
 import { HISTORY_URI, registerHistoryResource } from "./history-resource.js";

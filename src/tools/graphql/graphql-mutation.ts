@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -19,13 +18,13 @@ import {
 
 const TOOL_NAME = "graphql_mutation";
 
-const inputSchema = {
+const inputSchema = z.object({
   mutation: z.string().min(1),
-  variables: z.record(z.unknown()).optional(),
+  variables: z.record(z.string(), z.unknown()).optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
   dry_run: z.boolean().optional(),
-};
+});
 
 interface GraphqlMutationInput {
   mutation: string;

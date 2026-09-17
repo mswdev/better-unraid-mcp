@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
@@ -16,12 +15,12 @@ const COMMAND_TIMEOUT_MS = 120_000;
 /** Snapshot names kept virsh- and filesystem-safe. */
 const SNAPSHOT_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
-const inputSchema = {
+const inputSchema = z.object({
   vm: z.string().min(1),
   name: z.string().min(1),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface VmSnapshotCreateArgs {

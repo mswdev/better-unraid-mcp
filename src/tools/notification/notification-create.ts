@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -14,7 +13,7 @@ const TOOL_NAME = "notification_create";
 
 type Mode = "always" | "if_unique";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   mode: z.enum(["always", "if_unique"]),
   title: z.string().min(1),
@@ -22,7 +21,7 @@ const inputSchema = {
   description: z.string().min(1),
   importance: z.enum(["alert", "warning", "info"]),
   link: z.string().optional(),
-};
+});
 
 interface CreateArgs {
   response_format: ResponseFormat;

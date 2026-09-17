@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { recordingExecutor } from "../tools/_shared/test-support.js";
 import type { ConnectionDoctorQuery } from "../types/unraid/graphql.js";

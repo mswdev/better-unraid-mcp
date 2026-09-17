@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { LogListDocument, type LogListQuery } from "../../types/unraid/graphql.js";
@@ -8,9 +7,9 @@ import { type ResponseFormat, formatResponse, toolError } from "../_shared/respo
 
 const TOOL_NAME = "log_list";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 type LogFiles = LogListQuery["logFiles"];
 

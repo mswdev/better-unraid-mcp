@@ -412,3 +412,46 @@ still wanted.
   rotation policy the spec explicitly excludes.
 - **Owner input:** Not needed.
 
+## Roadmap 2 — Phase 5 (0.1.0) "SDK v2 + zod v4 migration"
+
+### D34: Behavioral deltas accepted with the SDK v2 packages
+
+- **Decided:** Migrated with the official codemod (`@modelcontextprotocol/codemod
+  v1-to-v2`) plus manual follow-ups; the full suite (783 tests) passes with
+  exactly two assertion-side edits: the live-resources fake now keys
+  `setRequestHandler` by method string (v2 registers `"resources/subscribe"`
+  instead of a Zod schema), and `progressContextFrom` accepts the v2 `ctx`
+  shape (`ctx.mcpReq._meta` / `ctx.mcpReq.notify`) alongside the v1 `extra`.
+  Accepted wire/behavior deltas from v2: `listChanged: true` is advertised
+  for tools/resources/prompts; the stdio read buffer is capped at 10 MB and
+  non-JSON stdout lines are skipped; HTTP POSTs without
+  `Content-Type: application/json` get 415; every raw input/output shape is now
+  an explicit `z.object()` (v2 deprecates raw shapes).
+- **Why:** None of these change what a client sees for our tools; the harness
+  (a v1 SDK client) still runs every read, structured output, resource,
+  prompt, and live subscription against the v2 server, which proves protocol
+  negotiation works for older clients.
+- **Owner input:** Not needed.
+
+### D35: Node floor stays 20; `ws` stays; deprecated-but-functional accessors kept
+
+- **Decided:** `engines.node >=20` is unchanged (the v2 packages require
+  exactly `>=20`), so the `ws` dependency for Node 20's missing global
+  WebSocket stays. The elicitation channel keeps using
+  `server.server.getClientCapabilities()` and `elicitInput()` (both
+  `@deprecated` in v2 but functional through the deprecation window) because
+  the channel is built at registration time, before any `ctx` exists.
+- **Why:** The spec bumps the floor only if a dependency forces it; nothing
+  does. Rewiring elicitation to `ctx.mcpReq.elicitInput` would thread `ctx`
+  through every gated tool for no user-visible gain — a follow-up if the
+  accessors are ever removed.
+- **Owner input:** Not needed.
+
+### D36: 0.1.0 is justified by the platform bump, not by tool changes
+
+- **Decided:** Version 0.1.0 marks the SDK v2 + zod 4 + protocol 2026-07-28
+  platform; tool names, arguments, and outputs are unchanged. Anyone importing
+  this package's internals (not an MCP client) sees a breaking dependency
+  change; MCP clients see the same 67 tools.
+- **Owner input:** Not needed.
+
