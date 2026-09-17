@@ -77,4 +77,28 @@ describe("graphql_query", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("FORBIDDEN");
   });
+
+  it("rejects a query that does not fit the vendored schema without calling the API", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createGraphqlQueryHandler(executor);
+
+    const result = await handler({ query: "query { info { versionz } }" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("validation failed");
+    expect(firstText(result)).toContain("Did you mean");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("only validates when dry_run is set, reporting the document as valid", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createGraphqlQueryHandler(executor);
+
+    const result = await handler({ query: "query { online }", dry_run: true });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/[Vv]alid/);
+    expect(firstText(result)).toContain("not sent");
+    expect(calls).toHaveLength(0);
+  });
 });

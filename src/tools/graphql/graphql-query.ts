@@ -2,19 +2,27 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { toolError } from "../_shared/respond.js";
-import { parseSingleOperation, renderJsonResult } from "./_shared.js";
+import { toolError, toolText } from "../_shared/respond.js";
+import {
+  DRY_RUN_VALID_TEXT,
+  parseSingleOperation,
+  renderJsonResult,
+  validateAgainstSchema,
+  validationFailure,
+} from "./_shared.js";
 
 const TOOL_NAME = "graphql_query";
 
 const inputSchema = {
   query: z.string().min(1),
   variables: z.record(z.unknown()).optional(),
+  dry_run: z.boolean().optional(),
 };
 
 interface GraphqlQueryInput {
   query: string;
   variables?: Record<string, unknown>;
+  dry_run?: boolean;
 }
 
 /**
@@ -36,6 +44,13 @@ export function createGraphqlQueryHandler(client: GraphQLExecutor) {
         return toolError(
           `graphql_query only runs query operations; got a ${parsed.operation}. Use graphql_mutation for mutations (subscriptions are unsupported).`,
         );
+      }
+      const problems = validateAgainstSchema(parsed.document);
+      if (problems.length > 0) {
+        return toolError(validationFailure(problems));
+      }
+      if (input.dry_run) {
+        return toolText(DRY_RUN_VALID_TEXT);
       }
       const data = await client.execute(parsed.document, input.variables);
       return renderJsonResult(data);
@@ -59,7 +74,7 @@ export function registerGraphqlQuery(server: McpServer, client: GraphQLExecutor)
     {
       title: "Raw GraphQL Query",
       description:
-        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (users, API keys, registration, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; oversized results are head-truncated, so narrow the selection or page.",
+        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (users, API keys, registration, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. Every document is validated against the vendored schema before it is sent (typos get did-you-mean hints); pass `dry_run: true` to validate only. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; oversized results are head-truncated, so narrow the selection or page.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
