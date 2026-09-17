@@ -5,6 +5,7 @@ import { LiveSnapshotStore } from "./graphql/live-store.js";
 import { CachingExecutor } from "./graphql/snapshot-cache.js";
 import { SubscriptionFeed } from "./graphql/subscription-feed.js";
 import { createLogger } from "./logging.js";
+import { loadSchemaVersion } from "./resources/schema-sdl.js";
 import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     client: executor,
     shell,
     readOnly: env.MCP_READ_ONLY,
+    schemaApiVersion: loadSchemaVersion(),
     feed,
     liveStore,
   };

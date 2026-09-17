@@ -36,7 +36,7 @@ const noopClient: GraphQLExecutor = { execute: async () => ({}) as never };
 
 // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
 function registerAll(server: any, readOnly = false): void {
-  registerAllTools(server, { client: noopClient, shell: null, readOnly });
+  registerAllTools(server, { client: noopClient, shell: null, readOnly, schemaApiVersion: null });
 }
 
 describe("registerAllTools", () => {
@@ -280,7 +280,12 @@ describe("read-only mode", () => {
       const { server, registrations } = fakeServer();
 
       // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-      entry.register(server as any, { client: noopClient, shell: null, readOnly: false });
+      entry.register(server as any, {
+        client: noopClient,
+        shell: null,
+        readOnly: false,
+        schemaApiVersion: null,
+      });
 
       expect(registrations).toHaveLength(1);
       const annotations = registrations[0].annotations as { readOnlyHint?: boolean };
@@ -295,7 +300,12 @@ describe("annotation audit", () => {
       const { server, registrations } = fakeServer();
 
       // biome-ignore lint/suspicious/noExplicitAny: minimal structural fake for registration.
-      entry.register(server as any, { client: noopClient, shell: null, readOnly: false });
+      entry.register(server as any, {
+        client: noopClient,
+        shell: null,
+        readOnly: false,
+        schemaApiVersion: null,
+      });
 
       const annotations = registrations[0].annotations as Record<string, unknown>;
       for (const hint of ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]) {
