@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { isDoctorInvocation, runDoctorCli } from "./cli/doctor.js";
 import { type Env, loadEnv } from "./config/env.js";
 import { UnraidClient } from "./graphql/client.js";
 import { LiveSnapshotStore } from "./graphql/live-store.js";
@@ -10,6 +11,7 @@ import { buildServer } from "./server.js";
 import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
 import type { RegistryOptions } from "./tools/registry.js";
+import { runConnectionDoctor } from "./tools/system/connection-doctor.js";
 import { SessionStore } from "./transport/http-sessions.js";
 import { startHttp } from "./transport/http.js";
 import { startStdio } from "./transport/stdio.js";
@@ -64,11 +66,22 @@ async function main(): Promise<void> {
     liveStore,
   };
 
+  if (isDoctorInvocation(process.argv)) {
+    process.exit(await runDoctorCommand(registryOptions));
+  }
   if (env.MCP_TRANSPORT === "http") {
     await startHttpTransport(env, registryOptions, logger);
     return;
   }
   await startStdio(buildServer(registryOptions), logger);
+}
+
+/** `npx better-unraid-mcp doctor`: prints the connection checks and returns the exit code. */
+function runDoctorCommand(options: RegistryOptions): Promise<number> {
+  return runDoctorCli({
+    runDoctor: () => runConnectionDoctor(options),
+    write: (line) => process.stdout.write(`${line}\n`),
+  });
 }
 
 /** Starts the HTTP transport with its auth warning and optional session store. */
@@ -101,7 +114,16 @@ async function startHttpTransport(
   });
 }
 
+/** Extra guidance when the doctor sub-command cannot even start (usually missing env). */
+function fatalHint(): string {
+  return isDoctorInvocation(process.argv)
+    ? "\nHint: `doctor` needs UNRAID_API_URL and UNRAID_API_KEY in the environment (plus UNRAID_SSH_* to check SSH).\n"
+    : "";
+}
+
 main().catch((error) => {
-  process.stderr.write(`Fatal: ${error instanceof Error ? error.stack : String(error)}\n`);
+  process.stderr.write(
+    `Fatal: ${error instanceof Error ? error.stack : String(error)}\n${fatalHint()}`,
+  );
   process.exit(1);
 });

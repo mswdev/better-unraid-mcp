@@ -131,7 +131,26 @@ If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_A
 
 Not ready to let a model touch anything? Add `MCP_READ_ONLY=true` to the environment above and the server registers only read-only tools — the state-changing ones aren't rejected at call time, they simply don't exist. Combined with a VIEWER-role API key, nothing in this server can change your machine.
 
-### 3. Try it
+### 3. Verify your setup
+
+Before wiring up a client, run the built-in doctor with the same environment:
+
+```bash
+UNRAID_API_URL=https://tower.local/graphql UNRAID_API_KEY=... npx better-unraid-mcp doctor
+```
+
+It prints one line per check (GraphQL reachability and versions, schema skew against the server's API version, SSH when configured, rate-limit and read-only mode) and exits non-zero when something is broken:
+
+```
+✓ Reachable in 12 ms — Unraid 7.3.2, API 4.37.4+ad268301, online=true.
+✓ Vendored schema matches the server API (4.37.4 vs 4.37.4+ad268301).
+⚠ SSH: not configured (optional). Host tools (...) are unavailable; set UNRAID_SSH_* to enable them.
+✓ Client-side rate limiting active: 90 request burst, 9/s refill.
+✓ read-only mode: disabled — mutating tools are registered (each behind its confirm gate).
+doctor: OK
+```
+
+### 4. Try it
 
 Ask your client:
 
