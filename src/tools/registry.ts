@@ -43,6 +43,9 @@ import { registerPluginList } from "./plugin/plugin-list.js";
 import { registerPluginRemove } from "./plugin/plugin-remove.js";
 import { registerServiceAction } from "./service/service-action.js";
 import { registerServiceList } from "./service/service-list.js";
+import { registerShareCreate } from "./share/share-create.js";
+import { registerShareDelete } from "./share/share-delete.js";
+import { registerShareEdit } from "./share/share-edit.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
@@ -197,6 +200,9 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerServiceAction(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerUnassignedList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerUnassignedAction(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareCreate(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareEdit(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareDelete(server, shell) },
   {
     isMutating: false,
     register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),
