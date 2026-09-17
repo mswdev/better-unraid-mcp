@@ -4,9 +4,9 @@
 
 ---
 
-**TL;DR:** `better-unraid-mcp` is an open-source [MCP](https://modelcontextprotocol.io) server for Unraid's built-in GraphQL API. Nothing gets installed on your server — it runs on your desktop/laptop next to your AI client, talks to `https://your-server/graphql` with an API key, and gives the model 67 carefully-gated tools: health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, and live WebSocket telemetry.
+**TL;DR:** `better-unraid-mcp` is an open-source [MCP](https://modelcontextprotocol.io) server for Unraid's built-in GraphQL API. Nothing gets installed on your server — it runs on your desktop/laptop next to your AI client, talks to `https://your-server/graphql` with an API key, and gives the model 67 carefully-gated tools: health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, live WebSocket telemetry, metric history — and, with optional SSH, services, shares, unassigned devices, and flash backup.
 
-**GitHub:** https://github.com/mswdev/better-unraid-mcp · **npm:** `npx -y better-unraid-mcp@latest`
+**GitHub:** https://github.com/mswdev/better-unraid-mcp · **npm:** `npx -y better-unraid-mcp@latest` · Claude Desktop one-click `.mcpb` on the releases page · Claude Code plugin marketplace · `ghcr.io/mswdev/better-unraid-mcp` for the HTTP transport
 
 ## Why another one?
 
@@ -21,16 +21,19 @@ I wanted to ask "why is my array degraded?" and get a real answer assembled from
 - **Logs**: list and tail/page any server log; follow logs live over WebSocket.
 - **Docker**: list/logs/stats (live subscription-fed with SSH fallback), start/stop/restart, updates, autostart order, port-conflict detection.
 - **VMs**: lifecycle control via the API, external snapshots via virsh (the same flow Unraid 7 uses).
-- **Array & parity**: status, start/stop, parity checks + history, disk add/remove/mount with array-state preconditions, mover control, disk spin.
+- **Array & parity**: status, start/stop, parity checks + history, disk add/mount with array-state preconditions, mover control, disk spin.
 - **ZFS**: pool status + ARC, datasets, snapshot list/create/destroy/rollback.
-- **Plus**: SMART deep reports, GPU metrics (NVIDIA/Intel), process list, User Scripts, notifications, UPS, API-key management, native `.plg` installs, and raw GraphQL escape hatches.
+- **Host configuration (SSH)**: service status/restart (samba, nfs, sshd, docker, libvirt), user share create/edit/delete through emhttpd exactly as the web UI does, Unassigned Devices mount/unmount, and a verified flash backup into a share.
+- **History**: an opt-in in-memory recorder keeps 24 h of CPU/memory/network at 30-second resolution (`metrics_history`).
+- **Plus**: SMART deep reports, GPU metrics (NVIDIA/Intel), process list, User Scripts, notifications, UPS, API-key management, native `.plg` installs, raw GraphQL with local schema validation and dry-run, and a `doctor` CLI that checks your setup (including schema skew against your server's API version).
 
 ## Honest caveats
 
 - Your API key can control the server; scope it (VIEWER for read-only use) and treat it like a password.
 - The optional HTTP transport **refuses to start without a bearer token** — don't expose it raw to the internet regardless; put TLS in front.
 - Mutations report "requested" and point you at the verification read, because Unraid's API returns pre-mutation state (we don't pretend otherwise).
-- Some upstream API areas are stubs (e.g. flash backup) — we deliberately ship nothing against them rather than tools that can't work.
+- Everything was validated against a real Unraid 7.3.2 box; where the API is a stub (its flash-backup mutation) the tool goes over SSH instead, and where the API lies (UPS on a NUT server, partition lists on >26-disk servers) the tool says so.
+- Built on the MCP TypeScript SDK v2 (protocol 2026-07-28); older clients negotiate down automatically.
 
 ## Quickstart (Claude Code)
 
@@ -41,4 +44,4 @@ claude mcp add better-unraid \
   -- npx -y better-unraid-mcp@latest
 ```
 
-Claude Desktop / Codex / Gemini CLI snippets are in the README. Feedback, bug reports, and "it broke on my server" reports are very welcome — the README documents every tool and configuration flag.
+Claude Desktop users: download the `.mcpb` from the latest GitHub release and open it. Codex / Gemini CLI / Docker snippets are in the README. Feedback, bug reports, and "it broke on my server" reports are very welcome — the README documents every tool and configuration flag.

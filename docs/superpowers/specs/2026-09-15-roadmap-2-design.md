@@ -1,7 +1,7 @@
 # Roadmap 2 Design — better-unraid-mcp 0.0.11 → 0.1.0
 
 - **Date:** 2026-09-15
-- **Status:** Approved by owner (Matt White); in execution (kickoff 2026-09-17)
+- **Status:** Delivered 2026-09-17 (phases 0–5 released, phase 6 done; see roadmap-decisions.md D18–D40)
 - **Scope:** Releases 0.0.11 through 0.1.0, executed autonomously via a single `/goal` run in a fresh session
 - **Predecessor:** `2026-09-14-competitive-roadmap-design.md` (0.0.4–0.0.9, fully delivered; plus the 0.0.10 review-hardening follow-up)
 
@@ -82,8 +82,8 @@ in the phase plan; if validation fails, the item is descoped with a decision-log
 | 2 | 0.0.13 | Backup + VM snapshot completion | released |
 | 3 | 0.0.14 | Coverage: host configuration (SSH) | released |
 | 4 | 0.0.15 | Metric history | released |
-| 5 | 0.1.0 | SDK v2 + zod v4 migration | in progress |
-| 6 | — | Launch & distribution | not started |
+| 5 | 0.1.0 | SDK v2 + zod v4 migration | released |
+| 6 | — | Launch & distribution | done |
 
 ## 6. Phase Specifications
 

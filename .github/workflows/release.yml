@@ -126,3 +126,14 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
+      # Attach the Claude Desktop one-click bundle (.mcpb) to the Release.
+      - name: Build and upload the MCPB bundle
+        if: steps.decide.outputs.tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm ci
+          npm run build
+          npm run build:mcpb
+          gh release upload "v${{ steps.decide.outputs.version }}" build/*.mcpb --clobber
+

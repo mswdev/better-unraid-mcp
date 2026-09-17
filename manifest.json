@@ -1,0 +1,72 @@
+{
+  "manifest_version": "0.3",
+  "name": "better-unraid-mcp",
+  "display_name": "Better Unraid MCP",
+  "version": "0.1.0",
+  "description": "Monitor and manage your Unraid server through natural language: 67 safety-gated tools over the Unraid GraphQL API and optional SSH.",
+  "long_description": "Better Unraid MCP connects Claude Desktop to your Unraid server's built-in GraphQL API (Unraid 7.2+) — health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, live telemetry, and (with SSH) services, shares, unassigned devices, flash backup. Nothing is installed on the server. Every state-changing tool refuses without confirm, and MCP_READ_ONLY=true hides them entirely.",
+  "author": { "name": "Matt White (mswdev)", "url": "https://github.com/mswdev" },
+  "repository": { "type": "git", "url": "https://github.com/mswdev/better-unraid-mcp" },
+  "homepage": "https://github.com/mswdev/better-unraid-mcp#readme",
+  "documentation": "https://github.com/mswdev/better-unraid-mcp#readme",
+  "support": "https://github.com/mswdev/better-unraid-mcp/issues",
+  "license": "MIT",
+  "keywords": ["unraid", "nas", "docker", "zfs", "homelab", "server", "monitoring"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "UNRAID_API_URL": "${user_config.unraid_api_url}",
+        "UNRAID_API_KEY": "${user_config.unraid_api_key}",
+        "UNRAID_SSH_HOST": "${user_config.unraid_ssh_host}",
+        "UNRAID_SSH_PASSWORD": "${user_config.unraid_ssh_password}",
+        "MCP_READ_ONLY": "${user_config.read_only}"
+      }
+    }
+  },
+  "user_config": {
+    "unraid_api_url": {
+      "type": "string",
+      "title": "Unraid GraphQL URL",
+      "description": "Full endpoint including /graphql, e.g. https://tower.local/graphql",
+      "required": true
+    },
+    "unraid_api_key": {
+      "type": "string",
+      "title": "Unraid API key",
+      "description": "Settings → Management Access → API Keys (a VIEWER key is enough for read-only use)",
+      "sensitive": true,
+      "required": true
+    },
+    "unraid_ssh_host": {
+      "type": "string",
+      "title": "SSH host (optional)",
+      "description": "Enables host-level tools (file reads, shell, services, shares, flash backup). Leave empty to disable.",
+      "required": false,
+      "default": ""
+    },
+    "unraid_ssh_password": {
+      "type": "string",
+      "title": "SSH password (optional)",
+      "description": "Root password for SSH when an SSH host is set.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "read_only": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "Register only read-only tools (state-changing tools are absent from the listing).",
+      "required": false,
+      "default": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=20" }
+  }
+}
