@@ -42,7 +42,7 @@ jobs:
           fi
       - name: Open a pull request
         if: steps.summary.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           base: develop
           branch: chore/schema-drift
