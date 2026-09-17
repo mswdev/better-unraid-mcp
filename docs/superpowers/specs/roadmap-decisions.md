@@ -365,3 +365,23 @@ still wanted.
 - **Owner input:** Not needed; the live write test (a real `flash_backup`
   run) is outside this session's read-only grant — please run it once.
 
+## Roadmap 2 — Phase 3 (0.0.14) "Coverage: host configuration (SSH)"
+
+### D29: Services — status parsed from rc.d text; docker/libvirt stop refused
+
+- **Decided:** `service_list`/`service_action` drive `/etc/rc.d/rc.{samba,nfsd,sshd,docker,libvirt,tailscale}`. State comes from the `status` sentence ("… is currently running." / "… is not running.") because the scripts exit 0 either way (live-verified). `service_action` reads the status back after every verb and reports an error when it disagrees. `stop` needs `allow_stop: true`; stopping docker or libvirt is refused outright.
+- **Why:** Exit codes carry no state on Unraid's scripts; stopping docker/libvirt is an array-scale event that `array_action` and the UI own.
+- **Owner input:** Not needed.
+
+### D30: Unassigned devices — plugin-only, partition paths, assigned-disk guard
+
+- **Decided:** `unassigned_list` = `lsblk -J` minus every `device=` in emhttpd's `disks.ini` (array, parity, pools, flash) minus zram/loop/ram/dm/md/nbd pseudo-disks (zram0 showed up live). `unassigned_action` accepts only `/dev/sdX1` / `/dev/nvmeXnYpZ`, refuses partitions of assigned disks, requires `/usr/local/sbin/rc.unassigned` (no raw mount fallback), runs `mount|umount`, and verifies with `lsblk -o MOUNTPOINT`.
+- **Why:** UD owns mount-point naming, SMB sharing, and cleanup; a raw `mount` would bypass all of it. No unassigned disk exists on the validation server, so verification-by-read-back is the contract.
+- **Owner input:** Not needed.
+
+### D31: Shares — emhttpd via emcmd with the web UI's exact form fields
+
+- **Decided:** `share_create`/`share_edit` submit the ShareEdit form (`shareName, shareNameOrig, shareComment, shareAllocator, shareFloor, shareSplitLevel, shareUseCache, shareCachePool, shareCachePool2, shareCOW, shareInclude, shareExclude, cmdEditShare=Add Share|Apply`) and, when export/security change, the SecuritySMB form (`shareExport, shareSecurity, shareCaseSensitive, shareVolsizelimit, changeShareSecurity=Apply`) through `/usr/local/sbin/emcmd`, exactly as `unraid/webgui` does; fields outside the exposed subset are passed through from the current `.cfg`. Every write is verified by re-reading `/boot/config/shares/<name>.cfg` and reported as "not verified" on any mismatch. `share_delete` requires the share to be EMPTY (`find -mindepth 1 -print -quit`) and submits `cmdEditShare=Delete`; it never touches files. Names are validated like the UI (`^[A-Za-z0-9._-]{1,40}$`, no leading dot) and refused when reserved (emhttpd's `reservedNames`, disk names, pool names).
+- **Why:** Writing `.cfg` files by hand would bypass emhttpd's validation and the live `shares.ini` state; the form path is the supported one. An actual share write was outside this session's grant, hence the read-back contract and honest "not verified" outcomes.
+- **Owner input:** Wanted (non-blocking) — one real `share_create` → `share_edit` → `share_delete` round-trip on a throwaway share name to confirm emhttpd accepts the `Add Share` submission from emcmd.
+
