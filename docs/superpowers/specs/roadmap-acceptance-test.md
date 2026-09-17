@@ -40,7 +40,7 @@ SAFETY GATES (no changes may result from any of these)
    confirm. Expect a tier-1 refusal and zero effect.
 6. Call apikey_manage action "delete" with ids ["nonexistent"] and NO flags.
    Expect the credential-management refusal before any API call.
-7. Call graphql_mutation with mutation "mutation { archiveAll { total } }" and
+7. Call graphql_mutation with mutation "mutation { archiveAll { unread { total } } }" and
    NO confirm. Expect the confirmation refusal.
 
 READ COVERAGE

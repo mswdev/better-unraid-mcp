@@ -25,7 +25,18 @@ export interface DoctorDeps {
   client: GraphQLExecutor;
   shell: ShellExecutor | null;
   readOnly: boolean;
+  /** Upstream API version the vendored schema was fetched from (null when unrecorded). */
+  schemaApiVersion: string | null;
 }
+
+/** The graphql check plus the API version it observed (null when unreachable or unreported). */
+interface GraphqlProbe {
+  check: DoctorCheck;
+  apiVersion: string | null;
+}
+
+/** Number of leading version segments that define the schema contract (major.minor). */
+const CONTRACT_SEGMENTS = 2;
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
@@ -48,23 +59,73 @@ function classifyGraphqlFailure(message: string): DoctorCheck {
 }
 
 /** Runs the GraphQL probe, measuring round-trip latency. */
-async function checkGraphql(client: GraphQLExecutor): Promise<DoctorCheck> {
+async function checkGraphql(client: GraphQLExecutor): Promise<GraphqlProbe> {
   const startedAt = Date.now();
   try {
     const data = await client.execute(ConnectionDoctorDocument);
     const latencyMs = Date.now() - startedAt;
     const core = data.info.versions.core;
-    return {
+    const check: DoctorCheck = {
       check: "graphql",
       status: "ok",
       detail: `Reachable in ${latencyMs} ms — Unraid ${core.unraid ?? "?"}, API ${core.api ?? "?"}, online=${data.online}.`,
     };
+    return { check, apiVersion: core.api ?? null };
   } catch (error) {
-    return classifyGraphqlFailure(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    return { check: classifyGraphqlFailure(message), apiVersion: null };
   }
 }
 
-/** Probes the optional SSH channel without failing the doctor. */
+/** "4.37.4+ad268301" → "4.37": the part of a version that defines the schema contract. */
+function contractVersion(version: string): string {
+  return version.split("+")[0].split(".").slice(0, CONTRACT_SEGMENTS).join(".");
+}
+
+/**
+ * Compares the server's reported API version with the version the vendored
+ * schema was fetched from. Only major.minor matter; a mismatch is a warning
+ * (fields may be missing or renamed), never a failure.
+ *
+ * @param serverVersion - `info.versions.core.api` from the server, or null when unknown.
+ * @param schemaVersion - The recorded upstream version, or null when unrecorded.
+ * @returns The `schema` doctor check.
+ * @example
+ * compareApiVersions("4.37.4+abc", "4.37.1").status; // "ok"
+ */
+export function compareApiVersions(
+  serverVersion: string | null,
+  schemaVersion: string | null,
+): DoctorCheck {
+  if (schemaVersion === null) {
+    return {
+      check: "schema",
+      status: "warn",
+      detail:
+        "Vendored schema version unrecorded — run npm run schema:update in a checkout to record it.",
+    };
+  }
+  if (serverVersion === null) {
+    return {
+      check: "schema",
+      status: "warn",
+      detail: `Server API version unknown (GraphQL check failed?), so schema skew vs vendored ${schemaVersion} cannot be assessed.`,
+    };
+  }
+  if (contractVersion(serverVersion) === contractVersion(schemaVersion)) {
+    return {
+      check: "schema",
+      status: "ok",
+      detail: `Vendored schema matches the server API (${schemaVersion} vs ${serverVersion}).`,
+    };
+  }
+  return {
+    check: "schema",
+    status: "warn",
+    detail: `Schema skew: server API ${serverVersion} vs vendored schema ${schemaVersion} — fields may be missing or renamed; update better-unraid-mcp (or run npm run schema:update in a checkout).`,
+  };
+}
+
 async function checkSsh(shell: ShellExecutor | null): Promise<DoctorCheck> {
   if (!shell) {
     return {
@@ -125,9 +186,11 @@ function summarize(checks: DoctorCheck[]): string {
  * @returns The full check list (individual check failures become failed checks).
  */
 export async function runConnectionDoctor(deps: DoctorDeps): Promise<{ checks: DoctorCheck[] }> {
+  const graphql = await checkGraphql(deps.client);
   return {
     checks: [
-      await checkGraphql(deps.client),
+      graphql.check,
+      compareApiVersions(graphql.apiVersion, deps.schemaApiVersion),
       await checkSsh(deps.shell),
       ...configChecks(deps.readOnly),
     ],
@@ -159,7 +222,7 @@ export function registerConnectionDoctor(server: McpServer, deps: DoctorDeps): v
     {
       title: "Connection Doctor",
       description:
-        "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves.",
+        "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, schema skew between the vendored Unraid schema and the server's API version, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

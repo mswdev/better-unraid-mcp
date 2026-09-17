@@ -53,7 +53,12 @@ describe("registerAllResources", () => {
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(doctorFixture);
 
-    registerAllResources(server, { client: executor, shell: null, readOnly: false });
+    registerAllResources(server, {
+      client: executor,
+      shell: null,
+      readOnly: false,
+      schemaApiVersion: null,
+    });
 
     expect(resources.map((resource) => resource.uri)).toEqual([
       "unraid://schema",
@@ -65,7 +70,12 @@ describe("registerAllResources", () => {
   it("serves the SDL with a graphql mime type", async () => {
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(doctorFixture);
-    registerAllResources(server, { client: executor, shell: null, readOnly: false });
+    registerAllResources(server, {
+      client: executor,
+      shell: null,
+      readOnly: false,
+      schemaApiVersion: null,
+    });
 
     const result = await resources[0].read();
 
@@ -76,7 +86,12 @@ describe("registerAllResources", () => {
   it("serves the doctor checks as JSON", async () => {
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(doctorFixture);
-    registerAllResources(server, { client: executor, shell: null, readOnly: true });
+    registerAllResources(server, {
+      client: executor,
+      shell: null,
+      readOnly: true,
+      schemaApiVersion: null,
+    });
 
     const result = await resources[2].read();
     const parsed = JSON.parse(result.contents[0].text) as { checks: Array<{ check: string }> };

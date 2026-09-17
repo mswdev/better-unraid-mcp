@@ -12,14 +12,6 @@ mutation ArrayDiskAdd($input: ArrayDiskInput!) {
   }
 }
 
-mutation ArrayDiskRemove($input: ArrayDiskInput!) {
-  array {
-    removeDiskFromArray(input: $input) {
-      state
-    }
-  }
-}
-
 mutation ArrayDiskMount($id: PrefixedID!) {
   array {
     mountArrayDisk(id: $id) {

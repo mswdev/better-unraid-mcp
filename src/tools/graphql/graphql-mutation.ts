@@ -7,8 +7,15 @@ import {
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
-import { toolError } from "../_shared/respond.js";
-import { findRiskyFields, parseSingleOperation, renderJsonResult } from "./_shared.js";
+import { toolError, toolText } from "../_shared/respond.js";
+import {
+  DRY_RUN_VALID_TEXT,
+  findRiskyFields,
+  parseSingleOperation,
+  renderJsonResult,
+  validateAgainstSchema,
+  validationFailure,
+} from "./_shared.js";
 
 const TOOL_NAME = "graphql_mutation";
 
@@ -17,6 +24,7 @@ const inputSchema = {
   variables: z.record(z.unknown()).optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
+  dry_run: z.boolean().optional(),
 };
 
 interface GraphqlMutationInput {
@@ -24,6 +32,7 @@ interface GraphqlMutationInput {
   variables?: Record<string, unknown>;
   confirm?: boolean;
   acknowledge_risk?: boolean;
+  dry_run?: boolean;
 }
 
 /** One combined refusal message for risky fields, naming both flags at once. */
@@ -55,6 +64,13 @@ export function createGraphqlMutationHandler(
         return toolError(
           `graphql_mutation only runs mutation operations; got a ${parsed.operation}. Use graphql_query for queries.`,
         );
+      }
+      const problems = validateAgainstSchema(parsed.document);
+      if (problems.length > 0) {
+        return toolError(validationFailure(problems));
+      }
+      if (input.dry_run) {
+        return toolText(DRY_RUN_VALID_TEXT);
       }
       const riskyFields = findRiskyFields(parsed.document);
       if (riskyFields.length > 0) {
@@ -97,7 +113,7 @@ export function registerGraphqlMutation(server: McpServer, client: GraphQLExecut
     {
       title: "Raw GraphQL Mutation",
       description:
-        "⚠ Advanced escape hatch. Runs an arbitrary GraphQL *mutation* against the Unraid API, reaching write operations no dedicated tool covers yet (share edits, user/API-key management, disk operations, ...). Requires `confirm: true` on every call, and additionally `acknowledge_risk: true` when the mutation selects a known-dangerous field (setState, forceStop, reset, configureUps); without them the tool refuses and never touches your server. Prefer the dedicated gated tools when one exists: they encode server quirks (stale read-backs, replace-vs-merge semantics) this passthrough does not, so verify results with a follow-up read. Only `mutation` operations are accepted. The schema is in this package's schema/unraid.graphql; results are subject to the API key's permissions.",
+        "⚠ Advanced escape hatch. Runs an arbitrary GraphQL *mutation* against the Unraid API, reaching write operations no dedicated tool covers yet (share edits, user/API-key management, disk operations, ...). Requires `confirm: true` on every call, and additionally `acknowledge_risk: true` when the mutation selects a known-dangerous field (setState, forceStop, reset, configureUps); without them the tool refuses and never touches your server. Prefer the dedicated gated tools when one exists: they encode server quirks (stale read-backs, replace-vs-merge semantics) this passthrough does not, so verify results with a follow-up read. Only `mutation` operations are accepted. Every document is validated against the vendored schema before the confirm gate (typos get did-you-mean hints); pass `dry_run: true` to validate only — nothing is sent and no confirmation is needed. The schema is in this package's schema/unraid.graphql; results are subject to the API key's permissions.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

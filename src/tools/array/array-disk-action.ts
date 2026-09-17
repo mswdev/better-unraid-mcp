@@ -6,7 +6,6 @@ import {
   ArrayDiskAddDocument,
   ArrayDiskClearStatsDocument,
   ArrayDiskMountDocument,
-  ArrayDiskRemoveDocument,
   ArrayDiskUnmountDocument,
   ArrayStateProbeDocument,
 } from "../../types/unraid/graphql.js";
@@ -16,20 +15,30 @@ import { type ResponseFormat, formatResponse, toolError } from "../_shared/respo
 
 const TOOL_NAME = "array_disk_action";
 
-type DiskAction = "add" | "remove" | "mount" | "unmount" | "clear_statistics";
+type DiskAction = "add" | "mount" | "unmount" | "clear_statistics";
 
 /** Actions that reconfigure array membership — they demand a STOPPED array. */
-const NEEDS_STOPPED_ARRAY = new Set<DiskAction>(["add", "remove"]);
+const NEEDS_STOPPED_ARRAY = new Set<DiskAction>(["add"]);
 
 /** Actions on a live disk — they demand a STARTED array. */
 const NEEDS_STARTED_ARRAY = new Set<DiskAction>(["mount", "unmount", "clear_statistics"]);
 
 /** Actions that accept the optional `slot` argument. */
-const SLOT_ACTIONS = new Set<DiskAction>(["add", "remove"]);
+const SLOT_ACTIONS = new Set<DiskAction>(["add"]);
+
+/**
+ * `removeDiskFromArray` was retired by the Unraid API (unraid/api#2068,
+ * shipped in 4.37) — older clients may still send it, so it gets a clear
+ * refusal rather than a schema error.
+ */
+const RETIRED_REMOVE_ACTION = "remove";
+
+const RETIRED_REMOVE_MESSAGE =
+  'Action "remove" was retired by the Unraid API (4.37+): remove a disk from the array in the web UI (Main → array devices, with the array stopped). No changes were made.';
 
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["add", "remove", "mount", "unmount", "clear_statistics"]),
+  action: z.enum(["add", "mount", "unmount", "clear_statistics"]),
   id: z.string().min(1),
   slot: z.number().int().optional(),
   confirm: z.boolean().optional(),
@@ -81,9 +90,6 @@ async function runDiskAction(client: GraphQLExecutor, args: ArrayDiskActionArgs)
     case "add":
       await client.execute(ArrayDiskAddDocument, membershipInput);
       return;
-    case "remove":
-      await client.execute(ArrayDiskRemoveDocument, membershipInput);
-      return;
     case "mount":
       await client.execute(ArrayDiskMountDocument, { id: args.id });
       return;
@@ -113,10 +119,11 @@ export function createArrayDiskActionHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: ArrayDiskActionArgs): Promise<CallToolResult> => {
+    if (String(args.action) === RETIRED_REMOVE_ACTION) {
+      return toolError(RETIRED_REMOVE_MESSAGE);
+    }
     if (args.slot !== undefined && !SLOT_ACTIONS.has(args.action)) {
-      return toolError(
-        '`slot` is only valid with actions "add" and "remove". No changes were made.',
-      );
+      return toolError('`slot` is only valid with action "add". No changes were made.');
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
@@ -154,7 +161,7 @@ export function registerArrayDiskAction(server: McpServer, client: GraphQLExecut
     {
       title: "Array Disk Operations",
       description:
-        "⚠ Array disk operations: add/remove a disk to/from the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). A wrong disk id on add/remove risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. Get disk ids from disk_list. Results are requested, not confirmed — verify with array_status/disk_list.",
+        "⚠ Array disk operations: add a disk to the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). Removing a disk is no longer offered by the Unraid API (4.37+) — use the web UI. A wrong disk id on add risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. Get disk ids from disk_list. Results are requested, not confirmed — verify with array_status/disk_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,
