@@ -74,21 +74,114 @@ async function readNvidia(shell: ShellExecutor, format: ResponseFormat): Promise
 }
 
 /** The intel path: detection plus a bounded raw sample (best-effort). */
-async function readIntel(shell: ShellExecutor, format: ResponseFormat): Promise<CallToolResult> {
-  const result = await shell.execute(INTEL_SAMPLE, QUERY_TIMEOUT_MS);
-  const sample = truncateOutput(result.stdout.trim());
-  const summary = sample
-    ? `Intel GPU tooling detected (intel_gpu_top). Raw 3-second sample:\n${sample}`
-    : "Intel GPU tooling detected (intel_gpu_top), but the sample returned no data (the tool may need a busier GPU or root).";
-  return formatResponse(format, summary, { vendor: "intel", rawSample: sample || null });
+/** A parsed intel_gpu_top sample: the last complete period of the capture. */
+export interface IntelSample {
+  frequencyMhz: number | null;
+  rc6Percent: number | null;
+  engines: Array<{ name: string; busyPercent: number }>;
+  clients: Array<{ name: string; pid: string }>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Reads `record[key].field` as a number, or null when absent/non-numeric. */
+function nestedNumber(record: Record<string, unknown>, key: string, field: string): number | null {
+  const inner = record[key];
+  if (!isRecord(inner)) {
+    return null;
+  }
+  const value = Number(inner[field]);
+  return Number.isFinite(value) ? value : null;
+}
+
+/** intel_gpu_top -J is killed by `timeout`, so the array is usually unterminated. */
+function parseIntelArray(raw: string): unknown[] | null {
+  const trimmed = raw.trim().replace(/,\s*$/, "");
+  for (const candidate of [trimmed, `${trimmed}]`]) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+function parseEngines(engines: unknown): IntelSample["engines"] {
+  if (!isRecord(engines)) {
+    return [];
+  }
+  return Object.entries(engines).map(([name, engine]) => ({
+    name,
+    busyPercent: isRecord(engine) ? Number(engine.busy) || 0 : 0,
+  }));
+}
+
+function parseClients(clients: unknown): IntelSample["clients"] {
+  if (!isRecord(clients)) {
+    return [];
+  }
+  return Object.values(clients)
+    .filter(isRecord)
+    .map((client) => ({ name: String(client.name ?? "?"), pid: String(client.pid ?? "?") }));
 }
 
 /**
- * Creates the `gpu_metrics` handler bound to a shell executor.
+ * Parses the last complete period of an `intel_gpu_top -J` capture.
  *
- * @param shell - The SSH executor, or `null` when SSH is not configured.
- * @returns An MCP handler reporting GPU utilization where tooling exists.
+ * @param raw - The tool's stdout (a JSON array, usually unterminated because `timeout` kills it).
+ * @returns The last sample, or null when nothing parsable was captured.
+ * @example
+ * parseIntelSample('[{"frequency":{"actual":46.9},"engines":{"Video":{"busy":0.4}}}')?.frequencyMhz; // 46.9
  */
+export function parseIntelSample(raw: string): IntelSample | null {
+  const periods = parseIntelArray(raw);
+  const last = periods?.at(-1);
+  if (!isRecord(last)) {
+    return null;
+  }
+  return {
+    frequencyMhz: nestedNumber(last, "frequency", "actual"),
+    rc6Percent: nestedNumber(last, "rc6", "value"),
+    engines: parseEngines(last.engines),
+    clients: parseClients(last.clients),
+  };
+}
+
+/** One human line: frequency, idle share, engine load, and the processes using the GPU. */
+function summarizeIntel(sample: IntelSample): string {
+  const frequency =
+    sample.frequencyMhz === null ? "? MHz" : `${Math.round(sample.frequencyMhz)} MHz`;
+  const rc6 = sample.rc6Percent === null ? "" : `, rc6 ${Math.round(sample.rc6Percent)}% idle`;
+  const engines = sample.engines
+    .map((e) => `${e.name} ${e.busyPercent.toFixed(1)}% busy`)
+    .join(", ");
+  const clients = sample.clients.map((c) => `${c.name} (pid ${c.pid})`).join(", ") || "none";
+  return `Intel GPU (intel_gpu_top): ${frequency} actual${rc6}; engines: ${engines || "none reported"}; clients: ${clients}`;
+}
+
+async function readIntel(shell: ShellExecutor, format: ResponseFormat): Promise<CallToolResult> {
+  const result = await shell.execute(INTEL_SAMPLE, QUERY_TIMEOUT_MS);
+  const rawSample = truncateOutput(result.stdout.trim());
+  const sample = parseIntelSample(rawSample);
+  if (sample) {
+    return formatResponse(format, summarizeIntel(sample), { vendor: "intel", sample, rawSample });
+  }
+  const summary = rawSample
+    ? `Intel GPU tooling detected (intel_gpu_top). Raw 3-second sample:\n${rawSample}`
+    : "Intel GPU tooling detected (intel_gpu_top), but the sample returned no data (the tool may need a busier GPU or root).";
+  return formatResponse(format, summary, {
+    vendor: "intel",
+    sample: null,
+    rawSample: rawSample || null,
+  });
+}
+
 export function createGpuMetricsHandler(shell: ShellExecutor | null) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     if (!shell) {
@@ -124,7 +217,7 @@ export function registerGpuMetrics(server: McpServer, shell: ShellExecutor | nul
     {
       title: "GPU Metrics",
       description:
-        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a bounded raw sample via intel_gpu_top for Intel; a clear absence report otherwise.",
+        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top for Intel; a clear absence report otherwise.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
