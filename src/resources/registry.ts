@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegistryOptions } from "../tools/registry.js";
 import { runConnectionDoctor } from "../tools/system/connection-doctor.js";
 import { runSystemHealth } from "../tools/system/system-health.js";
+import { registerHistoryResource } from "./history-resource.js";
 import { loadSchemaSdl } from "./schema-sdl.js";
 
 const SCHEMA_URI = "unraid://schema";
@@ -22,6 +23,7 @@ export function registerAllResources(server: McpServer, options: RegistryOptions
   registerSchemaResource(server);
   registerHealthResource(server, options);
   registerDoctorResource(server, options);
+  registerHistoryResource(server, options.history ?? null);
 }
 
 /** The vendored SDL as a resource. */
