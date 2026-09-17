@@ -9,6 +9,7 @@ import {
   type LiveSnapshotStore,
   mergeDockerStatsSample,
 } from "../graphql/live-store.js";
+import { METRIC_SUBSCRIPTIONS } from "../graphql/metric-subscriptions.js";
 import type { SubscriptionFeed } from "../graphql/subscription-feed.js";
 
 const JSON_INDENT_SPACES = 2;
@@ -62,19 +63,10 @@ const LIVE_TOPICS: LiveTopic[] = [
     description:
       "CPU, memory, network, and temperature samples pushed over WebSocket, merged into one resource.",
     subscriptions: [
-      {
-        topic: "systemMetricsCpu",
-        query: "subscription { systemMetricsCpu { percentTotal cpus { percentTotal } } }",
-      },
-      {
-        topic: "systemMetricsMemory",
-        query: "subscription { systemMetricsMemory { total used free available percentTotal } }",
-      },
-      {
-        topic: "systemMetricsNetwork",
-        query:
-          "subscription { systemMetricsNetwork { name operstate rxSec txSec utilizationPercent } }",
-      },
+      ...Object.values(METRIC_SUBSCRIPTIONS).map((spec) => ({
+        topic: spec.feedTopic,
+        query: spec.query,
+      })),
       {
         topic: "systemMetricsTemperature",
         query:
