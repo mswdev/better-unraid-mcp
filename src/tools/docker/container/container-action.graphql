@@ -41,3 +41,14 @@ mutation DockerUnpause($id: PrefixedID!) {
     }
   }
 }
+
+mutation DockerRestart($id: PrefixedID!) {
+  docker {
+    restart(id: $id) {
+      id
+      names
+      state
+      status
+    }
+  }
+}
