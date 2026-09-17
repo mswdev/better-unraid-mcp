@@ -42,6 +42,18 @@ describe("loadEnv", () => {
     expect(env.MCP_READ_ONLY).toBe(true);
   });
 
+  it("defaults MCP_METRICS_HISTORY to false", () => {
+    const env = loadEnv(valid);
+
+    expect(env.MCP_METRICS_HISTORY).toBe(false);
+  });
+
+  it("parses MCP_METRICS_HISTORY=true", () => {
+    const env = loadEnv({ ...valid, MCP_METRICS_HISTORY: "true" });
+
+    expect(env.MCP_METRICS_HISTORY).toBe(true);
+  });
+
   it("defaults UNRAID_SSH_IDLE_SECONDS to 90", () => {
     const env = loadEnv(valid);
 

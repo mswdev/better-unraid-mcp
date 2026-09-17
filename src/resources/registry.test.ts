@@ -49,7 +49,7 @@ describe("loadSchemaSdl", () => {
 });
 
 describe("registerAllResources", () => {
-  it("registers the three unraid:// resources", () => {
+  it("registers the four unraid:// resources", () => {
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(doctorFixture);
 
@@ -64,6 +64,7 @@ describe("registerAllResources", () => {
       "unraid://schema",
       "unraid://health",
       "unraid://doctor",
+      "unraid://live/history",
     ]);
   });
 
