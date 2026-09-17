@@ -78,8 +78,8 @@ in the phase plan; if validation fails, the item is descoped with a decision-log
 | Phase | Version | Theme | Status |
 |---|---|---|---|
 | 0 | 0.0.11 | Acceptance-test triage | released |
-| 1 | 0.0.12 | DX quick wins | in progress |
-| 2 | 0.0.13 | Backup + VM snapshot completion | not started |
+| 1 | 0.0.12 | DX quick wins | released |
+| 2 | 0.0.13 | Backup + VM snapshot completion | in progress |
 | 3 | 0.0.14 | Coverage: host configuration (SSH) | not started |
 | 4 | 0.0.15 | Metric history | not started |
 | 5 | 0.1.0 | SDK v2 + zod v4 migration | not started |
