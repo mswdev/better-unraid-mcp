@@ -1,5 +1,6 @@
 {
   "name": "better-unraid-mcp",
+  "mcpName": "io.github.mswdev/better-unraid-mcp",
   "version": "0.1.0",
   "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
   "license": "MIT",

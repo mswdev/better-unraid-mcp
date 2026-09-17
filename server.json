@@ -1,0 +1,60 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mswdev/better-unraid-mcp",
+  "description": "Monitor and manage an Unraid server through its GraphQL API and optional SSH: 67 safety-gated tools, live telemetry, health rollups.",
+  "title": "Better Unraid MCP",
+  "repository": {
+    "url": "https://github.com/mswdev/better-unraid-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/mswdev/better-unraid-mcp#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "better-unraid-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "UNRAID_API_URL",
+          "description": "Full Unraid GraphQL endpoint, including /graphql",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "UNRAID_API_KEY",
+          "description": "Unraid API key (Settings \u2192 Management Access \u2192 API Keys)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "UNRAID_SSH_HOST",
+          "description": "Optional: SSH host for host-level tools",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "UNRAID_SSH_PASSWORD",
+          "description": "Optional: SSH password (or set UNRAID_SSH_KEY_PATH)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "MCP_READ_ONLY",
+          "description": "Set true to register only read-only tools",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "boolean"
+        }
+      ]
+    }
+  ]
+}
