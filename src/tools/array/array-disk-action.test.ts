@@ -3,7 +3,6 @@ import {
   ArrayDiskAddDocument,
   ArrayDiskClearStatsDocument,
   ArrayDiskMountDocument,
-  ArrayDiskRemoveDocument,
   ArrayStateProbeDocument,
 } from "../../types/unraid/graphql.js";
 import {
@@ -26,7 +25,7 @@ describe("array_disk_action gates and validation", () => {
 
     const result = await handler({
       response_format: "concise",
-      action: "remove",
+      action: "add",
       id: "disk1",
       confirm: true,
     });
@@ -36,7 +35,7 @@ describe("array_disk_action gates and validation", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("rejects slot outside add/remove before any query", async () => {
+  it("rejects slot outside add before any query", async () => {
     const { executor, calls } = recordingExecutor({});
     const handler = createArrayDiskActionHandler(executor);
 
@@ -55,13 +54,13 @@ describe("array_disk_action gates and validation", () => {
 });
 
 describe("array_disk_action state preconditions", () => {
-  it("refuses remove while the array is started, issuing only the probe", async () => {
+  it("refuses add while the array is started, issuing only the probe", async () => {
     const { executor, calls } = sequencedExecutor([startedProbe]);
     const handler = createArrayDiskActionHandler(executor);
 
     const result = await handler({
       response_format: "concise",
-      action: "remove",
+      action: "add",
       id: "disk1",
       ...bothFlags,
     });
@@ -111,16 +110,20 @@ describe("array_disk_action happy paths", () => {
     expect(firstText(result)).toContain("verify");
   });
 
-  it("removes a disk via the remove document", async () => {
-    const { executor, calls } = sequencedExecutor([
-      stoppedProbe,
-      { array: { removeDiskFromArray: { state: "STOPPED" } } },
-    ]);
+  it("rejects the retired remove action with UI guidance before any query", async () => {
+    const { executor, calls } = recordingExecutor({});
     const handler = createArrayDiskActionHandler(executor);
 
-    await handler({ response_format: "concise", action: "remove", id: "disk3", ...bothFlags });
+    const result = await handler({
+      response_format: "concise",
+      action: "remove" as never,
+      id: "disk3",
+      ...bothFlags,
+    });
 
-    expect(calls[1].document).toBe(ArrayDiskRemoveDocument);
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toMatch(/retired.*web UI/);
+    expect(calls).toHaveLength(0);
   });
 
   it("mounts a disk on a started array", async () => {
