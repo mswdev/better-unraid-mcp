@@ -120,14 +120,35 @@ describe("ups_status handler", () => {
     expect(firstText(result)).toMatch(/No UPS devices reported\./);
   });
 
-  it("returns an error result when the client throws", async () => {
-    const result = await createUpsStatusHandler(
-      throwingExecutor("Failed to get UPS data: No UPS data returned from apcaccess"),
-    )({ response_format: "concise" });
+  it("reports no live UPS data (not an error) when the API says apcaccess returned nothing", async () => {
+    const executor = throwingExecutor(
+      "Failed to get UPS data: No UPS data returned from apcaccess",
+    );
+
+    const result = await createUpsStatusHandler(executor)({ response_format: "concise" });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/No live UPS data/);
+    expect(firstText(result)).toMatch(/NUT/);
+  });
+
+  it("marks the apcaccess-empty case as upsDetected false in detailed mode", async () => {
+    const executor = throwingExecutor(
+      "Failed to get UPS data: No UPS data returned from apcaccess",
+    );
+
+    const result = await createUpsStatusHandler(executor)({ response_format: "detailed" });
+
+    expect(JSON.parse(firstText(result))).toMatchObject({ upsDetected: false });
+  });
+
+  it("still surfaces unrelated failures as errors", async () => {
+    const result = await createUpsStatusHandler(throwingExecutor("boom"))({
+      response_format: "concise",
+    });
 
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to fetch UPS status/);
-    expect(firstText(result)).toMatch(/No UPS data returned from apcaccess/);
+    expect(firstText(result)).toMatch(/Failed to fetch UPS status: boom/);
   });
 
   it("coerces a non-Error rejection to a string", async () => {

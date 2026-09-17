@@ -159,7 +159,7 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
 | `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks/temps, parity, notifications, UPS, and pending container updates. Start here. |
 | `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves. |
-| `gpu_metrics` | read-only | GPU utilization over SSH — full metrics via nvidia-smi, a bounded sample via intel_gpu_top, clear absence report otherwise. |
+| `gpu_metrics` | read-only | GPU utilization over SSH — full metrics via nvidia-smi, a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top, clear absence report otherwise. |
 | `process_list` | read-only | The host's busiest processes by CPU or memory (SSH). |
 | `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
 | `system_power` | destructive | Reboots or shuts down the whole server over SSH. Requires `confirm: true` and `acknowledge_risk: true`. |
@@ -258,7 +258,7 @@ Managing API keys means the model is handling the credentials that control acces
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. Reports "no live UPS data" instead of a fabricated healthy reading when the API returns placeholder values. |
+| `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. Reports "no live UPS data" instead of an error or a fabricated healthy reading when apcaccess has nothing to say — including on NUT-managed servers, which the Unraid API cannot see. |
 
 ### Host shell (optional, needs SSH)
 
