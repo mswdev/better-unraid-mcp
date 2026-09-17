@@ -1,0 +1,11 @@
+{
+  "name": "better-unraid",
+  "version": "0.1.0",
+  "description": "Monitor and manage your Unraid server from Claude Code: 67 safety-gated tools over the Unraid GraphQL API and optional SSH.",
+  "author": { "name": "Matt White (mswdev)", "url": "https://github.com/mswdev" },
+  "homepage": "https://github.com/mswdev/better-unraid-mcp#readme",
+  "repository": "https://github.com/mswdev/better-unraid-mcp",
+  "license": "MIT",
+  "keywords": ["unraid", "nas", "docker", "zfs", "homelab", "mcp"],
+  "mcpServers": "./.mcp.json"
+}

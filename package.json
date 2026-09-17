@@ -34,7 +34,8 @@
     "generate": "graphql-codegen --config codegen.ts",
     "schema:update": "node scripts/update-schema.mjs",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run typecheck && npm run build && npm test && npm run lint"
+    "prepublishOnly": "npm run typecheck && npm run build && npm test && npm run lint",
+    "build:mcpb": "node scripts/build-mcpb.mjs"
   },
   "dependencies": {
     "@graphql-typed-document-node/core": "^3.2.0",

@@ -1,0 +1,22 @@
+{
+  "name": "better-unraid-mcp",
+  "owner": { "name": "Matt White (mswdev)", "url": "https://github.com/mswdev" },
+  "metadata": {
+    "description": "Better Unraid MCP for Claude Code: monitor and manage an Unraid server through 67 safety-gated tools.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "better-unraid",
+      "source": "./plugins/better-unraid",
+      "description": "Unraid server monitoring and management (GraphQL API + optional SSH) as an MCP server — health rollups, logs, Docker, VMs, array/parity, ZFS, shares, services, flash backup, live telemetry.",
+      "version": "0.1.0",
+      "author": { "name": "Matt White (mswdev)" },
+      "homepage": "https://github.com/mswdev/better-unraid-mcp",
+      "repository": "https://github.com/mswdev/better-unraid-mcp",
+      "license": "MIT",
+      "keywords": ["unraid", "nas", "docker", "zfs", "homelab", "mcp"],
+      "category": "devops"
+    }
+  ]
+}

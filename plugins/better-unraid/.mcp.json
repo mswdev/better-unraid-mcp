@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "better-unraid": {
+      "command": "npx",
+      "args": ["-y", "better-unraid-mcp@latest"],
+      "env": {
+        "UNRAID_API_URL": "${UNRAID_API_URL}",
+        "UNRAID_API_KEY": "${UNRAID_API_KEY}",
+        "UNRAID_SSH_HOST": "${UNRAID_SSH_HOST:-}",
+        "UNRAID_SSH_PASSWORD": "${UNRAID_SSH_PASSWORD:-}",
+        "MCP_READ_ONLY": "${MCP_READ_ONLY:-false}"
+      }
+    }
+  }
+}
