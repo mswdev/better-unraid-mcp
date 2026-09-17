@@ -1,6 +1,6 @@
 {
   "name": "better-unraid-mcp",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,10 @@
   "bin": {
     "better-unraid-mcp": "dist/index.js"
   },
-  "files": ["dist", "schema"],
+  "files": [
+    "dist",
+    "schema"
+  ],
   "engines": {
     "node": ">=20"
   },

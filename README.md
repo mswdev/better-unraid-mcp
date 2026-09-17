@@ -177,7 +177,7 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `share_list` | read-only | User shares with usage; filter by name. |
 | `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
 | `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks/temps, parity, notifications, UPS, and pending container updates. Start here. |
-| `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves. |
+| `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, schema skew (vendored schema vs the server's API version), SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves — also available as `npx better-unraid-mcp doctor`. |
 | `gpu_metrics` | read-only | GPU utilization over SSH — full metrics via nvidia-smi, a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top, clear absence report otherwise. |
 | `process_list` | read-only | The host's busiest processes by CPU or memory (SSH). |
 | `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
@@ -190,7 +190,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | Tool | Type | Description |
 | --- | --- | --- |
 | `array_action` | destructive | Starts or stops the array. Stopping takes every share, container, and VM offline, so `stop` also requires `acknowledge_risk: true`. |
-| `array_disk_action` | destructive | Add/remove a disk to/from the array (needs a STOPPED array — checked first), mount/unmount an array disk, or clear disk statistics. Requires `confirm` + `acknowledge_risk`. |
+| `array_disk_action` | destructive | Add a disk to the array (needs a STOPPED array — checked first), mount/unmount an array disk, or clear disk statistics. Removing a disk was retired by the Unraid API (4.37+) — use the web UI. Requires `confirm` + `acknowledge_risk`. |
 | `parity_check` | destructive | Starts (optionally correcting), pauses, resumes, or cancels a parity check. |
 
 ### Docker
@@ -202,7 +202,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `docker_network_list` | read-only | Docker networks (driver, scope, IPv6/internal/attachable). |
 | `docker_port_conflicts` | read-only | Container and LAN port conflicts. |
 | `docker_stats` | read-only | Per-container CPU, memory, network, and block IO usage, hungriest first. Needs SSH configured (see Host shell). |
-| `docker_container_action` | destructive | Start, stop, pause, unpause, or restart a container (restart is composed stop-then-start; the API has no restart mutation). |
+| `docker_container_action` | destructive | Start, stop, pause, unpause, or restart a container (restart uses the API's native restart mutation, API 4.37+). |
 | `docker_container_remove` | destructive | Permanently deletes a container (irreversible); optionally deletes its image. Needs Unraid 7.3+. |
 | `docker_container_update` | destructive | Pulls the latest image and recreates containers, by id or all with updates. Needs Unraid 7.3+. |
 | `docker_autostart_set` | destructive | Sets which containers auto-start on boot, merge-safely preserving boot order. Needs Unraid 7.3+. |
@@ -223,7 +223,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `notification_overview` | read-only | Unread and archived counts broken down by importance. |
 | `notification_list` | read-only | Notifications by type (`unread` or `archive`) with paging; the source of truth for ids. |
 | `notification_alerts` | read-only | Deduplicated unread warnings and alerts: the "needs attention now" view. |
-| `notification_archive` | mutation | Archives or unarchives notifications (reversible, ungated). |
+| `notification_archive` | mutation | Archives or unarchives notifications (reversible, ungated). The API swallows per-id failures, so verify with `notification_list`. |
 | `notification_unread` | mutation | Marks one notification as unread again (reversible, ungated). |
 | `notification_create` | mutation | Creates a notification (ungated). |
 | `notification_recalculate` | mutation | Re-syncs cached overview counts from disk (ungated). |
@@ -294,8 +294,8 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. |
-| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. |
+| `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. Validated against the vendored schema before sending (did-you-mean hints); `dry_run: true` validates only. |
+| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. Validated against the vendored schema before the confirm gate; `dry_run: true` validates only and needs no confirm. |
 
 > **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 370+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
