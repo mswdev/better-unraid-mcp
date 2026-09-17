@@ -41,6 +41,11 @@ import { registerPluginAdd } from "./plugin/plugin-add.js";
 import { registerPluginInstallPlg } from "./plugin/plugin-install-plg.js";
 import { registerPluginList } from "./plugin/plugin-list.js";
 import { registerPluginRemove } from "./plugin/plugin-remove.js";
+import { registerServiceAction } from "./service/service-action.js";
+import { registerServiceList } from "./service/service-list.js";
+import { registerShareCreate } from "./share/share-create.js";
+import { registerShareDelete } from "./share/share-delete.js";
+import { registerShareEdit } from "./share/share-edit.js";
 import { registerShareList } from "./share/share-list.js";
 import { registerFileRead } from "./shell/file-read.js";
 import { registerShellExec } from "./shell/shell-exec.js";
@@ -51,6 +56,8 @@ import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerSystemPower } from "./system/system-power.js";
+import { registerUnassignedAction } from "./unassigned/unassigned-action.js";
+import { registerUnassignedList } from "./unassigned/unassigned-list.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerUserScriptList } from "./userscripts/user-script-list.js";
 import { registerUserScriptRun } from "./userscripts/user-script-run.js";
@@ -189,6 +196,13 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { shell }) => registerZfsSnapshotList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerZfsSnapshotAction(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerFlashBackup(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerServiceList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerServiceAction(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerUnassignedList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerUnassignedAction(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareCreate(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareEdit(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerShareDelete(server, shell) },
   {
     isMutating: false,
     register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),

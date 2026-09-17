@@ -17,7 +17,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 59 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 66 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
@@ -256,6 +256,20 @@ ZFS ships with Unraid 6.12+; these tools report clearly when no pools exist.
 | `zfs_dataset_list` | read-only | Datasets with used/available space and mountpoints; optional pool filter. |
 | `zfs_snapshot_list` | read-only | Snapshots with size and creation time; optional dataset filter. |
 | `zfs_snapshot_action` | destructive | Create, destroy, or roll back a snapshot. Rollback discards everything after the snapshot, so this requires `confirm` + `acknowledge_risk`. |
+
+### Host configuration (SSH)
+
+The GraphQL API has no service, share-mutation, or unassigned-devices surface, so these go through the same mechanisms the web UI uses — `/etc/rc.d/rc.*` scripts, emhttpd's form handler via `emcmd`, and the Unassigned Devices plugin — and every write is verified by reading the result back.
+
+| Tool | Kind | What it does |
+|------|------|--------------|
+| `service_list` | read-only | Running / stopped / not-installed state of samba, nfs, sshd, docker, libvirt, tailscale. |
+| `service_action` | destructive | `restart`, `start`, or `stop` one of those services and verify the status afterwards. `stop` needs `allow_stop: true`; stopping docker/libvirt is refused (use `array_action`). Requires `confirm` + `acknowledge_risk`. |
+| `unassigned_list` | read-only | Disks outside the array, pools, and flash, with partitions, filesystems, and mount points. |
+| `unassigned_action` | destructive | Mount / unmount an unassigned partition through the Unassigned Devices plugin (`rc.unassigned`), verified with lsblk; refuses without the plugin. Requires `confirm` + `acknowledge_risk`. |
+| `share_create` | destructive | Create a user share via emhttpd with a validated settings subset (comment, allocator, cache mode/pool, SMB export/security), verified against the written `.cfg`. Requires `confirm` + `acknowledge_risk`. |
+| `share_edit` | destructive | Change that same settings subset on an existing share, other settings untouched, verified by read-back. Requires `confirm` + `acknowledge_risk`. |
+| `share_delete` | destructive | Delete an EMPTY share's configuration (never files; refuses while data exists). Requires `confirm` + `acknowledge_risk`. |
 
 ### Backup (SSH)
 
