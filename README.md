@@ -322,7 +322,7 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 
 ## Modern MCP surface
 
-Beyond tools, the server speaks the wider MCP protocol:
+Beyond tools, the server speaks the wider MCP protocol (built on the MCP TypeScript SDK v2, protocol revision 2026-07-28, with clients on older revisions negotiated down automatically):
 
 - **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools present a real confirmation prompt — tier-2 actions show the blast-radius warning with two checkboxes — instead of refusing. The `confirm` / `acknowledge_risk` arguments still work everywhere and remain the only path on stateless HTTP. Declining the prompt changes nothing on the server.
 - **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU/memory/network history when `MCP_METRICS_HISTORY=true`, or the enable hint).
