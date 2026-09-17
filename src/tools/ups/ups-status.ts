@@ -39,6 +39,13 @@ const NO_DATA_NOTE =
 const NO_IDENTITY_CAVEAT =
   "⚠ apcaccess reported no device identity; model/name and unchanged battery/power values may be upstream defaults — verify the UPS connection.";
 
+/** The upstream resolver's message when apcaccess prints nothing or is missing (outcome 3 of the UPS API notes). */
+const APCACCESS_EMPTY_MARKER = "No UPS data returned from apcaccess";
+
+/** Returned for the apcaccess-empty case; NUT users hit this on every call. */
+const APCACCESS_EMPTY_NOTE =
+  "No live UPS data — apcaccess returned nothing (apcupsd is not running or no UPS is attached). The Unraid API only reads apcupsd; a NUT-managed UPS is invisible here — check the NUT plugin's UI instead.";
+
 const inputSchema = {
   response_format: z.enum(["concise", "detailed"]).default("concise"),
 };
@@ -110,6 +117,19 @@ function renderStatus(format: ResponseFormat, data: UpsStatusQuery): CallToolRes
   return formatResponse(format, concise, data);
 }
 
+/** True for the upstream "apcaccess printed nothing" failure (not a server or auth problem). */
+function isApcaccessEmpty(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(APCACCESS_EMPTY_MARKER);
+}
+
+/** The honest no-data report for the apcaccess-empty case. */
+function renderApcaccessEmpty(format: ResponseFormat): CallToolResult {
+  return formatResponse(format, APCACCESS_EMPTY_NOTE, {
+    upsDetected: false,
+    note: APCACCESS_EMPTY_NOTE,
+  });
+}
+
 /**
  * Creates the `ups_status` handler bound to a GraphQL executor.
  *
@@ -125,6 +145,9 @@ export function createUpsStatusHandler(client: GraphQLExecutor) {
       const data = await client.execute(UpsStatusDocument);
       return renderStatus(response_format, data);
     } catch (error) {
+      if (isApcaccessEmpty(error)) {
+        return renderApcaccessEmpty(response_format);
+      }
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to fetch UPS status: ${message}`);
     }
@@ -144,7 +167,7 @@ export function registerUpsStatus(server: McpServer, client: GraphQLExecutor): v
     {
       title: "Get UPS Status",
       description:
-        "Read-only. Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. ONLINE, ONBATT, LOWBATT, COMMLOST), battery charge and estimated runtime, and power load/voltage. An error usually means no UPS is attached or the apcupsd service is not running — not a server failure. When apcupsd reports no device, the Unraid API may return placeholder values; this tool reports that as 'no live UPS data' rather than a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
+        "Read-only. Live UPS telemetry from apcupsd: operational status (passed through verbatim from apcaccess — e.g. ONLINE, ONBATT, LOWBATT, COMMLOST), battery charge and estimated runtime, and power load/voltage. When apcaccess returns nothing (apcupsd stopped, no UPS attached, or a NUT-managed UPS — the Unraid API reads apcupsd only) this tool reports 'no live UPS data' instead of an error; when apcupsd reports a device without identity the API returns placeholder values, reported the same way rather than as a healthy UPS, and battery/power values may be upstream defaults when apcaccess data is incomplete. Reachable by any authenticated key (no special permission).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

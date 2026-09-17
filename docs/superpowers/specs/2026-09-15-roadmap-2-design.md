@@ -1,7 +1,7 @@
 # Roadmap 2 Design — better-unraid-mcp 0.0.11 → 0.1.0
 
 - **Date:** 2026-09-15
-- **Status:** Approved by owner (Matt White), pending acceptance-test results + execution
+- **Status:** Approved by owner (Matt White); in execution (kickoff 2026-09-17)
 - **Scope:** Releases 0.0.11 through 0.1.0, executed autonomously via a single `/goal` run in a fresh session
 - **Predecessor:** `2026-09-14-competitive-roadmap-design.md` (0.0.4–0.0.9, fully delivered; plus the 0.0.10 review-hardening follow-up)
 
@@ -77,7 +77,7 @@ in the phase plan; if validation fails, the item is descoped with a decision-log
 
 | Phase | Version | Theme | Status |
 |---|---|---|---|
-| 0 | 0.0.11 | Acceptance-test triage | not started |
+| 0 | 0.0.11 | Acceptance-test triage | in progress |
 | 1 | 0.0.12 | DX quick wins | not started |
 | 2 | 0.0.13 | Backup + VM snapshot completion | not started |
 | 3 | 0.0.14 | Coverage: host configuration (SSH) | not started |

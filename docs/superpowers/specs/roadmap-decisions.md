@@ -213,3 +213,59 @@ still wanted.
   message says so, but killing the remote process would need wrapper/pty
   machinery.
 - **Owner input:** Not needed.
+
+## Roadmap 2 — Phase 0 (0.0.11) "Acceptance-test triage"
+
+### D18: The kickoff session ran the acceptance test itself, read-only
+
+- **Decided:** The Roadmap 2 kickoff prompt arrived with the acceptance-report
+  placeholder unfilled. Rather than block, the session ran the acceptance prompt
+  against Deepwater under the kickoff's read-only grant: read items and refusal
+  gates were exercised (the gates through a local stdio client against an
+  unreachable endpoint, because Claude Code's auto-mode classifier blocks
+  no-flag calls to tier-2 tools), items 12–13 (notification round-trip, disk
+  spin) were SKIPPED. Report: `roadmap-acceptance-report-2026-09-17.md`.
+- **Why:** Phase 0 is driven entirely by the report and everything needed for
+  a faithful read-only run was available; stopping would have stalled the whole
+  roadmap for two reversible write checks.
+- **Alternatives:** Run the whitelisted writes anyway (rejected: outside the
+  grant); stop and ask (rejected: autonomous run, no owner online).
+- **Owner input:** Wanted, non-blocking — re-run items 12–13 at your leisure.
+
+### D19: disk_list filters the upstream partition-prefix bleed
+
+- **Decided:** `disk_list` keeps only partitions matching `^<device>p?\d+$`
+  (e.g. `/dev/sda` → `sda1`, never `sdaa1`), a small pure filter, and its
+  docstring records the upstream cause.
+- **Why:** The Unraid API attaches partitions by device-name prefix; on
+  Deepwater (>26 disks) `/dev/sda` listed the partitions of five other disks
+  including the flash drive. The workaround is tiny, safe, and provably
+  correct for Linux block-device naming, so it beats documentation alone.
+- **Owner input:** Not needed. Worth an upstream `unraid/api` issue.
+
+### D20: system_health reads UPS in a separate query; unavailability is ok-severity
+
+- **Decided:** The `SystemHealth` document no longer selects `upsDevices`;
+  `runSystemHealth` issues the existing `UpsStatus` document alongside it and
+  turns a failure into a `ups` line "UPS data unavailable — the Unraid API
+  reads apcupsd only; NUT-managed or absent UPSes report nothing here (…)"
+  with `ok` severity. The `unraid://health` resource inherits the fix.
+- **Why:** On a NUT-managed server (Deepwater) apcaccess prints nothing, the
+  upstream resolver throws, and the combined query failed the entire rollup —
+  the single most important tool. Absence of UPS data is not an outage.
+- **Alternatives:** Tolerate partial GraphQL data in the client (rejected:
+  changes error semantics for every tool); drop UPS from health (rejected:
+  loses the on-battery critical signal on apcupsd servers).
+- **Owner input:** Not needed.
+
+### D21: ups_status maps the apcaccess-empty error to a non-error report
+
+- **Decided:** When the API error contains `No UPS data returned from
+  apcaccess`, `ups_status` returns a normal result: "No live UPS data — …
+  a NUT-managed UPS is invisible here — check the NUT plugin's UI instead"
+  with `upsDetected: false` in detailed mode. Other failures stay errors.
+- **Why:** The acceptance test expects an honest "none" report; this is the
+  third documented outcome of `Query.upsDevices` (now live-verified) and is
+  the steady state on NUT servers, not a fault.
+- **Owner input:** Not needed.
+

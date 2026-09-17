@@ -74,21 +74,157 @@ async function readNvidia(shell: ShellExecutor, format: ResponseFormat): Promise
 }
 
 /** The intel path: detection plus a bounded raw sample (best-effort). */
-async function readIntel(shell: ShellExecutor, format: ResponseFormat): Promise<CallToolResult> {
-  const result = await shell.execute(INTEL_SAMPLE, QUERY_TIMEOUT_MS);
-  const sample = truncateOutput(result.stdout.trim());
-  const summary = sample
-    ? `Intel GPU tooling detected (intel_gpu_top). Raw 3-second sample:\n${sample}`
-    : "Intel GPU tooling detected (intel_gpu_top), but the sample returned no data (the tool may need a busier GPU or root).";
-  return formatResponse(format, summary, { vendor: "intel", rawSample: sample || null });
+/** A parsed intel_gpu_top sample: the last complete period of the capture. */
+export interface IntelSample {
+  frequencyMhz: number | null;
+  rc6Percent: number | null;
+  engines: Array<{ name: string; busyPercent: number }>;
+  clients: Array<{ name: string; pid: string }>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Reads `record[key].field` as a number, or null when absent/non-numeric. */
+function nestedNumber(record: Record<string, unknown>, key: string, field: string): number | null {
+  const inner = record[key];
+  if (!isRecord(inner)) {
+    return null;
+  }
+  const value = Number(inner[field]);
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Tracks a brace-depth scan over raw JSON text, string-aware. */
+interface BraceScan {
+  depth: number;
+  inString: boolean;
+  escaped: boolean;
+  objectStart: number;
+}
+
+/** Advances the scan by one character, returning a completed top-level object when one closes. */
+function scanCharacter(scan: BraceScan, character: string, index: number): string | null {
+  if (scan.inString) {
+    scan.escaped = !scan.escaped && character === "\\";
+    if (character === '"' && !scan.escaped) {
+      scan.inString = false;
+    }
+    return null;
+  }
+  if (character === '"') {
+    scan.inString = true;
+    return null;
+  }
+  if (character === "{") {
+    scan.objectStart = scan.depth === 0 ? index : scan.objectStart;
+    scan.depth += 1;
+    return null;
+  }
+  return character === "}" ? closeBrace(scan) : null;
+}
+
+/** Book-keeps a closing brace; the caller slices the object text when depth returns to zero. */
+function closeBrace(scan: BraceScan): string | null {
+  scan.depth = Math.max(0, scan.depth - 1);
+  return scan.depth === 0 ? "close" : null;
 }
 
 /**
- * Creates the `gpu_metrics` handler bound to a shell executor.
- *
- * @param shell - The SSH executor, or `null` when SSH is not configured.
- * @returns An MCP handler reporting GPU utilization where tooling exists.
+ * intel_gpu_top -J streams top-level objects separated by newlines (no
+ * commas) inside an array that `timeout` never lets it close, and the last
+ * object is usually cut mid-way — so complete objects are sliced by brace
+ * depth and parsed individually.
  */
+function parseIntelObjects(raw: string): unknown[] {
+  const scan: BraceScan = { depth: 0, inString: false, escaped: false, objectStart: 0 };
+  const objects: unknown[] = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    if (scanCharacter(scan, raw[index], index) === "close") {
+      objects.push(parseJsonOrNull(raw.slice(scan.objectStart, index + 1)));
+    }
+  }
+  return objects.filter((object) => object !== null);
+}
+
+function parseJsonOrNull(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function parseEngines(engines: unknown): IntelSample["engines"] {
+  if (!isRecord(engines)) {
+    return [];
+  }
+  return Object.entries(engines).map(([name, engine]) => ({
+    name,
+    busyPercent: isRecord(engine) ? Number(engine.busy) || 0 : 0,
+  }));
+}
+
+function parseClients(clients: unknown): IntelSample["clients"] {
+  if (!isRecord(clients)) {
+    return [];
+  }
+  return Object.values(clients)
+    .filter(isRecord)
+    .map((client) => ({ name: String(client.name ?? "?"), pid: String(client.pid ?? "?") }));
+}
+
+/**
+ * Parses the last complete period of an `intel_gpu_top -J` capture.
+ *
+ * @param raw - The tool's stdout (a JSON array, usually unterminated because `timeout` kills it).
+ * @returns The last sample, or null when nothing parsable was captured.
+ * @example
+ * parseIntelSample('[{"frequency":{"actual":46.9},"engines":{"Video":{"busy":0.4}}}')?.frequencyMhz; // 46.9
+ */
+export function parseIntelSample(raw: string): IntelSample | null {
+  const last = parseIntelObjects(raw).at(-1);
+  if (!isRecord(last)) {
+    return null;
+  }
+  return {
+    frequencyMhz: nestedNumber(last, "frequency", "actual"),
+    rc6Percent: nestedNumber(last, "rc6", "value"),
+    engines: parseEngines(last.engines),
+    clients: parseClients(last.clients),
+  };
+}
+
+/** One human line: frequency, idle share, engine load, and the processes using the GPU. */
+function summarizeIntel(sample: IntelSample): string {
+  const frequency =
+    sample.frequencyMhz === null ? "? MHz" : `${Math.round(sample.frequencyMhz)} MHz`;
+  const rc6 = sample.rc6Percent === null ? "" : `, rc6 ${Math.round(sample.rc6Percent)}% idle`;
+  const engines = sample.engines
+    .map((e) => `${e.name} ${e.busyPercent.toFixed(1)}% busy`)
+    .join(", ");
+  const clients = sample.clients.map((c) => `${c.name} (pid ${c.pid})`).join(", ") || "none";
+  return `Intel GPU (intel_gpu_top): ${frequency} actual${rc6}; engines: ${engines || "none reported"}; clients: ${clients}`;
+}
+
+async function readIntel(shell: ShellExecutor, format: ResponseFormat): Promise<CallToolResult> {
+  const result = await shell.execute(INTEL_SAMPLE, QUERY_TIMEOUT_MS);
+  const rawSample = truncateOutput(result.stdout.trim());
+  const sample = parseIntelSample(rawSample);
+  if (sample) {
+    return formatResponse(format, summarizeIntel(sample), { vendor: "intel", sample, rawSample });
+  }
+  const summary = rawSample
+    ? `Intel GPU tooling detected (intel_gpu_top). Raw 3-second sample:\n${rawSample}`
+    : "Intel GPU tooling detected (intel_gpu_top), but the sample returned no data (the tool may need a busier GPU or root).";
+  return formatResponse(format, summary, {
+    vendor: "intel",
+    sample: null,
+    rawSample: rawSample || null,
+  });
+}
+
 export function createGpuMetricsHandler(shell: ShellExecutor | null) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     if (!shell) {
@@ -124,7 +260,7 @@ export function registerGpuMetrics(server: McpServer, shell: ShellExecutor | nul
     {
       title: "GPU Metrics",
       description:
-        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a bounded raw sample via intel_gpu_top for Intel; a clear absence report otherwise.",
+        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top for Intel; a clear absence report otherwise.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -37,13 +37,6 @@ query SystemHealth {
       }
     }
   }
-  upsDevices {
-    name
-    status
-    battery {
-      chargeLevel
-    }
-  }
   docker {
     containers {
       isUpdateAvailable
