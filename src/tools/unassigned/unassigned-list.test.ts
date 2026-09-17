@@ -114,6 +114,51 @@ describe("unassigned _shared", () => {
     });
   });
 
+  it("drops zram, loop, ram, and device-mapper pseudo-disks even though lsblk types them as disk", () => {
+    const pseudo = JSON.stringify({
+      blockdevices: [
+        {
+          name: "zram0",
+          kname: "zram0",
+          type: "disk",
+          size: "0B",
+          fstype: null,
+          mountpoint: null,
+          label: null,
+          model: null,
+          serial: null,
+          tran: null,
+        },
+        {
+          name: "ram0",
+          kname: "ram0",
+          type: "disk",
+          size: "8M",
+          fstype: null,
+          mountpoint: null,
+          label: null,
+          model: null,
+          serial: null,
+          tran: null,
+        },
+        {
+          name: "dm-0",
+          kname: "dm-0",
+          type: "disk",
+          size: "1G",
+          fstype: null,
+          mountpoint: null,
+          label: null,
+          model: null,
+          serial: null,
+          tran: null,
+        },
+      ],
+    });
+
+    expect(selectUnassigned(pseudo, new Set())).toEqual([]);
+  });
+
   it("returns an empty list for unparsable lsblk output", () => {
     expect(selectUnassigned("garbage", new Set())).toEqual([]);
   });

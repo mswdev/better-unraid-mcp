@@ -11,6 +11,9 @@ export const UD_SCRIPT = "/usr/local/sbin/rc.unassigned";
 /** UD mounts and unmounts PARTITIONS: /dev/sdX1, /dev/nvme0n1p1. */
 export const PARTITION_PATTERN = /^\/dev\/(sd[a-z]+[0-9]+|nvme[0-9]+n[0-9]+p[0-9]+)$/;
 
+/** lsblk types these virtual devices as "disk" too; none can ever be an unassigned drive. */
+const PSEUDO_DEVICE_PATTERN = /^(zram|loop|ram|md|dm-|nbd)/;
+
 export const PROBE_TIMEOUT_MS = 10_000;
 export const LIST_TIMEOUT_MS = 30_000;
 /** Mounting can spin a disk up and run a filesystem check. */
@@ -105,7 +108,10 @@ function toDisk(node: LsblkNode): UnassignedDisk {
  */
 export function selectUnassigned(lsblkJson: string, assigned: Set<string>): UnassignedDisk[] {
   return parseLsblk(lsblkJson)
-    .filter((node) => node.type === "disk" && node.kname !== undefined && !assigned.has(node.kname))
+    .filter((node) => node.type === "disk" && node.kname !== undefined)
+    .filter(
+      (node) => !PSEUDO_DEVICE_PATTERN.test(node.kname ?? "") && !assigned.has(node.kname ?? ""),
+    )
     .map(toDisk);
 }
 
