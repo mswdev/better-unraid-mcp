@@ -385,3 +385,30 @@ still wanted.
 - **Why:** Writing `.cfg` files by hand would bypass emhttpd's validation and the live `shares.ini` state; the form path is the supported one. An actual share write was outside this session's grant, hence the read-back contract and honest "not verified" outcomes.
 - **Owner input:** Wanted (non-blocking) — one real `share_create` → `share_edit` → `share_delete` round-trip on a throwaway share name to confirm emhttpd accepts the `Add Share` submission from emcmd.
 
+## Roadmap 2 — Phase 4 (0.0.15) "Metric history"
+
+### D32: Recorded series and bucket shape
+
+- **Decided:** Three topics from the existing graphql-ws feeds: `cpu` → `percent`
+  (`systemMetricsCpu.percentTotal`); `memory` → `percent` and `usedBytes`;
+  `network` → `rxBytesPerSec` / `txBytesPerSec` summed over every interface
+  except `lo`. Each 30-second bucket keeps min/avg/max/count per series; the
+  ring holds 2880 buckets (24 h) per topic; missing buckets are reported as
+  `gaps`, never interpolated. Concise output folds any window into at most 24
+  rows; detailed output returns every point with ISO times.
+- **Why:** These are the numbers people actually ask about ("was the CPU busy
+  at 3 am?"); per-core and per-interface series would multiply memory for
+  little value, and the `system_metrics` tool still gives the full snapshot.
+- **Owner input:** Not needed.
+
+### D33: The recorder starts at boot and stays subscribed for the process lifetime
+
+- **Decided:** With `MCP_METRICS_HISTORY=true` the recorder subscribes the three
+  feeds when the server starts (before any client connects) and never
+  unsubscribes; default is off. Nothing is written to disk.
+- **Why:** History is only useful if it was recording before the question; the
+  cost is one persistent WebSocket with three subscriptions, which the README
+  and `.env.example` state plainly. Persistence would need a file format and
+  rotation policy the spec explicitly excludes.
+- **Owner input:** Not needed.
+

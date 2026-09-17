@@ -4,7 +4,7 @@
 
 ---
 
-**TL;DR:** `better-unraid-mcp` is an open-source [MCP](https://modelcontextprotocol.io) server for Unraid's built-in GraphQL API. Nothing gets installed on your server — it runs on your desktop/laptop next to your AI client, talks to `https://your-server/graphql` with an API key, and gives the model 66 carefully-gated tools: health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, and live WebSocket telemetry.
+**TL;DR:** `better-unraid-mcp` is an open-source [MCP](https://modelcontextprotocol.io) server for Unraid's built-in GraphQL API. Nothing gets installed on your server — it runs on your desktop/laptop next to your AI client, talks to `https://your-server/graphql` with an API key, and gives the model 67 carefully-gated tools: health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, and live WebSocket telemetry.
 
 **GitHub:** https://github.com/mswdev/better-unraid-mcp · **npm:** `npx -y better-unraid-mcp@latest`
 

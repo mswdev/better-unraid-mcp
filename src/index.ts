@@ -3,6 +3,7 @@ import { isDoctorInvocation, runDoctorCli } from "./cli/doctor.js";
 import { type Env, loadEnv } from "./config/env.js";
 import { UnraidClient } from "./graphql/client.js";
 import { LiveSnapshotStore } from "./graphql/live-store.js";
+import { MetricsHistoryRecorder } from "./graphql/metrics-history.js";
 import { CachingExecutor } from "./graphql/snapshot-cache.js";
 import { SubscriptionFeed } from "./graphql/subscription-feed.js";
 import { createLogger } from "./logging.js";
@@ -57,11 +58,14 @@ async function main(): Promise<void> {
   const executor = new CachingExecutor(client);
   const feed = new SubscriptionFeed({ endpoint: env.UNRAID_API_URL, apiKey: env.UNRAID_API_KEY });
   const liveStore = new LiveSnapshotStore();
+  const history = env.MCP_METRICS_HISTORY ? new MetricsHistoryRecorder({ feed }) : null;
+  history?.start();
   const registryOptions = {
     client: executor,
     shell,
     readOnly: env.MCP_READ_ONLY,
     schemaApiVersion: loadSchemaVersion(),
+    history,
     feed,
     liveStore,
   };

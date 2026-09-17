@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import type { LiveSnapshotStore } from "../graphql/live-store.js";
+import type { MetricsHistoryRecorder } from "../graphql/metrics-history.js";
 import type { SubscriptionFeed } from "../graphql/subscription-feed.js";
 import type { ShellExecutor } from "../shell/executor.js";
 import { registerApiKeyList } from "./apikey/apikey-list.js";
@@ -27,6 +28,7 @@ import { registerGraphqlMutation } from "./graphql/graphql-mutation.js";
 import { registerGraphqlQuery } from "./graphql/graphql-query.js";
 import { registerLogList } from "./log/log-list.js";
 import { registerLogRead } from "./log/log-read.js";
+import { registerMetricsHistory } from "./metrics/metrics-history.js";
 import { registerMoverAction } from "./mover/mover-action.js";
 import { registerMoverStatus } from "./mover/mover-status.js";
 import { registerNotificationAlerts } from "./notification/notification-alerts.js";
@@ -77,6 +79,8 @@ export interface RegistryOptions {
   readOnly: boolean;
   /** Upstream API version the vendored schema was fetched from (null when unrecorded). */
   schemaApiVersion: string | null;
+  /** The opt-in metrics recorder (MCP_METRICS_HISTORY=true), or null/undefined when off. */
+  history?: MetricsHistoryRecorder | null;
   /** Live subscription feed (WebSocket); absent in minimal setups/tests. */
   feed?: SubscriptionFeed | null;
   /** Latest live samples, shared between resources and tools. */
@@ -97,6 +101,10 @@ export interface ToolRegistration {
 export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { client }) => registerSystemInfo(server, client) },
   { isMutating: false, register: (server, { client }) => registerSystemMetrics(server, client) },
+  {
+    isMutating: false,
+    register: (server, { history }) => registerMetricsHistory(server, history ?? null),
+  },
   { isMutating: false, register: (server, { client }) => registerLogList(server, client) },
   { isMutating: false, register: (server, { client }) => registerLogRead(server, client) },
   { isMutating: false, register: (server, { client }) => registerArrayStatus(server, client) },

@@ -17,7 +17,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 66 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 67 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
@@ -236,6 +236,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `log_list` | read-only | The server's log files with size and last-modified time. |
 | `log_read` | read-only | Tails or windows a log file (default 100 lines, max 2000), with paging hints. |
 | `system_metrics` | read-only | Point-in-time CPU load, memory pressure, per-interface network rates, and server time. Temperature data is opt-in. |
+| `metrics_history` | read-only | Recent CPU / memory / network history from the opt-in in-memory recorder (`MCP_METRICS_HISTORY=true`): 30-second min/avg/max buckets for up to 24 hours, honest about gaps; says how to enable recording when it is off. |
 
 ### Plugins
 
@@ -324,7 +325,7 @@ Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (user
 Beyond tools, the server speaks the wider MCP protocol:
 
 - **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools present a real confirmation prompt — tier-2 actions show the blast-radius warning with two checkboxes — instead of refusing. The `confirm` / `acknowledge_risk` arguments still work everywhere and remain the only path on stateless HTTP. Declining the prompt changes nothing on the server.
-- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), and `unraid://doctor` (the connection self-test as JSON).
+- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU/memory/network history when `MCP_METRICS_HISTORY=true`, or the enable hint).
 - **Prompts.** Four guided workflows: `triage-array-problem`, `find-resource-hog`, `safe-container-update` (takes an optional `container` argument), and `health-report`.
 - **Structured output.** `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human text in both response formats.
 - **Complete annotations.** Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, enforced by a registry test.
@@ -341,6 +342,7 @@ Beyond tools, the server speaks the wider MCP protocol:
 | `MCP_HTTP_ALLOWED_HOSTS` | no | | Comma-separated `Host` allow-list; enables DNS-rebinding protection. |
 | `UNRAID_ALLOW_SELF_SIGNED` | no | `false` | Set `true` only for a self-signed TLS certificate on the LAN. |
 | `MCP_READ_ONLY` | no | `false` | Set `true` to hide every state-changing tool — the server registers read-only tools only. |
+| `MCP_METRICS_HISTORY` | no | `false` | Set `true` to record CPU, memory, and network history in memory (30-second min/avg/max buckets, 24 hours, cleared on restart) for `metrics_history` and `unraid://live/history`. Keeps one WebSocket open to the server. |
 | `MCP_HTTP_BEARER_TOKEN` | http | | Required for the `http` transport: clients must send `Authorization: Bearer <token>`. |
 | `MCP_HTTP_ALLOW_UNAUTHENTICATED` | no | `false` | Explicit opt-in to run the `http` transport with no auth (trusted networks only). |
 | `LOG_LEVEL` | no | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`. |
