@@ -41,8 +41,8 @@ export interface MetricsHistoryInput {
   response_format: ResponseFormat;
 }
 
-function hhmm(epochMs: number): string {
-  return new Date(epochMs).toISOString().slice("YYYY-MM-DDT".length, "YYYY-MM-DDTHH:MM".length);
+function hhmmss(epochMs: number): string {
+  return new Date(epochMs).toISOString().slice("YYYY-MM-DDT".length, "YYYY-MM-DDTHH:MM:SS".length);
 }
 
 /** Merges consecutive points into one row (min of mins, max of maxes, count-weighted avg). */
@@ -81,7 +81,7 @@ function renderRow(point: HistoryPoint): string {
     ([name, s]) =>
       `${name} ${s.min.toFixed(ONE_DECIMAL)}/${s.avg.toFixed(ONE_DECIMAL)}/${s.max.toFixed(ONE_DECIMAL)}`,
   );
-  return `${hhmm(point.bucketStartMs)}  ${cells.join("  ")}`;
+  return `${hhmmss(point.bucketStartMs)}  ${cells.join("  ")}`;
 }
 
 function renderConcise(input: MetricsHistoryInput, points: HistoryPoint[], gaps: number): string {
