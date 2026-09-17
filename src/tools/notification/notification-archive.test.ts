@@ -122,7 +122,9 @@ describe("notification_archive reporting (action-based, never counts)", () => {
       ids: ["srv:a.notify", "srv:b.notify"],
     });
     const text = firstText(result);
-    expect(text).toBe("Requested archive of 2 notification(s); verify with notification_list.");
+    expect(text).toBe(
+      "Requested archive of 2 notification(s). The API does not report per-id outcomes (an unknown or wrong-bucket id silently succeeds), so check notification_list.",
+    );
     expect(text).not.toMatch(/297|99/); // proves we don't parrot returned counts
   });
 
@@ -136,7 +138,7 @@ describe("notification_archive reporting (action-based, never counts)", () => {
     });
     expect(result.isError).toBeFalsy();
     expect(firstText(result)).toBe(
-      "Requested archive of 1 notification(s); verify with notification_list.",
+      "Requested archive of 1 notification(s). The API does not report per-id outcomes (an unknown or wrong-bucket id silently succeeds), so check notification_list.",
     );
   });
 
@@ -184,5 +186,15 @@ describe("notification_archive error paths", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to unarchive notifications/);
     expect(firstText(result)).toMatch(/nope/);
+  });
+
+  it("says the API does not report per-id outcomes for an ids call", async () => {
+    const { executor } = recordingExecutor({ archiveNotifications: { unread: { total: 0 } } });
+    const handler = createNotificationArchiveHandler(executor);
+
+    const result = await handler({ response_format: "concise", direction: "archive", ids: ["n1"] });
+
+    expect(firstText(result)).toContain("does not report per-id outcomes");
+    expect(firstText(result)).toContain("notification_list");
   });
 });

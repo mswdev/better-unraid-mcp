@@ -61,11 +61,20 @@ async function runAll(client: GraphQLExecutor, direction: Direction, importance?
 }
 
 /** Builds the action-based concise summary (never derived from the returned counts). */
+/**
+ * The per-id batch mutations run each id through Promise.allSettled upstream
+ * and discard the outcomes, so an unknown or wrong-bucket id "succeeds"
+ * silently — the summary must not imply otherwise.
+ */
+const PER_ID_CAVEAT =
+  "The API does not report per-id outcomes (an unknown or wrong-bucket id silently succeeds), so check notification_list.";
+
 function summarize(args: ArchiveArgs): string {
-  const target = args.ids
-    ? `${args.ids.length} notification(s)`
-    : `all${args.importance ? ` ${IMPORTANCE_TO_API[args.importance]}` : ""} notifications`;
-  return `Requested ${args.direction} of ${target}; verify with notification_list.`;
+  if (args.ids) {
+    return `Requested ${args.direction} of ${args.ids.length} notification(s). ${PER_ID_CAVEAT}`;
+  }
+  const scope = args.importance ? ` ${IMPORTANCE_TO_API[args.importance]}` : "";
+  return `Requested ${args.direction} of all${scope} notifications; verify with notification_list.`;
 }
 
 /**
@@ -113,7 +122,7 @@ export function registerNotificationArchive(server: McpServer, client: GraphQLEx
     {
       title: "Archive or Unarchive Notifications",
       description:
-        "Archive (hide) or unarchive (restore to unread) notifications — reversible. Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action; verify with notification_list.",
+        "Archive (hide) or unarchive (restore to unread) notifications — reversible. Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action only: the API swallows per-id failures, so an unknown or wrong-bucket id silently succeeds — verify with notification_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

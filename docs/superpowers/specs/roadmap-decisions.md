@@ -269,3 +269,60 @@ still wanted.
   the steady state on NUT servers, not a fault.
 - **Owner input:** Not needed.
 
+## Roadmap 2 — Phase 1 (0.0.12) "DX quick wins"
+
+### D22: Vendored schema refreshed to unraid/api 4.37.4 with a version sidecar
+
+- **Decided:** `npm run schema:update` is now `scripts/update-schema.mjs`: it
+  fetches the SDL and upstream `api/package.json` and writes
+  `schema/schema-version.json` (`apiVersion`, `source`, `fetchedAt`). The SDL
+  (vendored 2026-05-31) was refreshed to 4.37.4 — exactly Deepwater's live
+  version — and `loadSchemaVersion()` feeds the doctor's skew check.
+- **Why:** The spec's "record the SDL's source version at schema:update time"
+  needs a machine-readable place; the refresh itself was overdue (three
+  upstream schema commits had landed) and Phase 0 proved the live server is on
+  4.37.4.
+- **Owner input:** Not needed.
+
+### D23: `array_disk_action remove` retired (upstream removed the mutation)
+
+- **Decided:** `Mutation.array.removeDiskFromArray` no longer exists upstream
+  (unraid/api#2068, 2026-08-29). The action was dropped from the enum; a
+  legacy `"remove"` call gets an explicit refusal pointing at the web UI.
+- **Why:** Keeping it would have been a schema-validation failure at call time
+  with no honest way to perform the operation. Removing a disk is a UI-guided
+  workflow upstream now.
+- **Owner input:** Not needed.
+
+### D24: Container restart uses the API's native `restart` mutation
+
+- **Decided:** `docker_container_action restart` calls `docker.restart(id)`
+  (added upstream in #2022) instead of the composed stop-then-start with its
+  read-back-quirk tolerance.
+- **Why:** One mutation, no partial-restart states, and the description no
+  longer claims the API lacks restart. The read-back-quirk mapping stays for
+  all actions in the shared error path.
+- **Owner input:** Not needed.
+
+### D25: Version skew compares major.minor and only warns
+
+- **Decided:** `connection_doctor` (and the `doctor` CLI) compare the server's
+  `info.versions.core.api` with the recorded schema version on major.minor,
+  ignoring patch and build metadata; skew is a `warn`, never a `fail`.
+- **Why:** Patch releases do not change the GraphQL contract, and a skewed
+  schema still works for most fields — failing the doctor would make the
+  common "server slightly newer than the npm package" case look broken.
+- **Owner input:** Not needed.
+
+### D26: Raw GraphQL tools validate locally before the confirm gate
+
+- **Decided:** `graphql_query`/`graphql_mutation` run graphql-js `validate`
+  against the vendored schema (built lazily once) before anything else; a
+  `dry_run: true` mutation needs no `confirm` because nothing is sent. The
+  acceptance-test prompt's `archiveAll { total }` was corrected to a valid
+  selection (`unread { total }`) — the old string was never schema-valid.
+- **Why:** Did-you-mean hints save a network round-trip per typo; validating
+  before the gate keeps invalid mutations from ever reaching an elicitation
+  prompt.
+- **Owner input:** Not needed.
+

@@ -7,7 +7,7 @@ import {
   throwingExecutor,
   throwingShell,
 } from "../_shared/test-support.js";
-import { createConnectionDoctorHandler } from "./connection-doctor.js";
+import { compareApiVersions, createConnectionDoctorHandler } from "./connection-doctor.js";
 
 const doctorFixture = {
   online: true,
@@ -23,6 +23,7 @@ describe("connection_doctor", () => {
       client: executor,
       shell: null,
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -37,6 +38,7 @@ describe("connection_doctor", () => {
       client: throwingExecutor("Unraid API HTTP 401 Unauthorized"),
       shell: null,
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -49,6 +51,7 @@ describe("connection_doctor", () => {
       client: throwingExecutor("fetch failed: ECONNREFUSED"),
       shell: null,
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -62,6 +65,7 @@ describe("connection_doctor", () => {
       client: executor,
       shell: null,
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -72,7 +76,12 @@ describe("connection_doctor", () => {
   it("probes SSH when configured", async () => {
     const { executor } = recordingExecutor(doctorFixture);
     const { shell, calls } = recordingShell(okShellResult);
-    const handler = createConnectionDoctorHandler({ client: executor, shell, readOnly: false });
+    const handler = createConnectionDoctorHandler({
+      client: executor,
+      shell,
+      readOnly: false,
+      schemaApiVersion: null,
+    });
 
     const result = await handler({ response_format: "concise" });
 
@@ -86,6 +95,7 @@ describe("connection_doctor", () => {
       client: executor,
       shell: throwingShell("auth failed"),
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -100,6 +110,7 @@ describe("connection_doctor", () => {
       client: executor,
       shell: null,
       readOnly: true,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "concise" });
@@ -113,11 +124,72 @@ describe("connection_doctor", () => {
       client: executor,
       shell: null,
       readOnly: false,
+      schemaApiVersion: null,
     });
 
     const result = await handler({ response_format: "detailed" });
     const parsed = JSON.parse(firstText(result)) as { checks: Array<{ check: string }> };
 
     expect(parsed.checks.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("compareApiVersions", () => {
+  it("is ok when major.minor match (patch and build metadata ignored)", () => {
+    const check = compareApiVersions("4.37.4+ad268301", "4.37.1");
+
+    expect(check).toMatchObject({ check: "schema", status: "ok" });
+    expect(check.detail).toContain("4.37.1");
+  });
+
+  it("warns naming both versions on a minor mismatch", () => {
+    const check = compareApiVersions("4.39.0", "4.37.4");
+
+    expect(check.status).toBe("warn");
+    expect(check.detail).toContain("4.39.0");
+    expect(check.detail).toContain("4.37.4");
+  });
+
+  it("warns when the schema version is unrecorded", () => {
+    expect(compareApiVersions("4.37.4", null).status).toBe("warn");
+  });
+
+  it("warns when the server did not report a version", () => {
+    expect(compareApiVersions(null, "4.37.4").status).toBe("warn");
+  });
+});
+
+describe("connection_doctor schema check", () => {
+  it("emits a schema check right after the graphql check", async () => {
+    const { executor } = recordingExecutor(doctorFixture);
+    const handler = createConnectionDoctorHandler({
+      client: executor,
+      shell: null,
+      readOnly: false,
+      schemaApiVersion: "4.35.9",
+    });
+
+    const result = await handler({ response_format: "detailed" });
+    const parsed = JSON.parse(firstText(result)) as {
+      checks: Array<{ check: string; status: string }>;
+    };
+
+    expect(parsed.checks[1]).toMatchObject({ check: "schema", status: "ok" });
+  });
+
+  it("skips the comparison (warn) when the graphql check failed", async () => {
+    const handler = createConnectionDoctorHandler({
+      client: throwingExecutor("fetch failed: ECONNREFUSED"),
+      shell: null,
+      readOnly: false,
+      schemaApiVersion: "4.37.4",
+    });
+
+    const result = await handler({ response_format: "detailed" });
+    const parsed = JSON.parse(firstText(result)) as {
+      checks: Array<{ check: string; status: string }>;
+    };
+
+    expect(parsed.checks[1]).toMatchObject({ check: "schema", status: "warn" });
   });
 });

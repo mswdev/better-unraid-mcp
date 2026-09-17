@@ -67,6 +67,8 @@ export interface RegistryOptions {
   client: GraphQLExecutor;
   shell: ShellExecutor | null;
   readOnly: boolean;
+  /** Upstream API version the vendored schema was fetched from (null when unrecorded). */
+  schemaApiVersion: string | null;
   /** Live subscription feed (WebSocket); absent in minimal setups/tests. */
   feed?: SubscriptionFeed | null;
   /** Latest live samples, shared between resources and tools. */
