@@ -326,3 +326,42 @@ still wanted.
   prompt.
 - **Owner input:** Not needed.
 
+## Roadmap 2 — Phase 2 (0.0.13) "Backup + VM snapshot completion"
+
+### D27: VM snapshot revert/delete stay descoped after live validation
+
+- **Decided:** `vm_snapshot_create`/`vm_snapshot_list` keep pointing at the
+  Unraid UI for revert and delete; no `vm_snapshot_action` ships.
+- **Why:** The §5 live-validation step could not pass: the validation server
+  (Deepwater) has the VM service disabled (`vm_list` → "VMs are not
+  available"; `virsh` cannot reach libvirt), so nothing could be probed. And
+  the `unraid/webgui` source (`libvirt_helpers.php`: `vm_revert`,
+  `vm_snapremove`, `vm_blockcommit`) shows the UI flow depends on the webgui's
+  private snapshot database (`getvmsnapshots` / `delete_snapshots_database`),
+  rewrites the domain XML to re-point each disk at its base image, force-
+  destroys a running VM before reverting, unlinks overlay files along the
+  backing chain, and copies OVMF NVRAM per snapshot. Reproducing that through
+  `virsh` alone is exactly the chain-corruption risk D12 named; the spec
+  pre-authorized keeping the descope in that case.
+- **Owner input:** Only if VMs are enabled later and revert/delete matter —
+  then a plan can validate against a real VM.
+
+### D28: flash_backup design calls
+
+- **Decided:** Config-only by default (`/boot/config`, ~270 MB live), the
+  whole flash with `full: true` (~2.6 GB live, 15-minute command timeout with
+  progress heartbeats); archive name `flash-backup-<scope>-<UTC>.tar.gz` from
+  an injectable clock; share names validated `^[A-Za-z0-9._-]+$` and probed
+  with `test -d` (refuse, never create a share); GNU tar exit 1 ("file changed
+  as we read it") is tolerated ONLY when `tar -tzf` verification succeeds and
+  the warning is echoed; `keep` prunes via a list-then-delete pair so the tool
+  reports exactly which files it removed, ignoring anything outside the backup
+  folder; no off-box copy is offered and the copy warns about the secrets in
+  the archive.
+- **Why:** Matches the spec's brief while staying honest and reversible-ish
+  (the only deletions are archives the tool itself created). Unraid rewrites
+  files under /boot/config during normal operation, so a strict exit-0 policy
+  would fail real backups spuriously.
+- **Owner input:** Not needed; the live write test (a real `flash_backup`
+  run) is outside this session's read-only grant — please run it once.
+

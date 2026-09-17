@@ -17,7 +17,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
 
-The 58 tools cover most of what you would normally do over SSH or in the WebGUI:
+The 59 tools cover most of what you would normally do over SSH or in the WebGUI:
 
 - Diagnose problems in one conversation: unread alerts, CPU and memory pressure, network errors, disk temperatures, SMART health
 - Read any log on the server: list them all, tail the syslog, or page through the middle of a huge file
@@ -256,6 +256,12 @@ ZFS ships with Unraid 6.12+; these tools report clearly when no pools exist.
 | `zfs_dataset_list` | read-only | Datasets with used/available space and mountpoints; optional pool filter. |
 | `zfs_snapshot_list` | read-only | Snapshots with size and creation time; optional dataset filter. |
 | `zfs_snapshot_action` | destructive | Create, destroy, or roll back a snapshot. Rollback discards everything after the snapshot, so this requires `confirm` + `acknowledge_risk`. |
+
+### Backup (SSH)
+
+| Tool | Kind | What it does |
+|------|------|--------------|
+| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share — `/boot/config` by default, the whole flash with `full: true` — as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`, verified with `tar -tzf`; `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
 
 ### User Scripts (SSH)
 
