@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
@@ -29,12 +28,12 @@ function describeParity(parity: ArrayStatusQuery["array"]["parityCheckStatus"]):
   return `Parity: ${parity.status} (errors: see parity_history)`;
 }
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 /** Shape of the structuredContent payload (deep disk typing adds no safety). */
-const outputSchema = {
+const outputSchema = z.object({
   state: z.string(),
   capacity: z.unknown(),
   parityCheckStatus: z.unknown(),
@@ -42,7 +41,7 @@ const outputSchema = {
   disks: z.unknown(),
   caches: z.unknown(),
   data_age_ms: z.number(),
-};
+});
 
 /** Builds a one-line summary of the array's health. */
 function summarize(data: ArrayStatusQuery): string {

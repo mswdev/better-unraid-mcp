@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
@@ -14,11 +13,11 @@ const MAX_COUNT = 50;
 /** ps sort keys per user-facing sort mode. */
 const SORT_KEYS = { cpu: "-pcpu", memory: "-pmem" } as const;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   sort_by: z.enum(["cpu", "memory"]).default("cpu"),
   count: z.number().int().positive().max(MAX_COUNT).default(DEFAULT_COUNT),
-};
+});
 
 /** One parsed process row. */
 interface ProcessRow {

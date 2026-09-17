@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
@@ -45,17 +44,17 @@ function unitSuffix(unit: TemperatureUnit): string {
   return suffix ?? UNKNOWN_UNIT_SUFFIX;
 }
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   include_temperature: z.boolean().default(false),
-};
+});
 
 /** Shape of the structuredContent payload (deep metric typing adds no safety). */
-const outputSchema = {
+const outputSchema = z.object({
   metrics: z.unknown(),
   systemTime: z.unknown(),
   data_age_ms: z.number(),
-};
+});
 
 type Metrics = SystemMetricsQuery["metrics"];
 type SystemTime = SystemMetricsQuery["systemTime"];

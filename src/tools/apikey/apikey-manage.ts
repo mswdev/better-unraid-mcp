@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -20,7 +19,7 @@ const ROLES = ["ADMIN", "CONNECT", "GUEST", "VIEWER"] as const;
 
 type ManageAction = "create" | "update" | "add_role" | "remove_role" | "delete";
 
-const inputSchema = {
+const inputSchema = z.object({
   action: z.enum(["create", "update", "add_role", "remove_role", "delete"]),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -29,7 +28,7 @@ const inputSchema = {
   ids: z.array(z.string().min(1)).optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface ApiKeyManageArgs {

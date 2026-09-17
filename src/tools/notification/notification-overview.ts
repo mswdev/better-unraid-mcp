@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationOverviewDocument } from "../../types/unraid/graphql.js";
@@ -8,9 +7,9 @@ import { summarizeOverview } from "./_shared.js";
 
 const TOOL_NAME = "notification_overview";
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 /**
  * Creates the `notification_overview` handler bound to a GraphQL executor.

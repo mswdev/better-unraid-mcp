@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginAddDocument } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";

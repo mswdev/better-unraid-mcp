@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { Logger } from "pino";
 import { SESSION_SWEEP_INTERVAL_MS, type SessionStore } from "./http-sessions.js";
 
@@ -148,8 +148,8 @@ function writeNotFound(response: ServerResponse): void {
 }
 
 /** Builds a per-request transport, enabling DNS-rebinding protection when hosts are allow-listed. */
-function buildTransport(allowedHosts?: string[]): StreamableHTTPServerTransport {
-  return new StreamableHTTPServerTransport({
+function buildTransport(allowedHosts?: string[]): NodeStreamableHTTPServerTransport {
+  return new NodeStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
     enableDnsRebindingProtection: allowedHosts !== undefined,

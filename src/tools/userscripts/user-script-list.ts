@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
@@ -14,9 +13,9 @@ export const USER_SCRIPTS_DIR = "/boot/config/plugins/user.scripts/scripts";
 
 const LIST_COMMAND = `ls -1 ${USER_SCRIPTS_DIR} 2>/dev/null`;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 /**
  * Creates the `user_script_list` handler bound to a shell executor.

@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
@@ -14,7 +13,7 @@ const DEFAULT_TIMEOUT_SECONDS = 30;
 const MAX_TIMEOUT_SECONDS = 120;
 const MS_PER_SECOND = 1000;
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   command: z.string().min(1),
   timeout_seconds: z
@@ -24,7 +23,7 @@ const inputSchema = {
     .max(MAX_TIMEOUT_SECONDS)
     .default(DEFAULT_TIMEOUT_SECONDS),
   confirm: z.boolean().optional(),
-};
+});
 
 /** The validated handler input (timeout always present via the zod default). */
 interface ShellExecInput {

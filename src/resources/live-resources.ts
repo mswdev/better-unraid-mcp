@@ -1,9 +1,5 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  SubscribeRequestSchema,
-  UnsubscribeRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { ResourceTemplate } from "@modelcontextprotocol/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import {
   DOCKER_STATS_TOPIC,
   type LiveSnapshotStore,
@@ -206,11 +202,11 @@ export function registerLiveResources(server: McpServer, deps: LiveResourceDeps)
   registerReadables(server, deps.store);
   server.server.registerCapabilities({ resources: { subscribe: true, listChanged: true } });
   const active = new Map<string, () => void>();
-  server.server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+  server.server.setRequestHandler("resources/subscribe", async (request) => {
     startLiveSubscription({ server, deps, active, uri: request.params.uri });
     return {};
   });
-  server.server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+  server.server.setRequestHandler("resources/unsubscribe", async (request) => {
     active.get(request.params.uri)?.();
     active.delete(request.params.uri);
     return {};

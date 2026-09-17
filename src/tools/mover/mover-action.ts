@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
@@ -27,11 +26,11 @@ const SUCCESS_SUMMARY: Record<MoverAction, string> = {
   stop: "Mover stop requested. Note: interrupting the mover can leave partial files on the destination; check the syslog for what was in flight.",
 };
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   action: z.enum(["start", "stop"]),
   confirm: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface MoverActionArgs {

@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
@@ -36,14 +35,14 @@ const RETIRED_REMOVE_ACTION = "remove";
 const RETIRED_REMOVE_MESSAGE =
   'Action "remove" was retired by the Unraid API (4.37+): remove a disk from the array in the web UI (Main → array devices, with the array stopped). No changes were made.';
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
   action: z.enum(["add", "mount", "unmount", "clear_statistics"]),
   id: z.string().min(1),
   slot: z.number().int().optional(),
   confirm: z.boolean().optional(),
   acknowledge_risk: z.boolean().optional(),
-};
+});
 
 /** The validated handler arguments. */
 interface ArrayDiskActionArgs {

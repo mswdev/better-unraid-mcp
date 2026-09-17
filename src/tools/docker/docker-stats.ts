@@ -1,5 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   DOCKER_STATS_TOPIC,
@@ -48,9 +47,9 @@ function liveContainers(data: unknown): TimestampedContainerStats[] | null {
   return Object.values(containers);
 }
 
-const inputSchema = {
+const inputSchema = z.object({
   response_format: z.enum(["concise", "detailed"]).default("concise"),
-};
+});
 
 interface DockerStatsInput {
   response_format: ResponseFormat;

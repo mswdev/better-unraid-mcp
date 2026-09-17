@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 

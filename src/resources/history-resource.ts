@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { BUCKET_MS, type MetricsHistoryRecorder } from "../graphql/metrics-history.js";
 import { DEFAULT_WINDOW_MINUTES, HISTORY_OFF_TEXT } from "../tools/metrics/metrics-history.js";
 
