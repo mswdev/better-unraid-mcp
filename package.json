@@ -15,10 +15,7 @@
   "bin": {
     "better-unraid-mcp": "dist/index.js"
   },
-  "files": [
-    "dist",
-    "schema"
-  ],
+  "files": ["dist", "schema"],
   "engines": {
     "node": ">=20"
   },
