@@ -1,7 +1,65 @@
 import { describe, expect, it } from "vitest";
-import type { SystemHealthQuery } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import type { GraphQLExecutor } from "../../graphql/client.js";
+import {
+  SystemHealthDocument,
+  type SystemHealthQuery,
+  UpsStatusDocument,
+  type UpsStatusQuery,
+} from "../../types/unraid/graphql.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemHealthHandler } from "./system-health.js";
+
+/** No UPS reporting at all — the common case on servers without apcupsd. */
+const NO_UPS: UpsStatusQuery = { upsDevices: [] };
+
+/** One UPS device with the given name/status; the other fields are required by the generated type. */
+function upsDevice(name: string, status: string): UpsStatusQuery {
+  return {
+    upsDevices: [
+      {
+        id: name,
+        name,
+        model: "model",
+        status,
+        battery: { chargeLevel: 100, estimatedRuntime: 600 },
+        power: {
+          inputVoltage: 120,
+          outputVoltage: 120,
+          loadPercentage: 20,
+          nominalPower: null,
+          currentPower: null,
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Answers the health and UPS documents independently; `ups` may be an Error
+ * to simulate the upstream apcaccess throw (NUT-managed servers).
+ */
+function healthExecutor(health: SystemHealthQuery, ups: UpsStatusQuery | Error): GraphQLExecutor {
+  return {
+    execute: async (document) => {
+      const requested: unknown = document;
+      if (requested === SystemHealthDocument) {
+        return health as never;
+      }
+      if (requested === UpsStatusDocument) {
+        if (ups instanceof Error) {
+          throw ups;
+        }
+        return ups as never;
+      }
+      throw new Error("unexpected document");
+    },
+  };
+}
+
+/** The recordingExecutor replacement: health fixture plus no UPS. */
+function recordingExecutor(fixture: SystemHealthQuery): { executor: GraphQLExecutor } {
+  return { executor: healthExecutor(fixture, NO_UPS) };
+}
 
 /**
  * A fully-healthy snapshot typed against the generated query — the repo's
@@ -18,7 +76,6 @@ function healthyFixture(): SystemHealthQuery {
       caches: [{ name: "cache", status: "DISK_OK", temp: 40 }],
     },
     notifications: { overview: { unread: { warning: 0, alert: 0 } } },
-    upsDevices: [],
     docker: { containers: [{ isUpdateAvailable: false }] },
   };
 }
@@ -123,9 +180,7 @@ describe("system_health", () => {
   });
 
   it("flags a UPS on battery as critical", async () => {
-    const fixture = healthyFixture();
-    fixture.upsDevices = [{ name: "ups", status: "ONBATT", battery: { chargeLevel: 80 } }];
-    const { executor } = recordingExecutor(fixture);
+    const executor = healthExecutor(healthyFixture(), upsDevice("ups", "ONBATT"));
     const handler = createSystemHealthHandler(executor);
 
     const result = await handler({ response_format: "concise" });
@@ -166,9 +221,7 @@ describe("system_health", () => {
 
 describe("system_health UPS semantics", () => {
   it("treats a status-less phantom UPS device as absence, not an outage", async () => {
-    const fixture = healthyFixture();
-    fixture.upsDevices = [{ name: "ups", status: "", battery: { chargeLevel: 0 } }];
-    const { executor } = recordingExecutor(fixture);
+    const executor = healthExecutor(healthyFixture(), upsDevice("ups", ""));
     const handler = createSystemHealthHandler(executor);
 
     const result = await handler({ response_format: "concise" });
@@ -177,13 +230,31 @@ describe("system_health UPS semantics", () => {
   });
 
   it("accepts multi-token statuses containing ONLINE", async () => {
-    const fixture = healthyFixture();
-    fixture.upsDevices = [{ name: "ups", status: "ONLINE SLAVE", battery: { chargeLevel: 100 } }];
-    const { executor } = recordingExecutor(fixture);
+    const executor = healthExecutor(healthyFixture(), upsDevice("ups", "ONLINE SLAVE"));
     const handler = createSystemHealthHandler(executor);
 
     const result = await handler({ response_format: "concise" });
 
     expect(firstText(result)).toContain("OVERALL: OK");
+  });
+
+  it("reports the ups subsystem as unavailable (not a failure) when the UPS query throws", async () => {
+    const failure = new Error("Failed to get UPS data: No UPS data returned from apcaccess");
+    const handler = createSystemHealthHandler(healthExecutor(healthyFixture(), failure));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toContain("OVERALL: OK");
+    expect(firstText(result)).toMatch(/ups: UPS data unavailable .*apcaccess/);
+  });
+
+  it("flags a UPS that is offline but not on battery as a warning", async () => {
+    const executor = healthExecutor(healthyFixture(), upsDevice("ups", "COMMLOST"));
+    const handler = createSystemHealthHandler(executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("OVERALL: WARNING");
   });
 });

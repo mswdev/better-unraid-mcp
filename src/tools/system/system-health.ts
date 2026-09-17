@@ -2,7 +2,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { SystemHealthDocument, type SystemHealthQuery } from "../../types/unraid/graphql.js";
+import {
+  SystemHealthDocument,
+  type SystemHealthQuery,
+  UpsStatusDocument,
+  type UpsStatusQuery,
+} from "../../types/unraid/graphql.js";
 import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_health";
@@ -140,20 +145,49 @@ function checkNotifications(data: HealthData): SubsystemHealth {
   return { subsystem: "notifications", severity: "ok", detail: "No unread warnings or alerts." };
 }
 
+/** UPS devices, or the failure message when the API could not read apcaccess. */
+type UpsReading = { devices: UpsStatusQuery["upsDevices"] } | { failure: string };
+
+/**
+ * Absence of UPS data is not an outage: the Unraid API shells out to apcaccess
+ * and throws when it prints nothing (apcupsd stopped, no UPS, or a NUT-managed
+ * UPS — observed live on a NUT server), so the rollup reports it as ok.
+ */
+const UPS_UNAVAILABLE_DETAIL =
+  "UPS data unavailable — the Unraid API reads apcupsd only; NUT-managed or absent UPSes report nothing here";
+
+/** Reads UPS data separately so an apcaccess failure cannot sink the whole rollup. */
+async function readUps(client: GraphQLExecutor): Promise<UpsReading> {
+  try {
+    const data = await client.execute(UpsStatusDocument);
+    return { devices: data.upsDevices };
+  } catch (error) {
+    return { failure: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Splits a free-form apcupsd status into upper-cased tokens ("ONLINE SLAVE" → two). */
+function statusTokens(status: string): string[] {
+  return status.trim().toUpperCase().split(/\s+/);
+}
+
 /**
  * apcupsd statuses are free-form, possibly multi-token ("ONLINE SLAVE"), and
  * the API returns a phantom no-status device instead of an empty list when
  * no UPS is configured — so tokens are matched, and status-less devices are
  * treated as absence, never as an outage.
  */
-function checkUps(data: HealthData): SubsystemHealth {
-  const reporting = (data.upsDevices ?? []).filter((ups) => (ups.status ?? "").trim().length > 0);
+function checkUps(reading: UpsReading): SubsystemHealth {
+  if ("failure" in reading) {
+    const detail = `${UPS_UNAVAILABLE_DETAIL} (${reading.failure}).`;
+    return { subsystem: "ups", severity: "ok", detail };
+  }
+  const reporting = reading.devices.filter((ups) => (ups.status ?? "").trim().length > 0);
   if (reporting.length === 0) {
     return { subsystem: "ups", severity: "ok", detail: "No UPS reporting live data." };
   }
-  const tokensOf = (status: string) => status.trim().toUpperCase().split(/\s+/);
-  const offline = reporting.filter((ups) => !tokensOf(ups.status).includes(UPS_ONLINE_STATUS));
-  const onBattery = reporting.some((ups) => tokensOf(ups.status).includes("ONBATT"));
+  const offline = reporting.filter((ups) => !statusTokens(ups.status).includes(UPS_ONLINE_STATUS));
+  const onBattery = reporting.some((ups) => statusTokens(ups.status).includes("ONBATT"));
   if (onBattery) {
     const detail = reporting.map((ups) => `${ups.name}: ${ups.status}`).join(", ");
     return { subsystem: "ups", severity: "critical", detail };
@@ -212,17 +246,17 @@ export interface SystemHealthReport {
  *
  * @param client - The GraphQL executor used for the combined health read.
  * @returns The overall verdict plus per-subsystem reports.
- * @throws Error when the health query fails.
+ * @throws Error when the health query fails (a failed UPS read degrades instead).
  */
 export async function runSystemHealth(client: GraphQLExecutor): Promise<SystemHealthReport> {
-  const data = await client.execute(SystemHealthDocument);
+  const [data, ups] = await Promise.all([client.execute(SystemHealthDocument), readUps(client)]);
   const subsystems = [
     checkArrayState(data.array),
     checkCapacity(data.array),
     checkDisks(data.array),
     checkParity(data.array),
     checkNotifications(data),
-    checkUps(data),
+    checkUps(ups),
     checkDockerUpdates(data),
   ];
   return { overall: worstSeverity(subsystems), subsystems };
