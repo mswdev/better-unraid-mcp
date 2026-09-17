@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DiskListQuery } from "../../types/unraid/graphql.js";
 import { firstText } from "../_shared/test-support.js";
-import { createDiskListHandler } from "./disk-list.js";
+import { createDiskListHandler, partitionsOfDevice } from "./disk-list.js";
 
 const disks = {
   disks: [
@@ -71,5 +71,54 @@ describe("disk_list handler", () => {
 
     expect(firstText(result)).toMatch(/Seagate ST4000/);
     expect(firstText(result)).not.toMatch(/°C/);
+  });
+});
+
+/** A minimal XFS partition fixture typed against the generated query. */
+function partition(name: string): DiskListQuery["disks"][number]["partitions"][number] {
+  return { name, fsType: "XFS", size: 1 };
+}
+
+describe("partitionsOfDevice", () => {
+  it("drops partitions of other devices that share the name prefix (upstream prefix-match bug)", () => {
+    const partitions = ["sda1", "sdaa1", "sdab1", "sdae1"].map((name) => partition(name));
+
+    expect(partitionsOfDevice("/dev/sda", partitions).map((p) => p.name)).toEqual(["sda1"]);
+  });
+
+  it("keeps nvme partitions with the p separator", () => {
+    const partitions = [partition("nvme0n1p1")];
+
+    expect(partitionsOfDevice("/dev/nvme0n1", partitions)).toHaveLength(1);
+  });
+
+  it("keeps multiple partitions of the same device", () => {
+    const partitions = ["sdb1", "sdb2", "sdba1"].map((name) => partition(name));
+
+    expect(partitionsOfDevice("/dev/sdb", partitions).map((p) => p.name)).toEqual(["sdb1", "sdb2"]);
+  });
+});
+
+describe("disk_list handler partition filtering", () => {
+  it("returns only the disk's own partitions in detailed mode", async () => {
+    const bleed = {
+      disks: [
+        {
+          ...disks.disks[0],
+          device: "/dev/sda",
+          partitions: [
+            { name: "sda1", fsType: "XFS", size: 1 },
+            { name: "sdaa1", fsType: "XFS", size: 2 },
+          ],
+        },
+      ],
+    } satisfies DiskListQuery;
+
+    const result = await createDiskListHandler(fakeExecutor(bleed))({
+      response_format: "detailed",
+    });
+
+    const parsed = JSON.parse(firstText(result)) as Array<{ partitions: Array<{ name: string }> }>;
+    expect(parsed[0].partitions.map((p) => p.name)).toEqual(["sda1"]);
   });
 });
