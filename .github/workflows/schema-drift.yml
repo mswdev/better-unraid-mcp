@@ -1,0 +1,55 @@
+# Weekly check that the vendored Unraid GraphQL schema still matches upstream
+# unraid/api main. When it drifts, refresh the SDL + generated types and open
+# a PR into develop so API changes are caught before users hit them.
+name: Schema drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: develop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Refresh the vendored schema and regenerate types
+        run: |
+          npm run schema:update
+          npm run generate || echo "::warning::codegen failed — a tool document no longer matches upstream; see the PR"
+      - name: Summarize
+        id: summary
+        run: |
+          VERSION="$(node -p "require('./schema/schema-version.json').apiVersion")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git status --porcelain schema src/types/unraid)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat schema/unraid.graphql src/types/unraid | tail -5
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Vendored schema matches unraid/api $VERSION"
+          fi
+      - name: Open a pull request
+        if: steps.summary.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: develop
+          branch: chore/schema-drift
+          title: "chore(schema): upstream unraid/api ${{ steps.summary.outputs.version }} drift"
+          commit-message: "chore(schema): refresh vendored SDL to unraid/api ${{ steps.summary.outputs.version }}"
+          body: |
+            The weekly schema-drift check found the vendored `schema/unraid.graphql` behind upstream `unraid/api` (`${{ steps.summary.outputs.version }}`).
+            This PR refreshes the SDL and regenerated types. Review the diff for removed or renamed fields (tool documents that no longer validate fail `npm run generate` — check the workflow log), then run the quality gate.
+          labels: schema, dependencies
+          draft: true

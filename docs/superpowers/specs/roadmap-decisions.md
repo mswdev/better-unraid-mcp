@@ -455,3 +455,48 @@ still wanted.
   change; MCP clients see the same 67 tools.
 - **Owner input:** Not needed.
 
+## Roadmap 2 — Phase 6 "Launch & distribution"
+
+### D37: Registry metadata shipped inside 0.1.0; the registry publish itself is an owner login
+
+- **Decided:** The pending 0.1.0 release PR was closed and re-cut so that
+  `"mcpName": "io.github.mswdev/better-unraid-mcp"` (npm ownership proof) and
+  `server.json` are part of the published 0.1.0 package. `mcp-publisher login
+  github` is an interactive device flow, so the actual registry publish is a
+  documented handoff (`docs/launch/distribution.md`).
+- **Why:** The registry verifies npm ownership by reading `mcpName` from the
+  published package; without re-cutting, publishing would have needed a 0.1.1,
+  breaking the roadmap's "npm = 0.1.0" acceptance criterion.
+- **Owner input:** Required — run the two commands in the handoff doc.
+
+### D38: An animated SVG stands in for the README demo GIF
+
+- **Decided:** `docs/assets/demo.svg` (SMIL-animated transcript of a real
+  session) is embedded at the top of the README instead of a GIF.
+- **Why:** No terminal recorder (vhs/asciinema/agg) or image tool exists on the
+  build machine; an SVG animates inside GitHub READMEs, is 4 KB, and is
+  editable. Replace it with a real recording when convenient.
+- **Owner input:** Optional.
+
+### D39: Docker image = HTTP transport only, token mandatory, verified in CI
+
+- **Decided:** `Dockerfile` (two-stage node:20-alpine, non-root, healthcheck
+  expects 401 on an unauthenticated POST) and `docker.yml` (ghcr.io on `v*`
+  tags + manual dispatch, amd64/arm64). The local Docker daemon was unusable
+  during the run (Docker Desktop metadata-store I/O error), so the image is
+  verified by the CI workflow's first run, not locally.
+- **Owner input:** Trigger *Docker image* → Run workflow with `v0.1.0` once
+  (the tag predates the workflow) and check the package appears.
+
+### D40: MCPB bundle built in CI from the tagged commit, unsigned
+
+- **Decided:** `npm run build:mcpb` stages `dist/`, `schema/`, `manifest.json`
+  and production `node_modules` and packs with `@anthropic-ai/mcpb`;
+  `release.yml` attaches it to every Release. Locally verified: manifest
+  validates, bundle is ~4.8 MB, contains `dist/index.js` and the schema.
+  Bundles are not code-signed (no certificate); Claude Desktop shows the
+  unsigned warning.
+- **Owner input:** For v0.1.0 (released before this step existed) run
+  `npm run build && npm run build:mcpb && gh release upload v0.1.0 build/*.mcpb`
+  once, or let the next release carry it.
+

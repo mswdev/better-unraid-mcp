@@ -8,6 +8,12 @@
 [![CI](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+[![MCP protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-8b5cf6)](https://modelcontextprotocol.io)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.mswdev%2Fbetter--unraid--mcp-0ea5e9)](https://registry.modelcontextprotocol.io/v0.1/servers?search=better-unraid-mcp)
+[![Docker](https://img.shields.io/badge/ghcr.io-better--unraid--mcp-2496ed?logo=docker&logoColor=white)](https://github.com/mswdev/better-unraid-mcp/pkgs/container/better-unraid-mcp)
+[![Claude Desktop bundle](https://img.shields.io/badge/.mcpb-one--click%20install-d97706)](https://github.com/mswdev/better-unraid-mcp/releases/latest)
+
+<img src="docs/assets/demo.svg" alt="A Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
 </div>
 
@@ -126,6 +132,13 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 </details>
 
 If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To enable the optional host-shell tools (reading files like `/boot/logs/syslog-previous`, running commands, per-container stats), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). Using `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.0.1`) if you prefer fully predictable behavior.
+
+**Other ways to install** (all run the same server; nothing is installed on the Unraid box):
+
+- **Claude Desktop, one click:** download `better-unraid-mcp-<version>.mcpb` from the [latest release](https://github.com/mswdev/better-unraid-mcp/releases/latest) and open it — Claude Desktop asks for the URL and API key.
+- **Claude Code plugin marketplace:** `claude plugin marketplace add mswdev/better-unraid-mcp` then `claude plugin install better-unraid@better-unraid-mcp` (reads `UNRAID_API_URL` / `UNRAID_API_KEY` from your environment).
+- **Docker (remote HTTP transport):** `ghcr.io/mswdev/better-unraid-mcp` — see [Docker](#docker-http-transport).
+- **MCP Registry:** listed as `io.github.mswdev/better-unraid-mcp` for clients that browse the registry.
 
 ### Cautious quickstart (read-only)
 
@@ -382,6 +395,26 @@ By default the endpoint is stateless: each POST gets a complete JSON response, a
 The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To deliberately run an open endpoint on a trusted network, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` (a warning is logged at startup). Requests without a matching token get a 401; token comparison is constant-time.
 
 > **Warning:** every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), add TLS via a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
+
+### Docker (HTTP transport)
+
+The image runs the HTTP transport only (`MCP_TRANSPORT=http`, bound to `0.0.0.0:3000` inside the container) and, like the CLI, refuses to start without `MCP_HTTP_BEARER_TOKEN`:
+
+```yaml
+services:
+  better-unraid-mcp:
+    image: ghcr.io/mswdev/better-unraid-mcp:latest
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      UNRAID_API_URL: https://tower.local/graphql
+      UNRAID_API_KEY: ${UNRAID_API_KEY}
+      MCP_HTTP_BEARER_TOKEN: ${MCP_HTTP_BEARER_TOKEN}
+      MCP_HTTP_ALLOWED_HOSTS: localhost,mcp.example.com   # DNS-rebinding protection
+      # UNRAID_SSH_HOST / UNRAID_SSH_PASSWORD for host tools; MCP_HTTP_SESSIONS=true for subscriptions/elicitation
+    restart: unless-stopped
+```
+
+Point your client at `http://<host>:3000/mcp` with `Authorization: Bearer <token>`; put TLS in front before leaving the LAN. Multi-arch (amd64/arm64) images are published for every release tag.
 
 ## Security
 
