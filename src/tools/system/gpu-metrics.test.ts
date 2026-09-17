@@ -70,7 +70,73 @@ describe("gpu_metrics", () => {
   });
 });
 
+/** The format actually observed on Unraid 7.3.2: tab-indented objects with NO separating commas, last one cut mid-way. */
+const INTEL_RAW_DEVICE = `[
+
+{
+\t"period": {
+\t\t"duration": 56.4,
+\t\t"unit": "ms"
+\t},
+\t"frequency": {
+\t\t"requested": 0.0,
+\t\t"actual": 0.0,
+\t\t"unit": "MHz"
+\t},
+\t"rc6": {
+\t\t"value": 0.0,
+\t\t"unit": "%"
+\t},
+\t"engines": {
+\t\t"Video": {
+\t\t\t"busy": 0.0,
+\t\t\t"unit": "%"
+\t\t}
+\t},
+\t"clients": {
+
+\t}
+}
+{
+\t"period": {
+\t\t"duration": 1041.4,
+\t\t"unit": "ms"
+\t},
+\t"frequency": {
+\t\t"requested": 2454.2,
+\t\t"actual": 46.9,
+\t\t"unit": "MHz"
+\t},
+\t"rc6": {
+\t\t"value": 60.7,
+\t\t"unit": "%"
+\t},
+\t"engines": {
+\t\t"Video": {
+\t\t\t"busy": 0.39,
+\t\t\t"unit": "%"
+\t\t}
+\t},
+\t"clients": {
+\t\t"4294345382": {
+\t\t\t"name": "Plex Transcoder",
+\t\t\t"pid": "621914"
+\t\t}
+\t}
+}
+{
+\t"period": {
+\t\t"duration": 10`;
+
 describe("parseIntelSample", () => {
+  it("parses the last COMPLETE object of the newline-separated device format", () => {
+    const sample = parseIntelSample(INTEL_RAW_DEVICE);
+
+    expect(sample?.frequencyMhz).toBeCloseTo(46.9);
+    expect(sample?.engines).toEqual([{ name: "Video", busyPercent: 0.39 }]);
+    expect(sample?.clients).toEqual([{ name: "Plex Transcoder", pid: "621914" }]);
+  });
+
   it("parses the LAST object of an unterminated intel_gpu_top -J array", () => {
     const sample = parseIntelSample(INTEL_RAW);
 

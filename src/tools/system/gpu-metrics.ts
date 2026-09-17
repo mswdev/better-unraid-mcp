@@ -96,20 +96,64 @@ function nestedNumber(record: Record<string, unknown>, key: string, field: strin
   return Number.isFinite(value) ? value : null;
 }
 
-/** intel_gpu_top -J is killed by `timeout`, so the array is usually unterminated. */
-function parseIntelArray(raw: string): unknown[] | null {
-  const trimmed = raw.trim().replace(/,\s*$/, "");
-  for (const candidate of [trimmed, `${trimmed}]`]) {
-    try {
-      const parsed: unknown = JSON.parse(candidate);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch {
-      // try the next candidate
+/** Tracks a brace-depth scan over raw JSON text, string-aware. */
+interface BraceScan {
+  depth: number;
+  inString: boolean;
+  escaped: boolean;
+  objectStart: number;
+}
+
+/** Advances the scan by one character, returning a completed top-level object when one closes. */
+function scanCharacter(scan: BraceScan, character: string, index: number): string | null {
+  if (scan.inString) {
+    scan.escaped = !scan.escaped && character === "\\";
+    if (character === '"' && !scan.escaped) {
+      scan.inString = false;
+    }
+    return null;
+  }
+  if (character === '"') {
+    scan.inString = true;
+    return null;
+  }
+  if (character === "{") {
+    scan.objectStart = scan.depth === 0 ? index : scan.objectStart;
+    scan.depth += 1;
+    return null;
+  }
+  return character === "}" ? closeBrace(scan) : null;
+}
+
+/** Book-keeps a closing brace; the caller slices the object text when depth returns to zero. */
+function closeBrace(scan: BraceScan): string | null {
+  scan.depth = Math.max(0, scan.depth - 1);
+  return scan.depth === 0 ? "close" : null;
+}
+
+/**
+ * intel_gpu_top -J streams top-level objects separated by newlines (no
+ * commas) inside an array that `timeout` never lets it close, and the last
+ * object is usually cut mid-way — so complete objects are sliced by brace
+ * depth and parsed individually.
+ */
+function parseIntelObjects(raw: string): unknown[] {
+  const scan: BraceScan = { depth: 0, inString: false, escaped: false, objectStart: 0 };
+  const objects: unknown[] = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    if (scanCharacter(scan, raw[index], index) === "close") {
+      objects.push(parseJsonOrNull(raw.slice(scan.objectStart, index + 1)));
     }
   }
-  return null;
+  return objects.filter((object) => object !== null);
+}
+
+function parseJsonOrNull(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function parseEngines(engines: unknown): IntelSample["engines"] {
@@ -140,8 +184,7 @@ function parseClients(clients: unknown): IntelSample["clients"] {
  * parseIntelSample('[{"frequency":{"actual":46.9},"engines":{"Video":{"busy":0.4}}}')?.frequencyMhz; // 46.9
  */
 export function parseIntelSample(raw: string): IntelSample | null {
-  const periods = parseIntelArray(raw);
-  const last = periods?.at(-1);
+  const last = parseIntelObjects(raw).at(-1);
   if (!isRecord(last)) {
     return null;
   }
