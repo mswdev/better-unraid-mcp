@@ -53,6 +53,8 @@ import { registerSystemHealth } from "./system/system-health.js";
 import { registerSystemInfo } from "./system/system-info.js";
 import { registerSystemMetrics } from "./system/system-metrics.js";
 import { registerSystemPower } from "./system/system-power.js";
+import { registerUnassignedAction } from "./unassigned/unassigned-action.js";
+import { registerUnassignedList } from "./unassigned/unassigned-list.js";
 import { registerUpsStatus } from "./ups/ups-status.js";
 import { registerUserScriptList } from "./userscripts/user-script-list.js";
 import { registerUserScriptRun } from "./userscripts/user-script-run.js";
@@ -193,6 +195,8 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: true, register: (server, { shell }) => registerFlashBackup(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerServiceList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerServiceAction(server, shell) },
+  { isMutating: false, register: (server, { shell }) => registerUnassignedList(server, shell) },
+  { isMutating: true, register: (server, { shell }) => registerUnassignedAction(server, shell) },
   {
     isMutating: false,
     register: (server, { shell, liveStore }) => registerDockerStats(server, shell, liveStore),
