@@ -406,7 +406,7 @@ export type DiskListQuery = { disks: Array<{ device: string, name: string, vendo
 export type DockerAutostartStateQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DockerAutostartStateQuery = { docker: { containers: Array<{ id: string, names: Array<string>, autoStart: boolean, autoStartOrder: number | null, autoStartWait: number | null }> } };
+export type DockerAutostartStateQuery = { docker: { containers: Array<{ id: string, names: Array<string>, autoStart: boolean, autoStartOrder: number | null, autoStartWait: number | null }> } | null };
 
 export type DockerSetAutostartMutationVariables = Exact<{
   entries: Array<DockerAutostartEntryInput> | DockerAutostartEntryInput;
@@ -454,7 +454,7 @@ export type DockerRestartMutation = { docker: { restart: { id: string, names: Ar
 export type DockerContainerListQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DockerContainerListQuery = { docker: { containers: Array<{ id: string, names: Array<string>, image: string, state: ContainerState, status: string, autoStart: boolean, isUpdateAvailable: boolean | null }> } };
+export type DockerContainerListQuery = { docker: { containers: Array<{ id: string, names: Array<string>, image: string, state: ContainerState, status: string, autoStart: boolean, isUpdateAvailable: boolean | null }> } | null };
 
 export type DockerContainerLogsQueryVariables = Exact<{
   id: string;
@@ -463,7 +463,7 @@ export type DockerContainerLogsQueryVariables = Exact<{
 }>;
 
 
-export type DockerContainerLogsQuery = { docker: { logs: { containerId: string, cursor: string | null, lines: Array<{ timestamp: string, message: string }> } } };
+export type DockerContainerLogsQuery = { docker: { logs: { containerId: string, cursor: string | null, lines: Array<{ timestamp: string, message: string }> } } | null };
 
 export type DockerRemoveContainerMutationVariables = Exact<{
   id: string;
@@ -488,12 +488,12 @@ export type DockerUpdateAllMutation = { docker: { updateAllContainers: Array<{ i
 export type DockerNetworkListQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DockerNetworkListQuery = { docker: { networks: Array<{ id: string, name: string, driver: string, scope: string, enableIPv6: boolean, internal: boolean, attachable: boolean }> } };
+export type DockerNetworkListQuery = { docker: { networks: Array<{ id: string, name: string, driver: string, scope: string, enableIPv6: boolean, internal: boolean, attachable: boolean }> } | null };
 
 export type DockerPortConflictsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DockerPortConflictsQuery = { docker: { portConflicts: { containerPorts: Array<{ privatePort: number, type: ContainerPortType, containers: Array<{ id: string, name: string }> }>, lanPorts: Array<{ lanIpPort: string, publicPort: number | null, type: ContainerPortType, containers: Array<{ id: string, name: string }> }> } } };
+export type DockerPortConflictsQuery = { docker: { portConflicts: { containerPorts: Array<{ privatePort: number, type: ContainerPortType, containers: Array<{ id: string, name: string }> }>, lanPorts: Array<{ lanIpPort: string, publicPort: number | null, type: ContainerPortType, containers: Array<{ id: string, name: string }> }> } } | null };
 
 export type LogListQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -642,7 +642,7 @@ export type ConnectionDoctorQuery = { online: boolean, info: { versions: { core:
 export type SystemHealthQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type SystemHealthQuery = { array: { state: ArrayState, capacity: { kilobytes: { used: string, total: string } }, parityCheckStatus: { status: ParityCheckStatus, errors: number | null, running: boolean | null }, parities: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null }>, disks: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null, numErrors: string | null }>, caches: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null }> }, notifications: { overview: { unread: { warning: number, alert: number } } }, docker: { containers: Array<{ isUpdateAvailable: boolean | null }> } };
+export type SystemHealthQuery = { array: { state: ArrayState, capacity: { kilobytes: { used: string, total: string } }, parityCheckStatus: { status: ParityCheckStatus, errors: number | null, running: boolean | null }, parities: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null }>, disks: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null, numErrors: string | null }>, caches: Array<{ name: string | null, status: ArrayDiskStatus | null, temp: number | null }> }, notifications: { overview: { unread: { warning: number, alert: number } } }, docker: { containers: Array<{ isUpdateAvailable: boolean | null }> } | null };
 
 export type SystemInfoQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -664,7 +664,7 @@ export type UpsStatusQuery = { upsDevices: Array<{ id: string, name: string, mod
 export type VmResolveQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type VmResolveQuery = { vms: { domains: Array<{ id: string, name: string | null }> | null } };
+export type VmResolveQuery = { vms: { domains: Array<{ id: string, name: string | null }> | null } | null };
 
 export type VmStartMutationVariables = Exact<{
   id: string;
@@ -718,7 +718,7 @@ export type VmResetMutation = { vm: { reset: boolean } };
 export type VmListQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type VmListQuery = { vms: { domains: Array<{ id: string, name: string | null, state: VmState }> | null } };
+export type VmListQuery = { vms: { domains: Array<{ id: string, name: string | null, state: VmState }> | null } | null };
 
 
 export const ApiKeyListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ApiKeyList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"roles"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resource"}},{"kind":"Field","name":{"kind":"Name","value":"actions"}}]}}]}}]}}]} as unknown as DocumentNode<ApiKeyListQuery, ApiKeyListQueryVariables>;
