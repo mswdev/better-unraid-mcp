@@ -190,27 +190,63 @@ describe("SshShellExecutor channel bounding", () => {
   });
 });
 
+describe("SshShellExecutor private key", () => {
+  let keyDirectory = "";
+
+  beforeEach(() => {
+    keyDirectory = mkdtempSync(join(tmpdir(), "executor-key-"));
+  });
+
+  afterEach(() => {
+    rmSync(keyDirectory, { recursive: true, force: true });
+  });
+
+  /** A factory recording the connect config each new connection receives. */
+  function recordingConfigFactory() {
+    const configs: ConnectConfig[] = [];
+    const connections: FakeConnection[] = [];
+    const factory: SshConnectionFactory = async (config) => {
+      configs.push(config);
+      const connection = makeFakeConnection();
+      connections.push(connection);
+      return connection;
+    };
+    return { factory, configs, connections };
+  }
+
+  it("reads the key once at construction and reuses it for every reconnect", async () => {
+    const keyPath = join(keyDirectory, "id_ed25519");
+    writeFileSync(keyPath, "fake-private-key");
+    const { factory, configs, connections } = recordingConfigFactory();
+    const executor = new SshShellExecutor({ ...settings, privateKeyPath: keyPath }, factory);
+    rmSync(keyPath);
+
+    await executor.execute("echo one", 1000);
+    connections[0].triggerClose();
+    await executor.execute("echo two", 1000);
+
+    expect(configs.map((config) => config.privateKey?.toString())).toEqual([
+      "fake-private-key",
+      "fake-private-key",
+    ]);
+    expect(configs[0].password).toBe("pw");
+  });
+
+  it("fails at construction, not first use, when the key file is missing", () => {
+    const { factory, configs } = recordingConfigFactory();
+    const missingKeyPath = join(keyDirectory, "missing-key");
+
+    const construct = () =>
+      new SshShellExecutor({ ...settings, privateKeyPath: missingKeyPath }, factory);
+
+    expect(construct).toThrow(/ENOENT/);
+    expect(configs).toHaveLength(0);
+  });
+});
+
 describe("SshShellExecutor connection setup", () => {
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("reads the configured private key once and hands it to the connection", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "executor-key-"));
-    const keyPath = join(directory, "id_ed25519");
-    writeFileSync(keyPath, "fake-private-key");
-    const configs: ConnectConfig[] = [];
-    const factory: SshConnectionFactory = async (config) => {
-      configs.push(config);
-      return makeFakeConnection();
-    };
-    const executor = new SshShellExecutor({ ...settings, privateKeyPath: keyPath }, factory);
-
-    await executor.execute("echo ok", 1000);
-    rmSync(directory, { recursive: true, force: true });
-
-    expect(configs[0].privateKey?.toString()).toBe("fake-private-key");
-    expect(configs[0].password).toBe("pw");
   });
 
   it("times out a connection attempt that never completes", async () => {
