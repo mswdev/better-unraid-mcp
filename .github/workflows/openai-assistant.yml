@@ -40,7 +40,7 @@ jobs:
       entity_number: ${{ steps.context.outputs.entity_number }}
       is_pr: ${{ steps.context.outputs.is_pr }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
