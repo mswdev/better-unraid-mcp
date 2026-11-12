@@ -17,7 +17,7 @@
 
 [Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote-http-transport) · [Security](#security) · [FAQ](#faq) · [Development](#development)
 
-<img src="docs/assets/demo.svg" alt="A Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
+<img src="docs/assets/demo.svg" alt="Better Unraid MCP in a Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
 </div>
 
@@ -538,9 +538,9 @@ The Unraid API key controls your server. Give it the least privilege you need, k
 
 The Model Context Protocol (MCP) is the standard AI clients use to call outside tools. An Unraid MCP server exposes your Unraid server's status and controls as MCP tools, so an assistant such as Claude, Codex, or Gemini CLI can check the array, read a log, or restart a container when you ask. Better Unraid MCP provides 67 of those tools.
 
-### Is this an official Unraid project?
+### Is there an official Unraid MCP server?
 
-No. Better Unraid MCP is an independent, MIT-licensed community project and isn't affiliated with Unraid or Lime Technology. It talks to the official GraphQL API that ships with Unraid.
+Not as of November 2026. Unraid doesn't ship or recommend an MCP server of its own. Better Unraid MCP is an independent, MIT-licensed community project and isn't affiliated with Unraid or Lime Technology. It talks to the official GraphQL API that ships with Unraid.
 
 ### Which Unraid versions does it support?
 
@@ -558,9 +558,9 @@ Any MCP client. The [Quick start](#quick-start) has setup steps for Claude Code,
 
 Yes. Set `MCP_READ_ONLY=true` and use a VIEWER-role API key, and nothing in the server can change your machine; see the [cautious quickstart](#cautious-quickstart-read-only). With writes enabled, every destructive tool refuses to run without `confirm: true`, and the riskiest ones also need `acknowledge_risk: true`.
 
-### Do I need SSH?
+### Does the AI get SSH or root access to my server?
 
-No. The GraphQL API covers most of the tools. SSH is optional and turns on the tools marked SSH in the [tool list](#tools), such as ZFS, SMART reports, flash backup, User Scripts, file reads, and one-off commands.
+Not unless you turn it on. By default the server only calls the Unraid GraphQL API, with whatever permissions your API key has. SSH is optional: setting `UNRAID_SSH_HOST` turns on the tools marked SSH in the [tool list](#tools), such as ZFS, SMART reports, flash backup, User Scripts, file reads, and one-off commands.
 
 ## Development
 
