@@ -15,7 +15,7 @@
 [![Docker](https://img.shields.io/badge/ghcr.io-better--unraid--mcp-2496ed?logo=docker&logoColor=white)](https://github.com/mswdev/better-unraid-mcp/pkgs/container/better-unraid-mcp)
 [![Claude Desktop bundle](https://img.shields.io/badge/.mcpb-one--click%20install-d97706)](https://github.com/mswdev/better-unraid-mcp/releases/latest)
 
-[Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote--http-transport) · [Security](#security) · [Development](#development)
+[Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote-http-transport) · [Security](#security) · [Development](#development)
 
 <img src="docs/assets/demo.svg" alt="A Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
@@ -480,7 +480,7 @@ The server is built on the MCP TypeScript SDK v2 (protocol revision 2026-07-28).
 
 See [`.env.example`](.env.example) for a copy-paste template.
 
-## Remote / HTTP transport
+## Remote HTTP transport
 
 For remote or hosted clients, run over Streamable HTTP instead of stdio:
 
