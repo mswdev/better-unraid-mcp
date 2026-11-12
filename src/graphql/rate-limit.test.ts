@@ -73,6 +73,7 @@ describe("TokenBucket default clock and sleep", () => {
   });
 
   it("waits on a real timer for the next token when no sleep is injected", async () => {
+    const msPerToken = 1_000;
     vi.useFakeTimers();
     const bucket = new TokenBucket({ capacity: 1, refillPerSecond: 1 });
     await bucket.acquire();
@@ -81,7 +82,7 @@ describe("TokenBucket default clock and sleep", () => {
     const second = bucket.acquire().then(() => {
       granted = true;
     });
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(msPerToken - 1);
     const grantedEarly = granted;
     await vi.advanceTimersByTimeAsync(1);
     await second;

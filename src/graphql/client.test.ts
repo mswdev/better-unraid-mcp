@@ -220,6 +220,7 @@ describe("UnraidClient transport failures", () => {
   });
 
   it("waits the fixed 429 delay on a real timer when no sleep is injected", async () => {
+    const tooManyRequestsDelayMs = 1_000;
     vi.useFakeTimers();
     const responses = [
       { ok: false, status: 429, statusText: "Too Many Requests" } as Response,
@@ -233,7 +234,7 @@ describe("UnraidClient transport failures", () => {
     });
 
     const pending = client.execute(PingDoc);
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(tooManyRequestsDelayMs - 1);
     const remainingBeforeDelay = responses.length;
     await vi.advanceTimersByTimeAsync(1);
 

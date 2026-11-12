@@ -218,11 +218,12 @@ describe("SshShellExecutor connection setup", () => {
     const never: SshConnectionFactory = () => new Promise<SshConnection>(() => {});
     const executor = new SshShellExecutor(settings, never);
 
-    const pending = executor.execute("echo ok", 1000);
+    const deadlineMs = 1_000;
+    const pending = executor.execute("echo ok", deadlineMs);
     const assertion = expect(pending).rejects.toThrow(
-      "Timed out after 1000 ms trying to connect over SSH.",
+      `Timed out after ${deadlineMs} ms trying to connect over SSH.`,
     );
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(deadlineMs);
 
     await assertion;
   });
@@ -349,11 +350,12 @@ describe("openSshConnection over an ssh2-style client", () => {
     const connection = await openSshConnection(connectConfig, ClientImpl);
     vi.useFakeTimers();
 
-    const pending = connection.exec("sleep 100", 500);
+    const deadlineMs = 500;
+    const pending = connection.exec("sleep 100", deadlineMs);
     const assertion = expect(pending).rejects.toThrow(
-      /Timed out after 500 ms trying to run the command over SSH/,
+      `Timed out after ${deadlineMs} ms trying to run the command over SSH`,
     );
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(deadlineMs);
 
     await assertion;
     expect(instances[0].channel.closed).toBe(true);
