@@ -80,6 +80,9 @@
     "vitest": "^5.0.0"
   },
   "overrides": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "graphql-config": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
