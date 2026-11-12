@@ -380,6 +380,29 @@ function hungUpResponse(headersSent: boolean) {
   return { response, calls };
 }
 
+/** A session store on a controllable clock whose fake transports initialize on first request. */
+function clockedSessionStore(clock: { nowMs: number }) {
+  let opened = 0;
+  const sessionStore = new SessionStore({
+    buildServer: () => ({ connect: async () => {}, close: async () => {} }) as unknown as McpServer,
+    logger: noopLogger,
+    now: () => clock.nowMs,
+    buildTransport: (onInitialized) => ({
+      handleRequest: async () => onInitialized(`session-${opened}`),
+      close: async () => {},
+    }),
+  });
+  const openSession = async () => {
+    opened += 1;
+    await sessionStore.handle(
+      fakeRequest("POST", "/mcp"),
+      fakeResponse().response,
+      initializeRequest,
+    );
+  };
+  return { sessionStore, openSession };
+}
+
 describe("startHttp", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -412,30 +435,22 @@ describe("startHttp", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("sweeps idle sessions on an interval in session mode", async () => {
+  it("keeps sweeping idle sessions on every interval in session mode", async () => {
     vi.useFakeTimers();
-    let nowMs = 0;
-    const sessionStore = new SessionStore({
-      buildServer: () =>
-        ({ connect: async () => {}, close: async () => {} }) as unknown as McpServer,
-      logger: noopLogger,
-      now: () => nowMs,
-      buildTransport: (onInitialized) => ({
-        handleRequest: async () => onInitialized("session-1"),
-        close: async () => {},
-      }),
-    });
-    await sessionStore.handle(
-      fakeRequest("POST", "/mcp"),
-      fakeResponse().response,
-      initializeRequest,
-    );
+    const clock = { nowMs: 0 };
+    const { sessionStore, openSession } = clockedSessionStore(clock);
+    await openSession();
     const { factory } = fakeHttpServer("listening");
     await startHttp({ ...options, sessionStore }, factory);
 
-    nowMs = SESSION_IDLE_EXPIRY_MS + 1;
+    clock.nowMs += SESSION_IDLE_EXPIRY_MS + 1;
+    await vi.advanceTimersByTimeAsync(SESSION_SWEEP_INTERVAL_MS);
+    const sizeAfterFirstSweep = sessionStore.size();
+    await openSession();
+    clock.nowMs += SESSION_IDLE_EXPIRY_MS + 1;
     await vi.advanceTimersByTimeAsync(SESSION_SWEEP_INTERVAL_MS);
 
+    expect(sizeAfterFirstSweep).toBe(0);
     expect(sessionStore.size()).toBe(0);
   });
 
