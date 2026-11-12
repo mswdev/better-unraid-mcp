@@ -257,7 +257,9 @@ function memoryExchange(method: string, extra: { body?: unknown; sessionId?: str
   request.complete = true;
   const response = new ServerResponse(request);
   response.assignSocket(socket as never);
-  return { request, response, raw: () => Buffer.concat(written).toString("utf8") };
+  // Response bytes reach the socket asynchronously (corked writes, streamed SSE bodies).
+  const finished = new Promise<void>((resolve) => response.on("finish", () => resolve()));
+  return { request, response, finished, raw: () => Buffer.concat(written).toString("utf8") };
 }
 
 const initializeRequest = {
@@ -281,6 +283,7 @@ describe("routeRequest with the real SDK transport", () => {
       ...options,
       buildServer: buildRealServer,
     });
+    await exchange.finished;
 
     expect(exchange.raw()).toMatch(/^HTTP\/1\.1 200 OK/);
     expect(exchange.raw()).toContain('"serverInfo":{"name":"test-server","version":"1.0.0"}');
@@ -294,11 +297,13 @@ describe("routeRequest with the real SDK transport", () => {
       return server;
     };
     await routeRequest(exchange.request, exchange.response, { ...options, buildServer });
+    await exchange.finished;
+    const connectedBeforeClose = server?.isConnected();
 
     exchange.response.emit("close");
-    await new Promise((resolve) => setImmediate(resolve));
 
-    expect(server?.isConnected()).toBe(false);
+    expect(connectedBeforeClose).toBe(true);
+    await vi.waitFor(() => expect(server?.isConnected()).toBe(false));
   });
 
   it("opens a session on initialize and tears it down on DELETE", async () => {
@@ -306,6 +311,7 @@ describe("routeRequest with the real SDK transport", () => {
     const sessionOptions = { ...options, sessionStore };
     const opened = memoryExchange("POST", { body: initializeRequest });
     await routeRequest(opened.request, opened.response, sessionOptions);
+    await opened.finished;
     const sessionId = /mcp-session-id: (\S+)/i.exec(opened.raw())?.[1];
     const sizeAfterOpen = sessionStore.size();
 
