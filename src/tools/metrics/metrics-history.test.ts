@@ -103,3 +103,19 @@ describe("metrics_history", () => {
     expect(parsed.recording_since).toMatch(/^\d{4}/);
   });
 });
+
+describe("metrics_history before recording starts", () => {
+  it("dates an unstarted recorder's empty window from the current time", async () => {
+    const recorder = new MetricsHistoryRecorder({ feed: { subscribe: () => () => {} } });
+    const handler = createMetricsHistoryHandler(recorder);
+    const before = Date.now();
+
+    const result = await handler({ topic: "cpu", window_minutes: 60, response_format: "concise" });
+
+    const after = Date.now();
+    const since = Date.parse(firstText(result).split("Recording since ")[1].split(";")[0]);
+    expect(firstText(result)).toContain("no cpu samples yet");
+    expect(since).toBeGreaterThanOrEqual(before);
+    expect(since).toBeLessThanOrEqual(after);
+  });
+});

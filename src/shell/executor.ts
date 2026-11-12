@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
+import { Client, type ConnectConfig } from "ssh2";
 
 /** How long to wait for the SSH handshake before giving up. */
 const CONNECT_TIMEOUT_MS = 10_000;
@@ -56,6 +56,30 @@ export interface SshConnection {
 
 /** Opens a connection; injectable so tests never touch the network. */
 export type SshConnectionFactory = (config: ConnectConfig) => Promise<SshConnection>;
+
+/** The slice of an ssh2 exec channel the executor reads. Test seam. */
+export interface SshChannelLike {
+  on(event: "data", listener: (chunk: Buffer) => void): unknown;
+  on(event: "close", listener: (code: number | null) => void): unknown;
+  stderr: { on(event: "data", listener: (chunk: Buffer) => void): unknown };
+  close(): unknown;
+}
+
+/** The slice of the ssh2 `Client` the real connection factory drives. Test seam. */
+export interface SshClientLike {
+  once(event: "ready", listener: () => void): unknown;
+  once(event: "error", listener: (error: Error) => void): unknown;
+  on(event: "close" | "error", listener: () => void): unknown;
+  connect(config: ConnectConfig): unknown;
+  exec(
+    command: string,
+    callback: (error: Error | undefined, channel: SshChannelLike) => void,
+  ): unknown;
+  end(): unknown;
+}
+
+/** Constructs an unconnected ssh2-style client. */
+export type SshClientConstructor = new () => SshClientLike;
 
 /**
  * Runs commands over ONE kept-alive SSH connection: lazy connect on first
@@ -191,9 +215,20 @@ export class SshShellExecutor implements ShellExecutor {
   }
 }
 
-/** The real ssh2-backed connection factory. */
-async function openSshConnection(config: ConnectConfig): Promise<SshConnection> {
-  const client = await connect(config);
+/**
+ * The real ssh2-backed connection factory: handshakes, then exposes exec,
+ * end, and close notification over the one client.
+ *
+ * @param config - ssh2 connection settings (host, credentials, keepalive).
+ * @param ClientImpl - The client constructor; ssh2's `Client` outside tests.
+ * @returns The open connection.
+ * @throws Error when the handshake or authentication fails.
+ */
+export async function openSshConnection(
+  config: ConnectConfig,
+  ClientImpl: SshClientConstructor = Client,
+): Promise<SshConnection> {
+  const client = await connect(config, ClientImpl);
   return {
     exec: (command, timeoutMs) => run(client, command, timeoutMs),
     end: () => client.end(),
@@ -205,9 +240,9 @@ async function openSshConnection(config: ConnectConfig): Promise<SshConnection> 
 }
 
 /** Opens an SSH connection, resolving once the handshake completes. */
-function connect(config: ConnectConfig): Promise<Client> {
+function connect(config: ConnectConfig, ClientImpl: SshClientConstructor): Promise<SshClientLike> {
   return new Promise((resolve, reject) => {
-    const client = new Client();
+    const client = new ClientImpl();
     client.once("ready", () => resolve(client));
     client.once("error", reject);
     client.connect(config);
@@ -219,7 +254,7 @@ function connect(config: ConnectConfig): Promise<Client> {
  * timeout the channel is closed (freeing the ssh session slot and stopping
  * output buffering); note the remote process itself may keep running.
  */
-function run(connection: Client, command: string, timeoutMs: number): Promise<ShellResult> {
+function run(connection: SshClientLike, command: string, timeoutMs: number): Promise<ShellResult> {
   return new Promise((resolve, reject) => {
     connection.exec(command, (error, stream) => {
       if (error) {
@@ -247,7 +282,7 @@ function run(connection: Client, command: string, timeoutMs: number): Promise<Sh
  * close. A null code (signal kill, dropped channel) maps to
  * EXIT_CODE_UNKNOWN, never 0 — success must come from a real exit status.
  */
-function collect(stream: ClientChannel, resolve: (result: ShellResult) => void): void {
+function collect(stream: SshChannelLike, resolve: (result: ShellResult) => void): void {
   let stdout = "";
   let stderr = "";
   stream.on("data", (chunk: Buffer) => {

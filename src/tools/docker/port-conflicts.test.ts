@@ -71,3 +71,43 @@ describe("docker_port_conflicts handler", () => {
     expect(firstText(result)).toMatch(/No port conflicts\./);
   });
 });
+
+describe("docker_port_conflicts failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerPortConflictsHandler(throwingExecutor("socket hang up"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch Docker port conflicts: socket hang up");
+  });
+});
+
+describe("docker_port_conflicts single-kind reports", () => {
+  it("lists only LAN collisions when no internal ports are shared", async () => {
+    const lanOnly = {
+      docker: { portConflicts: { ...data.docker.portConflicts, containerPorts: [] } },
+    } satisfies DockerPortConflictsQuery;
+
+    const result = await createDockerPortConflictsHandler(fakeExecutor(lanOnly))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toBe(
+      "LAN/host port conflicts (real collisions): 192.168.1.10:443 (nginx)",
+    );
+  });
+
+  it("lists only shared internal ports when there are no LAN collisions", async () => {
+    const internalOnly = {
+      docker: { portConflicts: { ...data.docker.portConflicts, lanPorts: [] } },
+    } satisfies DockerPortConflictsQuery;
+
+    const result = await createDockerPortConflictsHandler(fakeExecutor(internalOnly))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toMatch(/^Containers sharing an internal port/);
+    expect(firstText(result)).not.toContain("LAN/host");
+  });
+});

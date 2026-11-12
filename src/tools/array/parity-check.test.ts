@@ -9,12 +9,7 @@ import {
   ParityCheckStartDocument,
   type ParityCheckStartMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createParityCheckHandler } from "./parity-check.js";
 
 // Upstream returns a stale parity-history array as the JSON! payload
@@ -199,8 +194,8 @@ describe("parity_check error mapping", () => {
     expect(firstText(result)).toBe("Failed to cancel the parity check: Forbidden resource");
   });
 
-  it("coerces non-Error rejections to strings", async () => {
-    const executor = rejectingExecutor("denied");
+  it("prefixes executor failures with the tool context", async () => {
+    const executor = throwingExecutor("denied");
 
     const result = await createParityCheckHandler(executor)({
       response_format: "concise",

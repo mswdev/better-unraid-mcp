@@ -165,9 +165,7 @@ export class SessionStore {
       record.streaming = false;
       record.lastSeenAt = this.now();
     };
-    if (typeof response.on === "function") {
-      response.on("close", listener);
-    }
+    response.on("close", listener);
   }
 
   /** Builds a server + transport pair and registers it on initialization. */
@@ -177,7 +175,6 @@ export class SessionStore {
     body: unknown,
   ): Promise<void> {
     const server = this.options.buildServer();
-    // biome-ignore lint/style/useConst: assigned below, referenced by the callback closure.
     let transport: TransportLike;
     let initialized = false;
     const onInitialized = (sessionId: string) => {

@@ -7,8 +7,9 @@ import {
   type TimestampedContainerStats,
 } from "../../graphql/live-store.js";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_stats";
 /**
@@ -144,7 +145,7 @@ export function createDockerStatsHandler(
         containers: rows,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to collect docker stats over SSH: ${message}`);
     }
   };

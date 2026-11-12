@@ -6,7 +6,8 @@ import {
   type CreateNotificationMutation,
   NotifyIfUniqueDocument,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
 const TOOL_NAME = "notification_create";
@@ -79,7 +80,7 @@ export function createNotificationCreateHandler(client: GraphQLExecutor) {
       const concise = `Created notification '${notification.title}' (${notification.importance}).`;
       return formatResponse(args.response_format, concise, { created: true, notification });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to create notification: ${message}`);
     }
   };

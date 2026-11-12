@@ -5,7 +5,8 @@ import {
   DockerNetworkListDocument,
   type DockerNetworkListQuery,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_network_list";
 
@@ -45,12 +46,14 @@ function summarize(networks: Networks): string {
 export function createDockerNetworkListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerNetworkListDocument);
       return formatResponse(response_format, summarize(data.docker.networks), data.docker.networks);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch Docker networks: ${message}`);
     }
   };

@@ -80,3 +80,33 @@ describe("share_delete", () => {
     expect(firstText(result)).toContain("Bad share");
   });
 });
+
+describe("share_delete failures", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createShareDeleteHandler(null);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("rejects an invalid share name before any command", async () => {
+    const { shell, calls } = sequencedShell([]);
+    const handler = createShareDeleteHandler(shell);
+
+    const result = await handler({ name: "../etc", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("No changes were made.");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createShareDeleteHandler(shell);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to delete share over SSH: connection refused");
+  });
+});

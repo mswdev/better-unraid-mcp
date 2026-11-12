@@ -2,7 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ParityHistoryDocument, type ParityHistoryQuery } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_history";
 const DEFAULT_LIMIT = 5;
@@ -56,13 +57,16 @@ export function createParityHistoryHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
     limit,
-  }: { response_format: ResponseFormat; limit: number }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+    limit: number;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ParityHistoryDocument);
       const checks = sortNewestFirst(data.parityHistory).slice(0, limit);
       return formatResponse(response_format, summarize(checks), checks);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch parity history: ${message}`);
     }
   };

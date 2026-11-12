@@ -1,7 +1,7 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { type DocumentNode, Kind } from "graphql";
 import { UnraidApiError } from "./errors.js";
-import { type FetchLike, HttpStatusError, executeGraphQL } from "./execute.js";
+import { executeGraphQL, type FetchLike, HttpStatusError } from "./execute.js";
 import { TokenBucket } from "./rate-limit.js";
 
 const HTTP_TOO_MANY_REQUESTS = 429;

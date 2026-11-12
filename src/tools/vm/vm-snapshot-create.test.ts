@@ -54,3 +54,34 @@ describe("vm_snapshot_create", () => {
     expect(firstText(result)).toContain("domain not found");
   });
 });
+
+describe("vm_snapshot_create failure paths", () => {
+  const request = { vm: "Windows 11", name: "pre-update", ...bothFlags };
+
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createVmSnapshotCreateHandler(null);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("stops before snapshotting when virsh is missing", async () => {
+    const { shell, calls } = sequencedShell([{ stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createVmSnapshotCreateHandler(shell);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("virsh is not available on this server");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([virshFound, new Error("connection reset")]);
+    const handler = createVmSnapshotCreateHandler(shell);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toBe("Failed to create VM snapshot over SSH: connection reset");
+  });
+});

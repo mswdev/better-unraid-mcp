@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import {
   DRY_RUN_VALID_TEXT,
@@ -54,7 +55,7 @@ export function createGraphqlQueryHandler(client: GraphQLExecutor) {
       const data = await client.execute(parsed.document, input.variables);
       return renderJsonResult(data);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`GraphQL query failed: ${message}`);
     }
   };

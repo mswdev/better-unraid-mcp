@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { firstText, sequencedShell } from "../_shared/test-support.js";
@@ -71,6 +71,10 @@ describe("flash_backup gates and validation", () => {
 });
 
 describe("flash_backup archiving", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("archives /boot/config into the share and verifies it", async () => {
     const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk]);
 
@@ -132,6 +136,42 @@ describe("flash_backup archiving", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("verification");
+  });
+
+  it("fails when verification exits 0 but prints no entry and byte counts", async () => {
+    const garbled = ok("not-a-number\n");
+    const { handler } = handlerWith([probeOk, tarOk, garbled]);
+
+    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain(
+      `Archive verification failed for ${EXPECTED_FILE} (exit 0)`,
+    );
+  });
+
+  it("names the archive from the system clock when no clock is injected", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(fixedNow);
+    const { shell, calls } = sequencedShell([probeOk, tarOk, verifyOk]);
+    const handler = createFlashBackupHandler({ shell });
+
+    await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(calls[1].command).toBe(
+      `mkdir -p '${EXPECTED_DIR}' && tar -czf '${EXPECTED_FILE}' -C '/boot' 'config'`,
+    );
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { handler } = handlerWith([new Error("connection refused")]);
+
+    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      "Failed to back up the flash device over SSH: connection refused",
+    );
   });
 
   it("returns a structured payload in detailed mode", async () => {

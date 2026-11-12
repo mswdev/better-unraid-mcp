@@ -2,7 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { UpsStatusDocument, type UpsStatusQuery } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "ups_status";
 
@@ -147,7 +148,7 @@ export function createUpsStatusHandler(client: GraphQLExecutor) {
       if (isApcaccessEmpty(error)) {
         return renderApcaccessEmpty(response_format);
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch UPS status: ${message}`);
     }
   };

@@ -1,8 +1,9 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "gpu_metrics";
@@ -240,7 +241,7 @@ export function createGpuMetricsHandler(shell: ShellExecutor | null) {
         "No GPU tooling found on this server: neither nvidia-smi nor intel_gpu_top is installed. Each ships with its vendor driver plugin (e.g. Nvidia-Driver / Intel-GPU-TOP from Community Applications).",
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to read GPU metrics over SSH: ${message}`);
     }
   };

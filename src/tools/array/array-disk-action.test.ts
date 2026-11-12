@@ -3,6 +3,7 @@ import {
   ArrayDiskAddDocument,
   ArrayDiskClearStatsDocument,
   ArrayDiskMountDocument,
+  ArrayDiskUnmountDocument,
   ArrayStateProbeDocument,
 } from "../../types/unraid/graphql.js";
 import {
@@ -139,6 +140,25 @@ describe("array_disk_action happy paths", () => {
     expect(calls[1].variables).toEqual({ id: "disk1" });
   });
 
+  it("unmounts a disk on a started array and points at verification", async () => {
+    const { executor, calls } = sequencedExecutor([
+      startedProbe,
+      { array: { unmountArrayDisk: { id: "disk1", status: "DISK_OK" } } },
+    ]);
+    const handler = createArrayDiskActionHandler(executor);
+
+    const result = await handler({
+      response_format: "concise",
+      action: "unmount",
+      id: "disk1",
+      ...bothFlags,
+    });
+
+    expect(calls[1].document).toBe(ArrayDiskUnmountDocument);
+    expect(calls[1].variables).toEqual({ id: "disk1" });
+    expect(firstText(result)).toContain("Disk unmount requested for disk1");
+  });
+
   it("clears statistics on a started array", async () => {
     const { executor, calls } = sequencedExecutor([
       startedProbe,
@@ -170,5 +190,19 @@ describe("array_disk_action failures", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("forbidden");
+  });
+
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createArrayDiskActionHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({
+      response_format: "concise",
+      action: "mount",
+      id: "disk1",
+      ...bothFlags,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to mount disk disk1: socket hang up");
   });
 });

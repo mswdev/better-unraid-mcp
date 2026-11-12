@@ -6,8 +6,9 @@ import {
   DockerContainerLogsDocument,
   type DockerContainerLogsQuery,
 } from "../../../types/unraid/graphql.js";
+import { errorMessage } from "../../_shared/errors/error-message.js";
 import { quoteForShell } from "../../_shared/quote-shell.js";
-import { type ResponseFormat, formatResponse, toolError, toolText } from "../../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError, toolText } from "../../_shared/respond.js";
 import { truncateOutput } from "../../_shared/truncate-output.js";
 
 const TOOL_NAME = "docker_container_logs";
@@ -119,7 +120,7 @@ export function createDockerContainerLogsHandler(
       }
       return formatResponse(input.response_format, summarize(data.docker.logs), data.docker.logs);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch logs for ${input.id}: ${message}`);
     }
   };

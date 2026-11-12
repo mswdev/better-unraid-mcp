@@ -3,23 +3,23 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import {
+  buildEditQuery,
+  buildSmbQuery,
   CFG_TIMEOUT_MS,
   CONTEXT_SEPARATOR,
   DISKS_INI,
-  EMCMD_TIMEOUT_MS,
   type EditQueryInput,
-  type ShareSettings,
-  VAR_INI,
-  buildEditQuery,
-  buildSmbQuery,
+  EMCMD_TIMEOUT_MS,
   emcmdCommand,
   isReservedName,
   parseDiskNames,
   parsePoolNames,
   parseReservedNames,
   parseShareCfg,
+  type ShareSettings,
   shareCfgPath,
   unverifiedKeys,
+  VAR_INI,
 } from "./_shared.js";
 
 /** Host facts a share write must respect. */

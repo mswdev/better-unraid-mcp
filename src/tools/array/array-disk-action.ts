@@ -9,8 +9,9 @@ import {
   ArrayStateProbeDocument,
 } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_disk_action";
 
@@ -141,7 +142,7 @@ export function createArrayDiskActionHandler(
       const detailed = { action: args.action, id: args.id, slot: args.slot, requested: true };
       return formatResponse(args.response_format, successSummary(args), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to ${args.action} disk ${args.id}: ${message}`);
     }
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { METRIC_SUBSCRIPTIONS, extractSeries } from "./metric-subscriptions.js";
+import { extractSeries, METRIC_SUBSCRIPTIONS } from "./metric-subscriptions.js";
 
 describe("METRIC_SUBSCRIPTIONS", () => {
   it("names the three system-metric feed topics", () => {
@@ -41,5 +41,27 @@ describe("extractSeries", () => {
     expect(extractSeries("cpu", { systemMetricsCpu: { percentTotal: "n/a" } })).toBeNull();
     expect(extractSeries("memory", null)).toBeNull();
     expect(extractSeries("network", { systemMetricsNetwork: "nope" })).toBeNull();
+  });
+});
+
+describe("extractSeries partial samples", () => {
+  it("returns null when the cpu payload is not an object", () => {
+    expect(extractSeries("cpu", { systemMetricsCpu: 12 })).toBeNull();
+  });
+
+  it("returns null when memory reports a percent but no used bytes", () => {
+    expect(extractSeries("memory", { systemMetricsMemory: { percentTotal: 40 } })).toBeNull();
+  });
+
+  it("counts an interface with missing or non-numeric rates as zero throughput", () => {
+    const sample = {
+      systemMetricsNetwork: [
+        { name: "eth0", rxSec: null, txSec: "fast" },
+        { name: "br0", rxSec: 7, txSec: 3 },
+        "garbage",
+      ],
+    };
+
+    expect(extractSeries("network", sample)).toEqual({ rxBytesPerSec: 7, txBytesPerSec: 3 });
   });
 });

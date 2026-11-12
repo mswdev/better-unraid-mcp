@@ -97,3 +97,33 @@ describe("share_edit", () => {
     expect(firstText(result)).toContain("not verified");
   });
 });
+
+describe("share_edit failures", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createShareEditHandler(null);
+
+    const result = await handler({ name: "media", comment: "x", ...bothFlags });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("rejects an invalid share name before any command", async () => {
+    const { shell, calls } = sequencedShell([]);
+    const handler = createShareEditHandler(shell);
+
+    const result = await handler({ name: "bad name", comment: "x", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("No changes were made.");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createShareEditHandler(shell);
+
+    const result = await handler({ name: "media", comment: "x", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to edit share over SSH: connection refused");
+  });
+});

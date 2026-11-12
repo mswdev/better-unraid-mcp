@@ -141,3 +141,16 @@ describe("docker_container_update progress", () => {
     expect(result.isError).toBeUndefined();
   });
 });
+
+describe("docker_container_update failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerContainerUpdateHandler(throwingExecutor("socket hang up"))({
+      ids: ["srv:abc"],
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to update Docker container(s): socket hang up");
+  });
+});

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import type { DockerContainerLogsQuery } from "../../../types/unraid/graphql.js";
-import { firstText, recordingShell, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  sequencedShell,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
 import { createDockerContainerLogsHandler, sinceSchema } from "./container-logs.js";
 
 const data = {
@@ -240,5 +245,32 @@ describe("docker_container_logs timestamp-only artifact", () => {
     });
 
     expect(firstText(result)).toContain("backup finished at 2026-09-14T11:01:30Z");
+  });
+});
+
+describe("docker_container_logs failure paths", () => {
+  const noLines = {
+    docker: { logs: { containerId: "srv:abc", lines: [], cursor: null } },
+  } satisfies DockerContainerLogsQuery;
+
+  it("attempts the SSH fallback once and keeps the no-lines message when it throws", async () => {
+    const { shell, calls } = sequencedShell([new Error("connection refused")]);
+    const handler = createDockerContainerLogsHandler(fakeExecutor(noLines), shell);
+
+    const result = await handler({ id: "Dozzle", response_format: "concise", tail: 50 });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].command).toContain("docker logs");
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/No log lines/);
+  });
+
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createDockerContainerLogsHandler(throwingExecutor("socket hang up"), null);
+
+    const result = await handler({ id: "srv:abc", response_format: "concise", tail: 50 });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch logs for srv:abc: socket hang up");
   });
 });

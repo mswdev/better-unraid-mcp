@@ -1,8 +1,9 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { parse } from "graphql";
 import { describe, expect, it } from "vitest";
+import { SystemMetricsDocument } from "../types/unraid/graphql.js";
 import type { GraphQLExecutor } from "./client.js";
-import { CachingExecutor, SNAPSHOT_TTL_MS, cacheAgeMs } from "./snapshot-cache.js";
+import { CachingExecutor, cacheAgeMs, SNAPSHOT_TTL_MS } from "./snapshot-cache.js";
 
 const HotDoc = parse("query Hot { a }") as unknown as TypedDocumentNode<
   { a: number },
@@ -84,5 +85,49 @@ describe("CachingExecutor", () => {
 
   it("reports undefined age for data it never served", () => {
     expect(cacheAgeMs({ unrelated: true })).toBeUndefined();
+  });
+});
+
+describe("CachingExecutor defaults and invalidation", () => {
+  const ArchiveDoc = parse("mutation Archive { archiveAll }") as unknown as TypedDocumentNode<
+    { archiveAll: boolean },
+    never
+  >;
+
+  it("caches the default hot documents on the system clock when built without options", async () => {
+    const { inner, callCount } = countingInner();
+    const executor = new CachingExecutor(inner);
+
+    await executor.execute(SystemMetricsDocument, { includeTemperature: false });
+    await executor.execute(SystemMetricsDocument, { includeTemperature: false });
+
+    expect(callCount()).toBe(1);
+  });
+
+  it("drops every snapshot after a mutation so the follow-up read is live", async () => {
+    const { inner, callCount } = countingInner();
+    const executor = cacheWith(inner, () => 0);
+
+    await executor.execute(HotDoc);
+    await executor.execute(ArchiveDoc);
+    await executor.execute(HotDoc);
+
+    expect(callCount()).toBe(3);
+  });
+
+  it("keeps snapshots across an uncached query", async () => {
+    const { inner, callCount } = countingInner();
+    const executor = cacheWith(inner, () => 0);
+
+    await executor.execute(HotDoc);
+    await executor.execute(ColdDoc);
+    await executor.execute(HotDoc);
+
+    expect(callCount()).toBe(2);
+  });
+
+  it("reports undefined age for non-object payloads", () => {
+    expect(cacheAgeMs(42)).toBeUndefined();
+    expect(cacheAgeMs(null)).toBeUndefined();
   });
 });

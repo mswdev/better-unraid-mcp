@@ -1,20 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.mswdev/better-unraid-mcp",
-  "description": "Monitor and manage an Unraid server through its GraphQL API and optional SSH: 67 safety-gated tools, live telemetry, health rollups.",
+  "description": "Monitor and manage an Unraid server from any MCP client: array, Docker, VMs, ZFS, logs, and UPS.",
   "title": "Better Unraid MCP",
   "repository": {
     "url": "https://github.com/mswdev/better-unraid-mcp",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://github.com/mswdev/better-unraid-mcp#readme",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "better-unraid-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       },

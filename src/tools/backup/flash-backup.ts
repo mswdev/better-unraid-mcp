@@ -2,12 +2,13 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "flash_backup";
 
@@ -244,7 +245,7 @@ export function createFlashBackupHandler(deps: FlashBackupDeps) {
       }
       return formatResponse(args.response_format, renderSuccess(outcome), outcome);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to back up the flash device over SSH: ${message}`);
     } finally {
       stopHeartbeat();

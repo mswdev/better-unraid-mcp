@@ -11,7 +11,7 @@ import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
  */
 export function firstText(result: CallToolResult): string {
   const block = result.content[0];
-  if (!block || block.type !== "text") {
+  if (block?.type !== "text") {
     throw new Error("Expected a text content block");
   }
   return block.text;
@@ -61,17 +61,6 @@ export function throwingExecutor(message: string): GraphQLExecutor {
       throw new Error(message);
     },
   };
-}
-
-/**
- * Builds a fake executor whose `execute` rejects with a non-`Error` value. Use
- * it to cover the `String(error)` coercion branch of a handler's catch block.
- *
- * @param reason - The non-`Error` rejection value.
- * @returns A fake executor that rejects every call with `reason`.
- */
-export function rejectingExecutor(reason: unknown): GraphQLExecutor {
-  return { execute: () => Promise.reject(reason) };
 }
 
 /**

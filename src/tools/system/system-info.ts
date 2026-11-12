@@ -2,7 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { SystemInfoDocument, type SystemInfoQuery } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_info";
 
@@ -28,12 +29,14 @@ function summarize(data: SystemInfoQuery): string {
 export function createSystemInfoHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(SystemInfoDocument);
       return formatResponse(response_format, summarize(data), data);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch system info: ${message}`);
     }
   };

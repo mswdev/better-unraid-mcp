@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
@@ -47,7 +48,7 @@ export function createDiskSmartReportHandler(shell: ShellExecutor | null) {
       }
       return toolText(truncateOutput(result.stdout.trimEnd()));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to read SMART report over SSH: ${message}`);
     }
   };

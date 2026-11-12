@@ -40,7 +40,7 @@ jobs:
       entity_number: ${{ steps.context.outputs.entity_number }}
       is_pr: ${{ steps.context.outputs.is_pr }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -200,7 +200,7 @@ jobs:
       issues: write
     steps:
       - name: Post response
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex-response.outputs.final_message }}
           ENTITY_NUMBER: ${{ needs.codex-response.outputs.entity_number }}

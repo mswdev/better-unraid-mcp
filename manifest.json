@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "better-unraid-mcp",
   "display_name": "Better Unraid MCP",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Monitor and manage your Unraid server through natural language: 67 safety-gated tools over the Unraid GraphQL API and optional SSH.",
   "long_description": "Better Unraid MCP connects Claude Desktop to your Unraid server's built-in GraphQL API (Unraid 7.2+) — health rollups, logs, Docker, VMs, array and parity control, ZFS, SMART, UPS, notifications, live telemetry, and (with SSH) services, shares, unassigned devices, flash backup. Nothing is installed on the server. Every state-changing tool refuses without confirm, and MCP_READ_ONLY=true hides them entirely.",
   "author": { "name": "Matt White (mswdev)", "url": "https://github.com/mswdev" },

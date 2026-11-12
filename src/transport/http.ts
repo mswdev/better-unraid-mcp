@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { Logger } from "pino";
@@ -32,6 +32,17 @@ export interface HttpTransportOptions {
   sessionStore?: SessionStore;
   logger: Logger;
 }
+
+/** The slice of a `node:http` server that `startHttp` drives. Test seam. */
+export interface HttpServerLike {
+  on(event: "error", listener: (error: Error) => void): unknown;
+  listen(port: number, host: string, onListening: () => void): unknown;
+}
+
+/** Creates an HTTP server around a request listener: `node:http`'s `createServer` outside tests. */
+export type HttpServerFactory = (
+  listener: (request: IncomingMessage, response: ServerResponse) => void,
+) => HttpServerLike;
 
 /** HTTP methods the session-mode endpoint accepts (GET carries the SSE stream). */
 const SESSION_METHODS = new Set(["POST", "GET", "DELETE"]);
@@ -245,12 +256,16 @@ export async function routeRequest(
  * server + transport (no session state) and returns a single JSON response.
  *
  * @param options - Server factory, bind host/port, allowed hosts, and logger.
+ * @param createHttpServer - Builds the listening server; `node:http` `createServer` outside tests.
  * @returns A promise that resolves once the server is listening.
  * @throws Error when the server cannot bind to the requested host/port.
  */
-export function startHttp(options: HttpTransportOptions): Promise<void> {
+export function startHttp(
+  options: HttpTransportOptions,
+  createHttpServer: HttpServerFactory = createServer,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const httpServer = createServer((request, response) => {
+    const httpServer = createHttpServer((request, response) => {
       routeRequest(request, response, options).catch((error) => {
         options.logger.error({ err: error }, "Fatal error routing MCP request");
         if (!response.headersSent) {

@@ -2,7 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationOverviewDocument } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { summarizeOverview } from "./_shared.js";
 
 const TOOL_NAME = "notification_overview";
@@ -20,7 +21,9 @@ const inputSchema = z.object({
 export function createNotificationOverviewHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const { notifications } = await client.execute(NotificationOverviewDocument);
       return formatResponse(
@@ -29,7 +32,7 @@ export function createNotificationOverviewHandler(client: GraphQLExecutor) {
         notifications.overview,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch notification overview: ${message}`);
     }
   };

@@ -2,8 +2,9 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ShareListDocument, type ShareListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "share_list";
 
@@ -51,13 +52,16 @@ export function createShareListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
     name,
-  }: { response_format: ResponseFormat; name?: string }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+    name?: string;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ShareListDocument);
       const shares = filterByName(data.shares, name);
       return formatResponse(response_format, summarize(shares), shares);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch shares: ${message}`);
     }
   };

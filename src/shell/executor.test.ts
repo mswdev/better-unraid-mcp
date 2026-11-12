@@ -1,6 +1,16 @@
+import { EventEmitter } from "node:events";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { ConnectConfig } from "ssh2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  EXIT_CODE_UNKNOWN,
+  openSshConnection,
   type ShellResult,
+  type SshChannelLike,
+  type SshClientConstructor,
+  type SshClientLike,
   type SshConnection,
   type SshConnectionFactory,
   SshShellExecutor,
@@ -128,6 +138,20 @@ describe("SshShellExecutor idle disconnect", () => {
     expect(connections).toHaveLength(2);
   });
 
+  it("ignores a late close from a connection it already replaced", async () => {
+    const { factory, connections } = fakeFactory();
+    const executor = new SshShellExecutor({ ...settings, idleSeconds: 1 }, factory);
+    await executor.execute("echo one", 1000);
+    vi.advanceTimersByTime(1_000);
+    await executor.execute("echo two", 1000);
+
+    connections[0].triggerClose();
+    await executor.execute("echo three", 1000);
+
+    expect(connections).toHaveLength(2);
+    expect(connections[1].commands).toEqual(["echo two", "echo three"]);
+  });
+
   it("does not disconnect while a command is in flight", async () => {
     const deferred: Array<() => void> = [];
     const { factory, connections } = fakeFactory({ deferred });
@@ -163,5 +187,229 @@ describe("SshShellExecutor channel bounding", () => {
       resolve();
     }
     await Promise.all(pending);
+  });
+});
+
+describe("SshShellExecutor private key", () => {
+  let keyDirectory = "";
+
+  beforeEach(() => {
+    keyDirectory = mkdtempSync(join(tmpdir(), "executor-key-"));
+  });
+
+  afterEach(() => {
+    rmSync(keyDirectory, { recursive: true, force: true });
+  });
+
+  /** A factory recording the connect config each new connection receives. */
+  function recordingConfigFactory() {
+    const configs: ConnectConfig[] = [];
+    const connections: FakeConnection[] = [];
+    const factory: SshConnectionFactory = async (config) => {
+      configs.push(config);
+      const connection = makeFakeConnection();
+      connections.push(connection);
+      return connection;
+    };
+    return { factory, configs, connections };
+  }
+
+  it("reads the key once at construction and reuses it for every reconnect", async () => {
+    const keyPath = join(keyDirectory, "id_ed25519");
+    writeFileSync(keyPath, "fake-private-key");
+    const { factory, configs, connections } = recordingConfigFactory();
+    const executor = new SshShellExecutor({ ...settings, privateKeyPath: keyPath }, factory);
+    rmSync(keyPath);
+
+    await executor.execute("echo one", 1000);
+    connections[0].triggerClose();
+    await executor.execute("echo two", 1000);
+
+    expect(configs.map((config) => config.privateKey?.toString())).toEqual([
+      "fake-private-key",
+      "fake-private-key",
+    ]);
+    expect(configs[0].password).toBe("pw");
+  });
+
+  it("fails at construction, not first use, when the key file is missing", () => {
+    const { factory, configs } = recordingConfigFactory();
+    const missingKeyPath = join(keyDirectory, "missing-key");
+
+    const construct = () =>
+      new SshShellExecutor({ ...settings, privateKeyPath: missingKeyPath }, factory);
+
+    expect(construct).toThrow(/ENOENT/);
+    expect(configs).toHaveLength(0);
+  });
+});
+
+describe("SshShellExecutor connection setup", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("times out a connection attempt that never completes", async () => {
+    vi.useFakeTimers();
+    const never: SshConnectionFactory = () => new Promise<SshConnection>(() => {});
+    const executor = new SshShellExecutor(settings, never);
+
+    const deadlineMs = 1_000;
+    const pending = executor.execute("echo ok", deadlineMs);
+    const assertion = expect(pending).rejects.toThrow(
+      `Timed out after ${deadlineMs} ms trying to connect over SSH.`,
+    );
+    await vi.advanceTimersByTimeAsync(deadlineMs);
+
+    await assertion;
+  });
+});
+
+/** A hand-written exec channel: stdout/stderr emitters plus a recorded close(). */
+class FakeChannel extends EventEmitter implements SshChannelLike {
+  readonly stderr = new EventEmitter();
+  closed = false;
+
+  close(): void {
+    this.closed = true;
+  }
+}
+
+/** Scripted behavior for one fake ssh2 client. */
+interface FakeClientScript {
+  handshake: "ready" | Error;
+  execError?: Error;
+}
+
+/** Builds a fake ssh2 Client constructor and records every instance it creates. */
+function fakeSshClient(script: FakeClientScript) {
+  const instances: FakeSshClient[] = [];
+  class FakeSshClient extends EventEmitter implements SshClientLike {
+    readonly channel = new FakeChannel();
+    readonly commands: string[] = [];
+    connectedWith: ConnectConfig | null = null;
+    ended = false;
+
+    constructor() {
+      super();
+      instances.push(this);
+    }
+
+    connect(config: ConnectConfig): void {
+      this.connectedWith = config;
+      const { handshake } = script;
+      queueMicrotask(() =>
+        handshake === "ready" ? this.emit("ready") : this.emit("error", handshake),
+      );
+    }
+
+    exec(command: string, callback: (error: Error | undefined, channel: SshChannelLike) => void) {
+      this.commands.push(command);
+      callback(script.execError, this.channel);
+    }
+
+    end(): void {
+      this.ended = true;
+    }
+  }
+  const ClientImpl: SshClientConstructor = FakeSshClient;
+  return { ClientImpl, instances };
+}
+
+const connectConfig: ConnectConfig = { host: "tower.local", port: 22, username: "root" };
+
+describe("openSshConnection over an ssh2-style client", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("connects with the given config and resolves once the handshake is ready", async () => {
+    const { ClientImpl, instances } = fakeSshClient({ handshake: "ready" });
+
+    await openSshConnection(connectConfig, ClientImpl);
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0].connectedWith).toEqual(connectConfig);
+  });
+
+  it("rejects with the handshake error", async () => {
+    const { ClientImpl } = fakeSshClient({
+      handshake: new Error("All configured authentication methods failed"),
+    });
+
+    await expect(openSshConnection(connectConfig, ClientImpl)).rejects.toThrow(
+      "All configured authentication methods failed",
+    );
+  });
+
+  it("collects stdout, stderr, and the exit code of a command", async () => {
+    const { ClientImpl, instances } = fakeSshClient({ handshake: "ready" });
+    const connection = await openSshConnection(connectConfig, ClientImpl);
+    const { channel } = instances[0];
+
+    const pending = connection.exec("uptime", 1000);
+    channel.emit("data", Buffer.from("up 3 days"));
+    channel.emit("data", Buffer.from(", load 0.1"));
+    channel.stderr.emit("data", Buffer.from("warning: locale"));
+    channel.emit("close", 0);
+
+    await expect(pending).resolves.toEqual({
+      stdout: "up 3 days, load 0.1",
+      stderr: "warning: locale",
+      exitCode: 0,
+    });
+    expect(instances[0].commands).toEqual(["uptime"]);
+  });
+
+  it("maps a channel that closes without an exit status to EXIT_CODE_UNKNOWN", async () => {
+    const { ClientImpl, instances } = fakeSshClient({ handshake: "ready" });
+    const connection = await openSshConnection(connectConfig, ClientImpl);
+
+    const pending = connection.exec("sleep 100", 1000);
+    instances[0].channel.emit("close", null);
+
+    await expect(pending).resolves.toMatchObject({ exitCode: EXIT_CODE_UNKNOWN });
+  });
+
+  it("rejects when the server refuses to open an exec channel", async () => {
+    const { ClientImpl } = fakeSshClient({
+      handshake: "ready",
+      execError: new Error("Channel open failure"),
+    });
+    const connection = await openSshConnection(connectConfig, ClientImpl);
+
+    await expect(connection.exec("uptime", 1000)).rejects.toThrow("Channel open failure");
+  });
+
+  it("closes the channel and rejects when a command outlives its deadline", async () => {
+    const { ClientImpl, instances } = fakeSshClient({ handshake: "ready" });
+    const connection = await openSshConnection(connectConfig, ClientImpl);
+    vi.useFakeTimers();
+
+    const deadlineMs = 500;
+    const pending = connection.exec("sleep 100", deadlineMs);
+    const assertion = expect(pending).rejects.toThrow(
+      `Timed out after ${deadlineMs} ms trying to run the command over SSH`,
+    );
+    await vi.advanceTimersByTimeAsync(deadlineMs);
+
+    await assertion;
+    expect(instances[0].channel.closed).toBe(true);
+  });
+
+  it("ends the client and reports both close and error as a dropped connection", async () => {
+    const { ClientImpl, instances } = fakeSshClient({ handshake: "ready" });
+    const connection = await openSshConnection(connectConfig, ClientImpl);
+    let drops = 0;
+    connection.onClose(() => {
+      drops += 1;
+    });
+
+    instances[0].emit("close");
+    instances[0].emit("error", new Error("ECONNRESET"));
+    connection.end();
+
+    expect(drops).toBe(2);
+    expect(instances[0].ended).toBe(true);
   });
 });

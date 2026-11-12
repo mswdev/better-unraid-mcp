@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell, throwingShell } from "../_shared/test-support.js";
 import { createGpuMetricsHandler, parseIntelSample } from "./gpu-metrics.js";
 
 /** intel_gpu_top -J output as killed by `timeout`: an unterminated JSON array. */
@@ -158,5 +158,102 @@ describe("parseIntelSample", () => {
   it("returns null for unparsable output", () => {
     expect(parseIntelSample("garbage")).toBeNull();
     expect(parseIntelSample("")).toBeNull();
+  });
+});
+
+describe("parseIntelSample malformed fields", () => {
+  it("reads non-object or non-numeric frequency and rc6 as unknown", () => {
+    const sample = parseIntelSample('{"frequency":5,"rc6":{"value":"n/a"}}');
+
+    expect(sample?.frequencyMhz).toBeNull();
+    expect(sample?.rc6Percent).toBeNull();
+  });
+
+  it("reads non-object engine and client maps as empty", () => {
+    const sample = parseIntelSample('{"engines":["Video"],"clients":"none"}');
+
+    expect(sample?.engines).toEqual([]);
+    expect(sample?.clients).toEqual([]);
+  });
+
+  it("treats a non-object engine as idle and fills in unnamed clients", () => {
+    const sample = parseIntelSample('{"engines":{"Video":5},"clients":{"1":{},"2":7}}');
+
+    expect(sample?.engines).toEqual([{ name: "Video", busyPercent: 0 }]);
+    expect(sample?.clients).toEqual([{ name: "?", pid: "?" }]);
+  });
+
+  it("ignores a brace-balanced fragment that is not valid JSON", () => {
+    const sample = parseIntelSample('{"frequency":{"actual":300}}\n{not json}');
+
+    expect(sample?.frequencyMhz).toBe(300);
+  });
+});
+
+describe("gpu_metrics intel edge cases and failures", () => {
+  it("renders placeholders for an intel sample with no readings", async () => {
+    const { shell } = sequencedShell([
+      missing,
+      found,
+      { stdout: '[{"period":{}}', stderr: "", exitCode: 124 },
+    ]);
+    const handler = createGpuMetricsHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe(
+      "Intel GPU (intel_gpu_top): ? MHz actual; engines: none reported; clients: none",
+    );
+  });
+
+  it("says the intel sample was empty when it captured only whitespace", async () => {
+    const { shell } = sequencedShell([missing, found, { stdout: "  ", stderr: "", exitCode: 124 }]);
+    const handler = createGpuMetricsHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("but the sample returned no data");
+  });
+
+  it("records no raw sample in detailed mode when the intel capture is empty", async () => {
+    const { shell } = sequencedShell([missing, found, { stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createGpuMetricsHandler(shell);
+
+    const result = await handler({ response_format: "detailed" });
+
+    expect(JSON.parse(firstText(result))).toEqual({
+      vendor: "intel",
+      sample: null,
+      rawSample: null,
+    });
+  });
+
+  it("surfaces an nvidia-smi failure with its stderr", async () => {
+    const { shell } = sequencedShell([
+      found,
+      { stdout: "", stderr: "NVML: driver not loaded\n", exitCode: 9 },
+    ]);
+    const handler = createGpuMetricsHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("nvidia-smi failed (exit 9): NVML: driver not loaded");
+  });
+
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createGpuMetricsHandler(null);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const handler = createGpuMetricsHandler(throwingShell("connection refused"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("Failed to read GPU metrics over SSH: connection refused");
   });
 });

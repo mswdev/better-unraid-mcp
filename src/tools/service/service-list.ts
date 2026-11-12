@@ -1,18 +1,19 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import {
   NOT_INSTALLED_MARKER,
-  SERVICES,
-  SERVICE_NAMES,
-  SERVICE_TIMEOUT_MS,
-  type ServiceName,
-  type ServiceState,
   parseStatusOutput,
   rcScript,
+  SERVICE_NAMES,
+  SERVICE_TIMEOUT_MS,
+  SERVICES,
+  type ServiceName,
+  type ServiceState,
 } from "./_shared.js";
 
 const TOOL_NAME = "service_list";
@@ -79,7 +80,7 @@ export function createServiceListHandler(shell: ShellExecutor | null) {
       const services = parseListing(result.stdout);
       return formatResponse(input.response_format, summarize(services), { services });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list services over SSH: ${message}`);
     }
   };

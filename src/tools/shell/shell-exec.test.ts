@@ -143,3 +143,19 @@ describe("shell_exec progress heartbeat", () => {
     expect(notifications[0].params.message).toContain("sleep 10");
   });
 });
+
+describe("shell_exec failure messages", () => {
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createShellExecHandler(throwingShell("channel closed"));
+
+    const result = await handler({
+      response_format: "concise",
+      command: "uptime",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to run command over SSH: channel closed");
+  });
+});

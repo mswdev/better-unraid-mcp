@@ -84,3 +84,48 @@ describe("zfs_snapshot_action", () => {
     expect(firstText(result)).toContain("more recent snapshots exist");
   });
 });
+
+describe("zfs_snapshot_action failure paths", () => {
+  const request = {
+    action: "create",
+    dataset: "tank/media",
+    snapshot: "nightly",
+    ...bothFlags,
+  } as const;
+
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createZfsSnapshotActionHandler(null);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("stops when zpool is missing", async () => {
+    const { shell, calls } = sequencedShell([{ stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createZfsSnapshotActionHandler(shell);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("ZFS is not available on this server");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("says so when a failed zfs command printed nothing", async () => {
+    const { shell } = sequencedShell([probeOk, { stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createZfsSnapshotActionHandler(shell);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toBe("zfs create failed (exit 1): (no output)");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createZfsSnapshotActionHandler(shell);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toBe("Failed to create ZFS snapshot over SSH: connection refused");
+  });
+});

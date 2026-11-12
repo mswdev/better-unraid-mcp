@@ -112,3 +112,16 @@ describe("docker_container_remove handler", () => {
     expect(firstText(result)).toMatch(/not found/);
   });
 });
+
+describe("docker_container_remove failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerContainerRemoveHandler(throwingExecutor("socket hang up"))({
+      id: "srv:abc",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to remove container srv:abc: socket hang up");
+  });
+});

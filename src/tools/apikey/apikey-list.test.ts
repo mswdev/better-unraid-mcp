@@ -43,4 +43,13 @@ describe("apikey_list", () => {
 
     expect(result.isError).toBe(true);
   });
+
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createApiKeyListHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to list API keys: socket hang up");
+  });
 });

@@ -10,7 +10,8 @@ import {
   type Role,
 } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "apikey_manage";
@@ -42,22 +43,34 @@ interface ApiKeyManageArgs {
   acknowledge_risk?: boolean;
 }
 
-/** Per-action argument requirements; returns an error message or null. */
-function validateArgs(args: ApiKeyManageArgs): string | null {
-  if (args.action === "create" && !args.name) {
-    return 'action "create" requires `name`.';
+/**
+ * Arguments that passed validation, narrowed per action so each mutation
+ * reads exactly the fields its action requires (no placeholder fallbacks).
+ */
+type ValidatedArgs =
+  | (ApiKeyManageArgs & { action: "create"; name: string })
+  | (ApiKeyManageArgs & { action: "update"; id: string })
+  | (ApiKeyManageArgs & { action: "add_role" | "remove_role"; id: string; roles: Role[] })
+  | (ApiKeyManageArgs & { action: "delete"; ids: string[] });
+
+/** Per-action argument requirements; returns the narrowed args or an error message. */
+function validateArgs(args: ApiKeyManageArgs): ValidatedArgs | string {
+  const { action, name, id, ids, roles } = args;
+  if (action === "create") {
+    return name ? { ...args, action, name } : 'action "create" requires `name`.';
   }
-  if (args.action === "update" && !args.id) {
-    return 'action "update" requires `id`.';
+  if (action === "update") {
+    return id ? { ...args, action, id } : 'action "update" requires `id`.';
   }
-  const isRoleAction = args.action === "add_role" || args.action === "remove_role";
-  if (isRoleAction && (!args.id || args.roles?.length !== 1)) {
-    return `action "${args.action}" requires \`id\` and exactly one role in \`roles\`.`;
+  if (action === "add_role" || action === "remove_role") {
+    if (!id || roles?.length !== 1) {
+      return `action "${action}" requires \`id\` and exactly one role in \`roles\`.`;
+    }
+    return { ...args, action, id, roles };
   }
-  if (args.action === "delete" && !args.ids?.length) {
-    return 'action "delete" requires `ids` (one or more key ids).';
-  }
-  return null;
+  return ids?.length
+    ? { ...args, action, ids }
+    : 'action "delete" requires `ids` (one or more key ids).';
 }
 
 /** Blast-radius refusal copy — this tool manages credentials. */
@@ -70,13 +83,13 @@ function refusalMessage(args: ApiKeyManageArgs): string {
 }
 
 /** Runs the selected mutation and renders its outcome text. */
-async function runManageAction(client: GraphQLExecutor, args: ApiKeyManageArgs): Promise<string> {
+async function runManageAction(client: GraphQLExecutor, args: ValidatedArgs): Promise<string> {
   switch (args.action) {
     case "create":
       return runCreate(client, args);
     case "update": {
       const input = {
-        id: args.id ?? "",
+        id: args.id,
         name: args.name,
         description: args.description,
         roles: args.roles,
@@ -86,18 +99,18 @@ async function runManageAction(client: GraphQLExecutor, args: ApiKeyManageArgs):
       return `Updated API key "${updated.name}" (id ${updated.id}); roles now [${updated.roles.join(", ")}].`;
     }
     case "add_role": {
-      const input = { apiKeyId: args.id ?? "", role: args.roles?.[0] as Role };
+      const input = { apiKeyId: args.id, role: args.roles[0] };
       await client.execute(ApiKeyAddRoleDocument, { input });
-      return `Role ${args.roles?.[0]} added to API key ${args.id}. Verify with apikey_list.`;
+      return `Role ${input.role} added to API key ${args.id}. Verify with apikey_list.`;
     }
     case "remove_role": {
-      const input = { apiKeyId: args.id ?? "", role: args.roles?.[0] as Role };
+      const input = { apiKeyId: args.id, role: args.roles[0] };
       await client.execute(ApiKeyRemoveRoleDocument, { input });
-      return `Role ${args.roles?.[0]} removed from API key ${args.id}. Verify with apikey_list.`;
+      return `Role ${input.role} removed from API key ${args.id}. Verify with apikey_list.`;
     }
     case "delete": {
-      await client.execute(ApiKeyDeleteDocument, { input: { ids: args.ids ?? [] } });
-      return `Deleted API key(s) ${args.ids?.join(", ")}. Verify with apikey_list.`;
+      await client.execute(ApiKeyDeleteDocument, { input: { ids: args.ids } });
+      return `Deleted API key(s) ${args.ids.join(", ")}. Verify with apikey_list.`;
     }
   }
 }
@@ -107,8 +120,11 @@ async function runManageAction(client: GraphQLExecutor, args: ApiKeyManageArgs):
  * creation time, so it is shown once, phrased to avoid the redactor's
  * credential key:value pattern.
  */
-async function runCreate(client: GraphQLExecutor, args: ApiKeyManageArgs): Promise<string> {
-  const input = { name: args.name ?? "", description: args.description, roles: args.roles };
+async function runCreate(
+  client: GraphQLExecutor,
+  args: ValidatedArgs & { action: "create" },
+): Promise<string> {
+  const input = { name: args.name, description: args.description, roles: args.roles };
   const data = await client.execute(ApiKeyCreateDocument, { input });
   const created = data.apiKey.create;
   return [
@@ -129,9 +145,9 @@ export function createApiKeyManageHandler(
   channel?: ElicitationChannel | null,
 ) {
   return async (args: ApiKeyManageArgs): Promise<CallToolResult> => {
-    const invalid = validateArgs(args);
-    if (invalid) {
-      return toolError(`${invalid} No changes were made.`);
+    const validated = validateArgs(args);
+    if (typeof validated === "string") {
+      return toolError(`${validated} No changes were made.`);
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
@@ -142,9 +158,9 @@ export function createApiKeyManageHandler(
       return refusal;
     }
     try {
-      return toolText(await runManageAction(client, args));
+      return toolText(await runManageAction(client, validated));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to ${args.action} API key(s): ${message}`);
     }
   };

@@ -8,8 +8,9 @@ import {
   DockerSetAutostartDocument,
 } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_autostart_set";
@@ -100,14 +101,10 @@ function describeChange(change: Change, name: string): string {
   return `${name} ${state}${wait}`;
 }
 
-/** Maps each container id to its slash-stripped display name. */
-function buildNameById(containers: Containers): Map<string, string> {
-  return new Map(
-    containers.map((container) => [
-      container.id,
-      stripLeadingSlash(container.names[0], container.id),
-    ]),
-  );
+/** Returns a lookup from container id to its slash-stripped display name (the id when unnamed). */
+function buildNameLookup(containers: Containers): (id: string) => string {
+  const containerById = new Map(containers.map((container) => [container.id, container]));
+  return (id) => stripLeadingSlash(containerById.get(id)?.names[0], id);
 }
 
 /** Resolves each requested change to a detailed record for the detailed payload. */
@@ -115,10 +112,10 @@ function detailChanges(
   changes: Change[],
   containers: Containers,
 ): { id: string; name: string; autoStart: boolean; wait: number | null }[] {
-  const nameById = buildNameById(containers);
+  const nameOf = buildNameLookup(containers);
   return changes.map((change) => ({
     id: change.id,
-    name: nameById.get(change.id) ?? change.id,
+    name: nameOf(change.id),
     autoStart: change.auto_start,
     wait: change.wait ?? null,
   }));
@@ -137,10 +134,8 @@ function summarize({ ok, changes, containers, persist }: SummaryOptions): string
   if (!ok) {
     return "Autostart not updated (the API returned false); no boot-time change took effect.";
   }
-  const nameById = buildNameById(containers);
-  const parts = changes.map((change) =>
-    describeChange(change, nameById.get(change.id) ?? change.id),
-  );
+  const nameOf = buildNameLookup(containers);
+  const parts = changes.map((change) => describeChange(change, nameOf(change.id)));
   const target = persist ? "autostart file + WebGUI prefs" : "autostart file only";
   return `Autostart updated: ${parts.join(", ")} — ${target}; effective next array/Docker start.`;
 }
@@ -191,7 +186,7 @@ export function createDockerAutostartSetHandler(
       const concise = summarize({ ok, changes, containers: docker.containers, persist });
       return formatResponse(response_format, concise, detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to update Docker autostart: ${message}`);
     }
   };

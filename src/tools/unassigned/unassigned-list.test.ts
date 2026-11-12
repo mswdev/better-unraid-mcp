@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstText, sequencedShell } from "../_shared/test-support.js";
-import { parseAssignedDevices, selectUnassigned } from "./_shared.js";
+import { parentDiskOf, parseAssignedDevices, selectUnassigned } from "./_shared.js";
 import { createUnassignedListHandler } from "./unassigned-list.js";
 
 const DISKS_INI = `["parity"]
@@ -199,5 +199,72 @@ describe("unassigned_list", () => {
     const result = await createUnassignedListHandler(null)({ response_format: "concise" });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+/** A bare lsblk listing: one sparse disk with a sparse mounted partition, one with no partitions. */
+const SPARSE_LSBLK = JSON.stringify({
+  blockdevices: [
+    { kname: "sdq", type: "disk", children: [{ type: "part", mountpoint: "/mnt/disks/x" }] },
+    { kname: "sdr", type: "disk", size: "4T", model: "ST4000", tran: "sata" },
+  ],
+});
+
+describe("unassigned _shared sparse lsblk output", () => {
+  it("fills placeholders for every field lsblk left out", () => {
+    const disks = selectUnassigned(SPARSE_LSBLK, new Set());
+
+    expect(disks[0]).toEqual({
+      device: "/dev/sdq",
+      model: null,
+      serial: null,
+      size: "?",
+      transport: null,
+      partitions: [
+        { device: "/dev/?", fstype: null, mountpoint: "/mnt/disks/x", label: null, size: "?" },
+      ],
+    });
+  });
+
+  it("returns an empty list when the JSON has no blockdevices array", () => {
+    expect(selectUnassigned('{"blockdevices":"none"}', new Set())).toEqual([]);
+  });
+
+  it("maps partitions back to their parent disk for both naming schemes", () => {
+    expect(parentDiskOf("/dev/sdz1")).toBe("sdz");
+    expect(parentDiskOf("/dev/nvme0n1p1")).toBe("nvme0n1");
+  });
+});
+
+describe("unassigned_list rendering and failures", () => {
+  it("renders unknown identity, missing filesystem, mount state, and partition-less disks", async () => {
+    const { shell } = sequencedShell([
+      { stdout: "", stderr: "", exitCode: 0 },
+      { stdout: SPARSE_LSBLK, stderr: "", exitCode: 0 },
+    ]);
+    const handler = createUnassignedListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe(
+      [
+        "2 unassigned disk(s):",
+        "/dev/sdq — unknown model, ?",
+        "  - /dev/?: no filesystem, ?, mounted at /mnt/disks/x",
+        "/dev/sdr — ST4000, 4T (sata)",
+        "  (no partitions)",
+      ].join("\n"),
+    );
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createUnassignedListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe(
+      "Failed to list unassigned devices over SSH: connection refused",
+    );
   });
 });

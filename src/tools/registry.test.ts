@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../graphql/client.js";
-import { TOOL_REGISTRATIONS, registerAllTools } from "./registry.js";
+import { registerAllTools, TOOL_REGISTRATIONS } from "./registry.js";
 
 interface Registration {
   name: string;

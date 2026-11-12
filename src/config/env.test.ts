@@ -136,3 +136,21 @@ describe("loadEnv SSH configuration", () => {
     );
   });
 });
+
+describe("loadEnv MCP_HTTP_ALLOWED_HOSTS", () => {
+  it("is undefined when unset", () => {
+    expect(loadEnv(valid).MCP_HTTP_ALLOWED_HOSTS).toBeUndefined();
+  });
+
+  it("splits and trims a comma-separated list, dropping empty entries", () => {
+    const env = loadEnv({ ...valid, MCP_HTTP_ALLOWED_HOSTS: " tower.local, ,192.168.1.10 ," });
+
+    expect(env.MCP_HTTP_ALLOWED_HOSTS).toEqual(["tower.local", "192.168.1.10"]);
+  });
+
+  it("is undefined when the list holds only separators and whitespace", () => {
+    expect(
+      loadEnv({ ...valid, MCP_HTTP_ALLOWED_HOSTS: " , ," }).MCP_HTTP_ALLOWED_HOSTS,
+    ).toBeUndefined();
+  });
+});

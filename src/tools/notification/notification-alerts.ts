@@ -2,7 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationAlertsDocument } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { summarizeLine } from "./_shared.js";
 
 const TOOL_NAME = "notification_alerts";
@@ -20,7 +21,9 @@ const inputSchema = z.object({
 export function createNotificationAlertsHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const { notifications } = await client.execute(NotificationAlertsDocument);
       const items = notifications.warningsAndAlerts;
@@ -28,7 +31,7 @@ export function createNotificationAlertsHandler(client: GraphQLExecutor) {
         items.length === 0 ? "No unread warnings or alerts." : items.map(summarizeLine).join("\n");
       return formatResponse(response_format, concise, items);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch warnings and alerts: ${message}`);
     }
   };

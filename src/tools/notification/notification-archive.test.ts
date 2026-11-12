@@ -9,12 +9,7 @@ import {
   UnarchiveNotificationsDocument,
   type UnarchiveNotificationsMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationArchiveHandler } from "./notification-archive.js";
 
 // An ARBITRARY overview — the handler must NOT echo these numbers (counts are racy).
@@ -175,17 +170,6 @@ describe("notification_archive error paths", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to archive notifications: boom/);
-  });
-
-  it("coerces a non-Error rejection (String(error) branch)", async () => {
-    const result = await createNotificationArchiveHandler(rejectingExecutor("nope"))({
-      response_format: "concise",
-      direction: "unarchive",
-      all: true,
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to unarchive notifications/);
-    expect(firstText(result)).toMatch(/nope/);
   });
 
   it("says the API does not report per-id outcomes for an ids call", async () => {

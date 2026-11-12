@@ -7,7 +7,8 @@ import {
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_health";
 
@@ -161,7 +162,7 @@ async function readUps(client: GraphQLExecutor): Promise<UpsReading> {
     const data = await client.execute(UpsStatusDocument);
     return { devices: data.upsDevices };
   } catch (error) {
-    return { failure: error instanceof Error ? error.message : String(error) };
+    return { failure: errorMessage(error) };
   }
 }
 
@@ -181,7 +182,7 @@ function checkUps(reading: UpsReading): SubsystemHealth {
     const detail = `${UPS_UNAVAILABLE_DETAIL} (${reading.failure}).`;
     return { subsystem: "ups", severity: "ok", detail };
   }
-  const reporting = reading.devices.filter((ups) => (ups.status ?? "").trim().length > 0);
+  const reporting = reading.devices.filter((ups) => ups.status.trim().length > 0);
   if (reporting.length === 0) {
     return { subsystem: "ups", severity: "ok", detail: "No UPS reporting live data." };
   }
@@ -268,7 +269,7 @@ export function createSystemHealthHandler(client: GraphQLExecutor) {
       const summary = summarize(report.overall, report.subsystems);
       return formatStructuredResponse(input.response_format, summary, report);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to compute system health: ${message}`);
     }
   };

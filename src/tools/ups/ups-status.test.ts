@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { UpsStatusQuery } from "../../types/unraid/graphql.js";
 import { UpsStatusDocument } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createUpsStatusHandler } from "./ups-status.js";
 
 /** A real UPS on mains power reporting a model (apcaccess STATUS is uppercase). */
@@ -149,15 +144,6 @@ describe("ups_status handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch UPS status: boom/);
-  });
-
-  it("coerces a non-Error rejection to a string", async () => {
-    const result = await createUpsStatusHandler(rejectingExecutor("plain refusal"))({
-      response_format: "concise",
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/plain refusal/);
   });
 
   it("suppresses the fabricated placeholder device (no model + default Online)", async () => {

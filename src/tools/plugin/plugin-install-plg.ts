@@ -3,7 +3,8 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginInstallPlgDocument } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "plugin_install_plg";
@@ -66,7 +67,7 @@ export function createPluginInstallPlgHandler(
         `Plugin install ${operation.status} (operation ${operation.id}) for ${operation.name ?? operation.url}. Installation continues on the server — check plugin_list and the syslog (log_read) for completion.`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to install plugin from ${args.url}: ${message}`);
     }
   };
