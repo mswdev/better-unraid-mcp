@@ -6,6 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/better-unraid-mcp)](https://www.npmjs.com/package/better-unraid-mcp)
 [![CI](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmswdev%2Fbetter-unraid-mcp%2Fbadges%2Fcoverage-summary.json&query=%24.total.lines.pct&suffix=%25&label=coverage&color=brightgreen)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
 [![MCP protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-8b5cf6)](https://modelcontextprotocol.io)
