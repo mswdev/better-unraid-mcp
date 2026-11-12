@@ -152,6 +152,15 @@ describe("MetricsHistoryRecorder", () => {
   });
 });
 
+/** Returns the subscription's error handler, failing the test when none was registered. */
+function requireErrorHandler(handlers: FeedHandlers | undefined): (error: unknown) => void {
+  const onError = handlers?.onError;
+  if (!onError) {
+    throw new Error("the recorder subscribed without an onError handler");
+  }
+  return onError;
+}
+
 describe("MetricsHistoryRecorder lifecycle edges", () => {
   it("opens the feed subscriptions only once when started twice", () => {
     const feed = fakeFeed();
@@ -164,14 +173,15 @@ describe("MetricsHistoryRecorder lifecycle edges", () => {
     expect(feed.unsubscribed).toHaveLength(3);
   });
 
-  it("swallows a feed error and keeps recording later samples", () => {
+  it("registers an error handler that swallows feed errors and keeps recording", () => {
     const feed = fakeFeed();
     const recorder = new MetricsHistoryRecorder({ feed, now: () => T0 });
     recorder.start();
     const cpuQuery = [...feed.handlers.keys()].find((q) => q.includes("systemMetricsCpu")) ?? "";
     const cpu = feed.handlers.get(cpuQuery);
+    const onError = requireErrorHandler(cpu);
 
-    cpu?.onError?.(new Error("socket closed"));
+    onError(new Error("socket closed"));
     cpu?.onData({ systemMetricsCpu: { percentTotal: 7 } });
 
     expect(recorder.isRunning()).toBe(true);
