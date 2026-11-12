@@ -1,25 +1,35 @@
-import pino from "pino";
+import type { DestinationStream } from "pino";
 import { describe, expect, it } from "vitest";
-import { createLogger } from "./logging.js";
+import { createLogger, type DestinationFactory } from "./logging.js";
 
-const STDERR_FD = 2;
+/** A destination factory that records the file descriptor it was asked for and every line written. */
+function capturingDestination() {
+  const openedFds: number[] = [];
+  const lines: string[] = [];
+  const open: DestinationFactory = (fd) => {
+    openedFds.push(fd);
+    const stream: DestinationStream = { write: (line: string) => lines.push(line) };
+    return stream;
+  };
+  return { open, openedFds, lines };
+}
 
 describe("createLogger", () => {
-  it("filters below the requested level", () => {
-    const logger = createLogger("warn");
+  it("opens its destination on stderr, keeping stdout free for the stdio transport", () => {
+    const { open, openedFds } = capturingDestination();
 
-    expect(logger.level).toBe("warn");
-    expect(logger.isLevelEnabled("info")).toBe(false);
-    expect(logger.isLevelEnabled("error")).toBe(true);
+    createLogger("info", open);
+
+    expect(openedFds).toEqual([process.stderr.fd]);
   });
 
-  it("writes to stderr so stdout stays reserved for the stdio transport", () => {
-    const logger = createLogger("info");
+  it("writes structured lines at or above the configured level to that destination", () => {
+    const { open, lines } = capturingDestination();
+    const logger = createLogger("warn", open);
 
-    const destination = (logger as unknown as Record<symbol, { fd: number }>)[
-      pino.symbols.streamSym
-    ];
+    logger.info("routine detail");
+    logger.warn("disk running hot");
 
-    expect(destination.fd).toBe(STDERR_FD);
+    expect(lines.map((line) => JSON.parse(line).msg)).toEqual(["disk running hot"]);
   });
 });
