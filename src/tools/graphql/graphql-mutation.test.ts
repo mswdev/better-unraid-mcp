@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createGraphqlMutationHandler } from "./graphql-mutation.js";
 
 const ARCHIVE_ALL = "mutation { archiveAll { unread { total } } }";
@@ -138,9 +133,9 @@ describe("graphql_mutation risk gate", () => {
   });
 });
 
-describe("graphql_mutation non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createGraphqlMutationHandler(rejectingExecutor("socket hang up"));
+describe("graphql_mutation failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createGraphqlMutationHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ mutation: ARCHIVE_ALL, confirm: true });
 

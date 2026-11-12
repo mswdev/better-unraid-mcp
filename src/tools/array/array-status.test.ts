@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ArrayStatusQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor } from "../_shared/test-support.js";
+import { firstText } from "../_shared/test-support.js";
 import { createArrayStatusHandler } from "./array-status.js";
 
 const started = {
@@ -180,8 +180,8 @@ describe("array_status handler", () => {
     expect(firstText(result)).toMatch(/Parity check RUNNING: 0% at \? MB\/s/);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createArrayStatusHandler(rejectingExecutor("socket hang up"))({
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createArrayStatusHandler(throwingExecutor("socket hang up"))({
       response_format: "concise",
     });
 

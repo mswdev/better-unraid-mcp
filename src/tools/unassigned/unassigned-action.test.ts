@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell, throwingShell } from "../_shared/test-support.js";
 import { createUnassignedActionHandler } from "./unassigned-action.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -176,8 +176,8 @@ describe("unassigned_action verification and failures", () => {
     expect(firstText(result)).toBe("Failed to mount /dev/sdz1 over SSH: connection refused");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createUnassignedActionHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createUnassignedActionHandler(throwingShell("channel closed"));
 
     const result = await handler({ action: "unmount", device: "/dev/sdz1", ...bothFlags });
 

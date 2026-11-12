@@ -7,6 +7,7 @@ import {
   LogReadContentDocument,
   type LogReadContentQuery,
 } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "log_read";
@@ -123,7 +124,7 @@ export function createLogReadHandler(client: GraphQLExecutor) {
         data.logFile,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to read log file ${input.path}: ${message}`);
     }
   };

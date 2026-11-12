@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { archiveNameFor, createFlashBackupHandler } from "./flash-backup.js";
 
 const fixedNow = new Date("2026-09-17T22:41:05Z");
@@ -167,15 +167,6 @@ describe("flash_backup archiving", () => {
     expect(firstText(result)).toBe(
       "Failed to back up the flash device over SSH: connection refused",
     );
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createFlashBackupHandler({ shell: rejectingShell("channel closed") });
-
-    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toBe("Failed to back up the flash device over SSH: channel closed");
   });
 
   it("returns a structured payload in detailed mode", async () => {

@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { buildReadCommand, createFileReadHandler } from "./file-read.js";
 
 const ok = { stdout: "line one\nline two\n", stderr: "", exitCode: 0 };
@@ -176,8 +171,8 @@ describe("file_read pattern rendering and failure output", () => {
     expect(firstText(result)).toBe("Failed to read /root/x (exit 141): (no error output)");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createFileReadHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createFileReadHandler(throwingShell("channel closed"));
 
     const result = await handler({ response_format: "concise", path: "/etc/hosts", lines: 10 });
 

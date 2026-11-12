@@ -7,6 +7,7 @@ import {
   type SystemMetricsQuery,
   type TemperatureUnit,
 } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes, toNumber } from "../_shared/format-bytes.js";
 import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -201,7 +202,7 @@ export function createSystemMetricsHandler(client: GraphQLExecutor) {
         detailed,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch system metrics: ${message}`);
     }
   };

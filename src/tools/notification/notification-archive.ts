@@ -7,6 +7,7 @@ import {
   UnarchiveAllDocument,
   UnarchiveNotificationsDocument,
 } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
@@ -103,7 +104,7 @@ export function createNotificationArchiveHandler(client: GraphQLExecutor) {
       };
       return formatResponse(args.response_format, summarize(args), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to ${args.direction} notifications: ${message}`);
     }
   };

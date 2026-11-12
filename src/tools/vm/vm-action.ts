@@ -17,6 +17,7 @@ import {
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 /** The number of colon-separated parts a prefixed `PrefixedID` (`serverId:rawId`) has. */
@@ -196,7 +197,7 @@ export function createVmActionHandler(
       const detailed = { ok, action, id: domain.id, name: domain.name ?? null };
       return formatResponse(response_format, summarize(action, label, ok), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to ${action} VM ${vm}: ${message}`);
     }
   };

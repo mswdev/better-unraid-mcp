@@ -11,6 +11,7 @@ import {
 } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "apikey_manage";
@@ -159,7 +160,7 @@ export function createApiKeyManageHandler(
     try {
       return toolText(await runManageAction(client, validated));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to ${args.action} API key(s): ${message}`);
     }
   };

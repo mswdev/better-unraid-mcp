@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
 import { ArrayStatusDocument, type ArrayStatusQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
 import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -71,7 +72,7 @@ export function createArrayStatusHandler(client: GraphQLExecutor) {
       const detailed = { ...data.array, data_age_ms: cacheAgeMs(data) ?? 0 };
       return formatStructuredResponse(response_format, summarize(data), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch array status: ${message}`);
     }
   };

@@ -6,7 +6,7 @@ import {
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemHealthHandler } from "./system-health.js";
 
 /** No UPS reporting at all — the common case on servers without apcupsd. */
@@ -313,26 +313,9 @@ describe("system_health partial readings", () => {
   });
 });
 
-describe("system_health non-Error failures", () => {
-  it("quotes a non-Error UPS rejection in the ups detail", async () => {
-    const executor: GraphQLExecutor = {
-      execute: async (document) => {
-        const requested: unknown = document;
-        if (requested === UpsStatusDocument) {
-          return Promise.reject("apcaccess timed out");
-        }
-        return healthyFixture() as never;
-      },
-    };
-    const handler = createSystemHealthHandler(executor);
-
-    const result = await handler({ response_format: "concise" });
-
-    expect(firstText(result)).toMatch(/ups: UPS data unavailable .*\(apcaccess timed out\)\.$/m);
-  });
-
-  it("reports a non-Error health-read rejection as text", async () => {
-    const handler = createSystemHealthHandler(rejectingExecutor("socket hang up"));
+describe("system_health failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createSystemHealthHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ response_format: "concise" });
 

@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
@@ -73,7 +74,7 @@ export function createZfsSnapshotListHandler(shell: ShellExecutor | null) {
       const snapshots = parseSnapshots(result.stdout);
       return formatResponse(input.response_format, summarize(snapshots), { snapshots });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list ZFS snapshots over SSH: ${message}`);
     }
   };

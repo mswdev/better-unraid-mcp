@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createGraphqlQueryHandler } from "./graphql-query.js";
 
 describe("graphql_query", () => {
@@ -108,9 +103,9 @@ describe("graphql_query", () => {
   });
 });
 
-describe("graphql_query non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createGraphqlQueryHandler(rejectingExecutor("socket hang up"));
+describe("graphql_query failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createGraphqlQueryHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ query: "query { online }" });
 

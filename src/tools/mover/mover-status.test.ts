@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MoverStatusQuery } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createMoverStatusHandler } from "./mover-status.js";
 
 const running = {
@@ -70,9 +65,9 @@ describe("mover_status", () => {
   });
 });
 
-describe("mover_status non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createMoverStatusHandler(rejectingExecutor("socket hang up"));
+describe("mover_status failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createMoverStatusHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ response_format: "concise" });
 

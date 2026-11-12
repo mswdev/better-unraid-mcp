@@ -4,6 +4,7 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { BUCKET_CAPACITY, REFILL_PER_SECOND } from "../../graphql/rate-limit.js";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { ConnectionDoctorDocument } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat } from "../_shared/respond.js";
 
 const TOOL_NAME = "connection_doctor";
@@ -71,7 +72,7 @@ async function checkGraphql(client: GraphQLExecutor): Promise<GraphqlProbe> {
     };
     return { check, apiVersion: core.api ?? null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return { check: classifyGraphqlFailure(message), apiVersion: null };
   }
 }
@@ -141,7 +142,7 @@ async function checkSsh(shell: ShellExecutor | null): Promise<DoctorCheck> {
     }
     return { check: "ssh", status: "fail", detail: `SSH: failed (exit ${result.exitCode}).` };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return { check: "ssh", status: "fail", detail: `SSH: failed — ${message}` };
   }
 }

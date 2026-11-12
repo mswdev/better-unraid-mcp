@@ -7,6 +7,7 @@ import {
 } from "../../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../../_shared/elicitation.js";
+import { errorMessage } from "../../_shared/errors/error-message.js";
 import { progressContextFrom, sendProgress } from "../../_shared/progress.js";
 import { formatResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
@@ -118,7 +119,7 @@ export function createDockerContainerUpdateHandler(
       await sendProgress(progress, { progress: 1, total: 1, message: "Update finished." });
       return formatResponse(input.response_format, summarize(containers), containers);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to update Docker container(s): ${message}`);
     }
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { createVmSnapshotCreateHandler } from "./vm-snapshot-create.js";
 
 const virshFound = { stdout: "/usr/sbin/virsh\n", stderr: "", exitCode: 0 };
@@ -83,13 +83,5 @@ describe("vm_snapshot_create failure paths", () => {
     const result = await handler(request);
 
     expect(firstText(result)).toBe("Failed to create VM snapshot over SSH: connection reset");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createVmSnapshotCreateHandler(rejectingShell("channel closed"));
-
-    const result = await handler(request);
-
-    expect(firstText(result)).toBe("Failed to create VM snapshot over SSH: channel closed");
   });
 });

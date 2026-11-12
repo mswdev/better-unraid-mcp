@@ -9,7 +9,6 @@ import {
 import {
   firstText,
   recordingExecutor,
-  rejectingExecutor,
   sequencedExecutor,
   throwingExecutor,
 } from "../_shared/test-support.js";
@@ -193,8 +192,8 @@ describe("array_disk_action failures", () => {
     expect(firstText(result)).toContain("forbidden");
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createArrayDiskActionHandler(rejectingExecutor("socket hang up"));
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createArrayDiskActionHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({
       response_format: "concise",

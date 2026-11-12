@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { createZfsSnapshotActionHandler } from "./zfs-snapshot-action.js";
 
 const probeOk = { stdout: "/usr/sbin/zpool\n", stderr: "", exitCode: 0 };
@@ -127,13 +127,5 @@ describe("zfs_snapshot_action failure paths", () => {
     const result = await handler(request);
 
     expect(firstText(result)).toBe("Failed to create ZFS snapshot over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createZfsSnapshotActionHandler(rejectingShell("channel closed"));
-
-    const result = await handler(request);
-
-    expect(firstText(result)).toBe("Failed to create ZFS snapshot over SSH: channel closed");
   });
 });

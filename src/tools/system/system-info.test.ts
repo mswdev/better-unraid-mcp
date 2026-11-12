@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { SystemInfoQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemInfoHandler } from "./system-info.js";
 
 const sample = {
@@ -74,14 +74,5 @@ describe("system_info handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/unauthorized/);
-  });
-
-  it("coerces a non-Error rejection into the error message", async () => {
-    const handler = createSystemInfoHandler(rejectingExecutor("boom-string"));
-
-    const result = await handler({ response_format: "concise" });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/boom-string/);
   });
 });

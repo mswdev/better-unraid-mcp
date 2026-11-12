@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createUserScriptListHandler } from "./user-script-list.js";
 
 describe("user_script_list", () => {
@@ -44,13 +39,5 @@ describe("user_script_list failure paths", () => {
     const result = await handler({ response_format: "concise" });
 
     expect(firstText(result)).toBe("Failed to list user scripts over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createUserScriptListHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ response_format: "concise" });
-
-    expect(firstText(result)).toBe("Failed to list user scripts over SSH: channel closed");
   });
 });

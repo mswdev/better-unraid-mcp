@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -83,7 +84,7 @@ export function createProcessListHandler(shell: ShellExecutor | null) {
         processes,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list processes over SSH: ${message}`);
     }
   };

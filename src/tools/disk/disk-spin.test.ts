@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   firstText,
   recordingShell,
-  rejectingShell,
   sequencedShell,
   throwingShell,
 } from "../_shared/test-support.js";
@@ -139,8 +138,8 @@ describe("disk_spin failures", () => {
     expect(firstText(result)).toBe("Failed to spin down disk1 over SSH: connection refused");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createDiskSpinHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createDiskSpinHandler(throwingShell("channel closed"));
 
     const result = await handler({ action: "down", device: "/dev/sdc", confirm: true });
 

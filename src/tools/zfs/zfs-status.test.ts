@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  rejectingShell,
-  sequencedShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, sequencedShell, throwingShell } from "../_shared/test-support.js";
 import { createZfsStatusHandler } from "./zfs-status.js";
 
 const probeOk = { stdout: "/usr/sbin/zpool\n", stderr: "", exitCode: 0 };
@@ -100,8 +95,8 @@ describe("zfs_status empty pools and failures", () => {
     expect(firstText(result)).toBe("zpool list failed (exit 1): no pools available");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createZfsStatusHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createZfsStatusHandler(throwingShell("channel closed"));
 
     const result = await handler({ response_format: "concise" });
 

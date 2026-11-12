@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createSystemPowerHandler } from "./system-power.js";
 
 const okResult = { stdout: "", stderr: "", exitCode: 0 };
@@ -181,8 +176,8 @@ describe("system_power command failures", () => {
     expect(firstText(result)).toBe("shutdown failed (exit 1): (no error output)");
   });
 
-  it("treats a non-Error SSH rejection as a failure to send", async () => {
-    const handler = createSystemPowerHandler(rejectingShell("handshake failed"));
+  it("reports an SSH failure before sending as a command that was never sent", async () => {
+    const handler = createSystemPowerHandler(throwingShell("handshake failed"));
 
     const result = await handler({ ...confirmed, action: "reboot" });
 

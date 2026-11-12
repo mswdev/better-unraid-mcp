@@ -3,7 +3,6 @@ import type { LogReadAllowlistQuery, LogReadContentQuery } from "../../types/unr
 import {
   firstText,
   recordingExecutor,
-  rejectingExecutor,
   sequencedExecutor,
   throwingExecutor,
 } from "../_shared/test-support.js";
@@ -239,17 +238,6 @@ describe("log_read handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/read broke/);
-  });
-
-  it("coerces a non-Error rejection to a string", async () => {
-    const result = await createLogReadHandler(rejectingExecutor("plain refusal"))({
-      response_format: "concise",
-      path: "syslog",
-      lines: 100,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/plain refusal/);
   });
 
   it("returns the raw payload for detailed", async () => {

@@ -4,7 +4,6 @@ import type { DockerContainerLogsQuery } from "../../../types/unraid/graphql.js"
 import {
   firstText,
   recordingShell,
-  rejectingExecutor,
   sequencedShell,
   throwingExecutor,
 } from "../../_shared/test-support.js";
@@ -266,8 +265,8 @@ describe("docker_container_logs failure paths", () => {
     expect(firstText(result)).toMatch(/No log lines/);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createDockerContainerLogsHandler(rejectingExecutor("socket hang up"), null);
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createDockerContainerLogsHandler(throwingExecutor("socket hang up"), null);
 
     const result = await handler({ id: "srv:abc", response_format: "concise", tail: 50 });
 

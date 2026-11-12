@@ -9,6 +9,7 @@ import {
 } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
@@ -185,7 +186,7 @@ export function createDockerAutostartSetHandler(
       const concise = summarize({ ok, changes, containers: docker.containers, persist });
       return formatResponse(response_format, concise, detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to update Docker autostart: ${message}`);
     }
   };

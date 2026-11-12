@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { parentDiskOf, parseAssignedDevices, selectUnassigned } from "./_shared.js";
 import { createUnassignedListHandler } from "./unassigned-list.js";
 
@@ -266,13 +266,5 @@ describe("unassigned_list rendering and failures", () => {
     expect(firstText(result)).toBe(
       "Failed to list unassigned devices over SSH: connection refused",
     );
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createUnassignedListHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ response_format: "concise" });
-
-    expect(firstText(result)).toBe("Failed to list unassigned devices over SSH: channel closed");
   });
 });

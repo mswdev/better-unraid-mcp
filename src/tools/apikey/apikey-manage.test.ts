@@ -7,12 +7,7 @@ import {
   ApiKeyUpdateDocument,
   type ApiKeyUpdateMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createApiKeyManageHandler } from "./apikey-manage.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -163,8 +158,8 @@ describe("apikey_manage actions", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createApiKeyManageHandler(rejectingExecutor("socket hang up"));
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createApiKeyManageHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ action: "delete", ids: ["k1"], ...bothFlags });
 

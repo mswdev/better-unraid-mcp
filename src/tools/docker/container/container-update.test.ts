@@ -4,12 +4,7 @@ import {
   DockerUpdateContainersDocument,
   type DockerUpdateContainersMutation,
 } from "../../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerUpdateHandler } from "./container-update.js";
 
 describe("docker_container_update handler", () => {
@@ -147,9 +142,9 @@ describe("docker_container_update progress", () => {
   });
 });
 
-describe("docker_container_update non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createDockerContainerUpdateHandler(rejectingExecutor("socket hang up"))({
+describe("docker_container_update failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerContainerUpdateHandler(throwingExecutor("socket hang up"))({
       ids: ["srv:abc"],
       confirm: true,
       response_format: "concise",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { createShareCreateHandler } from "./share-create.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -216,13 +216,5 @@ describe("share_create failures", () => {
     const result = await handler({ name: "media", ...bothFlags });
 
     expect(firstText(result)).toBe("Failed to create share over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createShareCreateHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ name: "media", ...bothFlags });
-
-    expect(firstText(result)).toBe("Failed to create share over SSH: channel closed");
   });
 });

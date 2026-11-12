@@ -5,6 +5,7 @@ import {
   DockerPortConflictsDocument,
   type DockerPortConflictsQuery,
 } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
@@ -70,7 +71,7 @@ export function createDockerPortConflictsHandler(client: GraphQLExecutor) {
       const conflicts = data.docker.portConflicts;
       return formatResponse(response_format, summarize(conflicts), conflicts);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch Docker port conflicts: ${message}`);
     }
   };

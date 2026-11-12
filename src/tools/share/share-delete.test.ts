@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { createShareDeleteHandler } from "./share-delete.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -108,13 +108,5 @@ describe("share_delete failures", () => {
     const result = await handler({ name: "media", ...bothFlags });
 
     expect(firstText(result)).toBe("Failed to delete share over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createShareDeleteHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ name: "media", ...bothFlags });
-
-    expect(firstText(result)).toBe("Failed to delete share over SSH: channel closed");
   });
 });

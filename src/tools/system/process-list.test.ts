@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createProcessListHandler } from "./process-list.js";
 
 const psOutput = {
@@ -68,8 +63,8 @@ describe("process_list failure paths", () => {
     expect(firstText(result)).toBe("ps failed (exit 1): ps: bad option");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createProcessListHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createProcessListHandler(throwingShell("channel closed"));
 
     const result = await handler({ response_format: "concise", sort_by: "cpu", count: 15 });
 

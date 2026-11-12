@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  rejectingShell,
-  sequencedShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, sequencedShell, throwingShell } from "../_shared/test-support.js";
 import { createGpuMetricsHandler, parseIntelSample } from "./gpu-metrics.js";
 
 /** intel_gpu_top -J output as killed by `timeout`: an unterminated JSON array. */
@@ -258,13 +253,5 @@ describe("gpu_metrics intel edge cases and failures", () => {
     const result = await handler({ response_format: "concise" });
 
     expect(firstText(result)).toBe("Failed to read GPU metrics over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createGpuMetricsHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ response_format: "concise" });
-
-    expect(firstText(result)).toBe("Failed to read GPU metrics over SSH: channel closed");
   });
 });

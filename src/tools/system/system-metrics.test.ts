@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SystemMetricsQuery, TemperatureUnit } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemMetricsHandler } from "./system-metrics.js";
 
 const eth0 = {
@@ -307,16 +302,6 @@ describe("system_metrics handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch system metrics/);
     expect(firstText(result)).toMatch(/probe failed/);
-  });
-
-  it("coerces a non-Error rejection to a string", async () => {
-    const result = await createSystemMetricsHandler(rejectingExecutor("plain refusal"))({
-      response_format: "concise",
-      include_temperature: false,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/plain refusal/);
   });
 });
 

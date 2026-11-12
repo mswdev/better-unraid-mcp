@@ -10,6 +10,7 @@ import {
 } from "../../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../../_shared/elicitation.js";
+import { errorMessage } from "../../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError, toolText } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
@@ -97,7 +98,7 @@ export function createDockerContainerActionHandler(
       const name = stripLeadingSlash(container.names[0], id);
       return formatResponse(response_format, `${PAST_TENSE[action]} container ${name}.`, container);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       // Live-verified API quirk: the mutation performs the action, then fails
       // its own read-back (especially when addressed by name) and throws
       // "... not found after <action>". Reporting that as a failure invites a

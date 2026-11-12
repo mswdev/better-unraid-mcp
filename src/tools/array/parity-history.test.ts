@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ParityHistoryQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createParityHistoryHandler } from "./parity-history.js";
 
 const history = {
@@ -146,16 +146,6 @@ describe("parity_history ordering and failures", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toBe("Failed to fetch parity history: forbidden");
-  });
-
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createParityHistoryHandler(rejectingExecutor("socket hang up"))({
-      response_format: "concise",
-      limit: 5,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toBe("Failed to fetch parity history: socket hang up");
   });
 });
 

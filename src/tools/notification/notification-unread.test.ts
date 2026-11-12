@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NotificationUnreadDocument } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationUnreadHandler } from "./notification-unread.js";
 
 describe("notification_unread", () => {
@@ -33,9 +28,9 @@ describe("notification_unread", () => {
   });
 });
 
-describe("notification_unread non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createNotificationUnreadHandler(rejectingExecutor("socket hang up"));
+describe("notification_unread failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createNotificationUnreadHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ id: "n1" });
 

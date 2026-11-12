@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
@@ -80,7 +81,7 @@ export function createVmSnapshotCreateHandler(
         `External snapshot "${args.name}" created for VM ${args.vm}. Verify with vm_snapshot_list. Reverting/deleting snapshots is deliberately not offered here (external-chain corruption risk) — manage those from the Unraid VM UI.`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to create VM snapshot over SSH: ${message}`);
     }
   };

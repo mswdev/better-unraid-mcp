@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LogListQuery } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createLogListHandler } from "./log-list.js";
 
 const data = {
@@ -65,14 +60,5 @@ describe("log_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to list log files/);
     expect(firstText(result)).toMatch(/boom/);
-  });
-
-  it("coerces a non-Error rejection to a string", async () => {
-    const result = await createLogListHandler(rejectingExecutor("plain refusal"))({
-      response_format: "concise",
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/plain refusal/);
   });
 });

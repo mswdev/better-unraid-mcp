@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createMoverActionHandler } from "./mover-action.js";
 
 const okResult = { stdout: "", stderr: "", exitCode: 0 };
@@ -93,8 +88,8 @@ describe("mover_action failure output", () => {
     expect(firstText(result)).toBe("mover stop failed (exit 3): (no output)");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createMoverActionHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createMoverActionHandler(throwingShell("channel closed"));
 
     const result = await handler({ response_format: "concise", action: "start", confirm: true });
 

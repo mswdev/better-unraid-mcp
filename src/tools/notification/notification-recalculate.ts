@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { RecalculateOverviewDocument } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "notification_recalculate";
@@ -27,7 +28,7 @@ export function createNotificationRecalculateHandler(client: GraphQLExecutor) {
       const concise = `Overview re-synced from disk: ${recalculateOverview.unread.total} unread / ${recalculateOverview.archive.total} archived.`;
       return formatResponse(response_format, concise, recalculateOverview);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to recalculate notification overview: ${message}`);
     }
   };

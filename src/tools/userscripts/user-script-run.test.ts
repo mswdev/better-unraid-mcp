@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createUserScriptRunHandler } from "./user-script-run.js";
 
 const okResult = { stdout: "done\n", stderr: "", exitCode: 0 };
@@ -133,8 +128,8 @@ describe("user_script_run failure paths", () => {
     expect(firstText(result)).toContain("SSH is not configured");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createUserScriptRunHandler(rejectingShell("channel closed"));
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createUserScriptRunHandler(throwingShell("channel closed"));
 
     const result = await handler(request);
 

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApiKeyListQuery } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createApiKeyListHandler } from "./apikey-list.js";
 
 const fixture = {
@@ -49,8 +44,8 @@ describe("apikey_list", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createApiKeyListHandler(rejectingExecutor("socket hang up"));
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createApiKeyListHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ response_format: "concise" });
 

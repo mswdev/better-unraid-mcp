@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { VmListQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createVmListHandler } from "./vm-list.js";
 
 const data = {
@@ -81,14 +81,5 @@ describe("vm_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch VMs/);
     expect(firstText(result)).toMatch(/VMs are not available/);
-  });
-
-  it("coerces a non-Error rejection into the error message", async () => {
-    const result = await createVmListHandler(rejectingExecutor("boom-string"))({
-      response_format: "concise",
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/boom-string/);
   });
 });

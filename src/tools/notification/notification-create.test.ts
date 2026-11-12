@@ -5,12 +5,7 @@ import {
   NotifyIfUniqueDocument,
   type NotifyIfUniqueMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationCreateHandler } from "./notification-create.js";
 
 const created = {
@@ -119,14 +114,5 @@ describe("notification_create", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to create notification: bad input/);
-  });
-
-  it("coerces a non-Error rejection (String(error) branch)", async () => {
-    const result = await createNotificationCreateHandler(rejectingExecutor("boom"))({
-      ...baseArgs,
-      mode: "always",
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to create notification: boom/);
   });
 });

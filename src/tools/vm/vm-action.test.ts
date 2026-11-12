@@ -17,7 +17,7 @@ import {
   VmStopDocument,
   type VmStopMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, sequencedExecutor } from "../_shared/test-support.js";
+import { firstText, sequencedExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createVmActionHandler, stripServerPrefix } from "./vm-action.js";
 
 describe("stripServerPrefix", () => {
@@ -428,7 +428,7 @@ describe("vm_action handler", () => {
   });
 });
 
-describe("vm_action unavailable VM service and non-Error failures", () => {
+describe("vm_action unavailable VM service and failure messages", () => {
   it("reports no match when the VM service lists no domains at all", async () => {
     const { executor, calls } = sequencedExecutor([
       { vms: { domains: null } } satisfies VmResolveQuery,
@@ -445,8 +445,8 @@ describe("vm_action unavailable VM service and non-Error failures", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createVmActionHandler(rejectingExecutor("socket hang up"))({
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createVmActionHandler(throwingExecutor("socket hang up"))({
       vm: "Windows 11",
       action: "stop",
       confirm: true,

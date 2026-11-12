@@ -5,7 +5,7 @@ import {
   DockerSetAutostartDocument,
   type DockerSetAutostartMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, sequencedExecutor } from "../_shared/test-support.js";
+import { firstText, sequencedExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { compareByOrder, createDockerAutostartSetHandler } from "./autostart-set.js";
 
 const state = {
@@ -280,9 +280,9 @@ describe("docker_autostart_set handler", () => {
   });
 });
 
-describe("docker_autostart_set non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createDockerAutostartSetHandler(rejectingExecutor("socket hang up"))({
+describe("docker_autostart_set failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerAutostartSetHandler(throwingExecutor("socket hang up"))({
       changes: [{ id: "srv:app", auto_start: false }],
       persist: false,
       confirm: true,

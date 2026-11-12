@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ShareListQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createShareListHandler } from "./share-list.js";
 
 const shares = {
@@ -111,13 +111,5 @@ describe("share_list filtering and failures", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toBe("Failed to fetch shares: forbidden");
-  });
-
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createShareListHandler(rejectingExecutor("socket hang up"))({
-      response_format: "concise",
-    });
-
-    expect(firstText(result)).toBe("Failed to fetch shares: socket hang up");
   });
 });

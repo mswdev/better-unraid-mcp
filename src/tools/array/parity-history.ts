@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ParityHistoryDocument, type ParityHistoryQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_history";
@@ -65,7 +66,7 @@ export function createParityHistoryHandler(client: GraphQLExecutor) {
       const checks = sortNewestFirst(data.parityHistory).slice(0, limit);
       return formatResponse(response_format, summarize(checks), checks);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch parity history: ${message}`);
     }
   };

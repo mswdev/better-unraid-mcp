@@ -3,12 +3,7 @@ import {
   PluginInstallPlgDocument,
   type PluginInstallPlgMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createPluginInstallPlgHandler } from "./plugin-install-plg.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -78,8 +73,8 @@ describe("plugin_install_plg naming and failures", () => {
     expect(firstText(result)).toContain(`Plugin install RUNNING (operation op-2) for ${PLG_URL}.`);
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const handler = createPluginInstallPlgHandler(rejectingExecutor("socket hang up"));
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createPluginInstallPlgHandler(throwingExecutor("socket hang up"));
 
     const result = await handler({ url: PLG_URL, ...bothFlags });
 

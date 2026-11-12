@@ -4,8 +4,6 @@ import {
   firstText,
   recordingExecutor,
   recordingShell,
-  rejectingExecutor,
-  rejectingShell,
   throwingExecutor,
   throwingShell,
 } from "../_shared/test-support.js";
@@ -196,7 +194,7 @@ describe("connection_doctor schema check", () => {
   });
 });
 
-describe("connection_doctor partial reports and non-Error failures", () => {
+describe("connection_doctor partial reports and failure details", () => {
   const deps = { shell: null, readOnly: false, schemaApiVersion: "4.35.0" };
 
   it("shows placeholders when the server reports no versions, and skips the schema compare", async () => {
@@ -216,10 +214,10 @@ describe("connection_doctor partial reports and non-Error failures", () => {
     expect(parsed.checks[1]).toMatchObject({ check: "schema", status: "warn" });
   });
 
-  it("classifies a non-Error GraphQL rejection by its text", async () => {
+  it("quotes the failure reason in the unreachable-endpoint detail", async () => {
     const handler = createConnectionDoctorHandler({
       ...deps,
-      client: rejectingExecutor("socket hang up"),
+      client: throwingExecutor("socket hang up"),
     });
 
     const result = await handler({ response_format: "concise" });
@@ -237,12 +235,12 @@ describe("connection_doctor partial reports and non-Error failures", () => {
     expect(firstText(result)).toContain("✗ SSH: failed (exit 255).");
   });
 
-  it("reports a non-Error SSH rejection as text", async () => {
+  it("quotes the failure reason in the failed SSH detail", async () => {
     const { executor } = recordingExecutor(doctorFixture);
     const handler = createConnectionDoctorHandler({
       ...deps,
       client: executor,
-      shell: rejectingShell("channel closed"),
+      shell: throwingShell("channel closed"),
     });
 
     const result = await handler({ response_format: "concise" });

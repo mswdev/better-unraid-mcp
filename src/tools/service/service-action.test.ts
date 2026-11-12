@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
+import { firstText, sequencedShell } from "../_shared/test-support.js";
 import { createServiceActionHandler } from "./service-action.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -150,13 +150,5 @@ describe("service_action failure paths", () => {
     const result = await handler({ service: "samba", action: "restart", ...bothFlags });
 
     expect(firstText(result)).toBe("Failed to restart samba over SSH: connection refused");
-  });
-
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createServiceActionHandler(rejectingShell("channel closed"));
-
-    const result = await handler({ service: "samba", action: "restart", ...bothFlags });
-
-    expect(firstText(result)).toBe("Failed to restart samba over SSH: channel closed");
   });
 });

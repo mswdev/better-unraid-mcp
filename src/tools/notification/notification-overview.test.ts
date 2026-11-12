@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { NotificationOverviewQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationOverviewHandler } from "./notification-overview.js";
 
 const data = {
@@ -40,13 +40,5 @@ describe("notification_overview handler", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch notification overview/);
-  });
-
-  it("coerces a non-Error rejection", async () => {
-    const result = await createNotificationOverviewHandler(rejectingExecutor("boom"))({
-      response_format: "concise",
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/boom/);
   });
 });

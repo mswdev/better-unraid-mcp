@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerPortConflictsQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerPortConflictsHandler } from "./port-conflicts.js";
 
 const data = {
@@ -72,9 +72,9 @@ describe("docker_port_conflicts handler", () => {
   });
 });
 
-describe("docker_port_conflicts non-Error failures", () => {
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createDockerPortConflictsHandler(rejectingExecutor("socket hang up"))({
+describe("docker_port_conflicts failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerPortConflictsHandler(throwingExecutor("socket hang up"))({
       response_format: "concise",
     });
 

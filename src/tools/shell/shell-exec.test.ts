@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  firstText,
-  recordingShell,
-  rejectingShell,
-  throwingShell,
-} from "../_shared/test-support.js";
+import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
 import { createShellExecHandler } from "./shell-exec.js";
 
 const ok = { stdout: "hello\n", stderr: "", exitCode: 0 };
@@ -149,9 +144,9 @@ describe("shell_exec progress heartbeat", () => {
   });
 });
 
-describe("shell_exec non-Error failures", () => {
-  it("reports a non-Error SSH rejection as text", async () => {
-    const handler = createShellExecHandler(rejectingShell("channel closed"));
+describe("shell_exec failure messages", () => {
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createShellExecHandler(throwingShell("channel closed"));
 
     const result = await handler({
       response_format: "concise",

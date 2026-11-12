@@ -7,6 +7,7 @@ import {
 } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { type Overview, TYPE_TO_API, type TypeInput } from "./_shared.js";
 
@@ -86,7 +87,7 @@ export function createNotificationDeleteHandler(
       const overview = await runDelete(client, args);
       return formatResponse(args.response_format, summarize(args.scope, overview), { overview });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to delete notifications: ${message}`);
     }
   };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerNetworkListQuery } from "../../types/unraid/graphql.js";
-import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerNetworkListHandler } from "./network-list.js";
 
 const data = {
@@ -109,8 +109,8 @@ describe("docker_network_list edge cases", () => {
     expect(firstText(result)).toBe("host — host (local)");
   });
 
-  it("reports a non-Error rejection as text", async () => {
-    const result = await createDockerNetworkListHandler(rejectingExecutor("socket hang up"))({
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerNetworkListHandler(throwingExecutor("socket hang up"))({
       response_format: "concise",
     });
 
