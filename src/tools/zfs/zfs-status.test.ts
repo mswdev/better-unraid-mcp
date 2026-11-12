@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, sequencedShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  rejectingShell,
+  sequencedShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createZfsStatusHandler } from "./zfs-status.js";
 
 const probeOk = { stdout: "/usr/sbin/zpool\n", stderr: "", exitCode: 0 };
@@ -71,5 +76,35 @@ describe("zfs_status", () => {
     const result = await handler({ response_format: "concise" });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("zfs_status empty pools and failures", () => {
+  it("says no pools are imported while still reporting ARC", async () => {
+    const { shell } = sequencedShell([probeOk, { stdout: "", stderr: "", exitCode: 0 }, arcstats]);
+    const handler = createZfsStatusHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("No ZFS pools imported. ARC: 4.0 GiB of 8.0 GiB max (50%).");
+  });
+
+  it("surfaces a zpool list failure with its stderr", async () => {
+    const failed = { stdout: "", stderr: "no pools available\n", exitCode: 1 };
+    const { shell } = sequencedShell([probeOk, failed]);
+    const handler = createZfsStatusHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("zpool list failed (exit 1): no pools available");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createZfsStatusHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("Failed to read ZFS status over SSH: channel closed");
   });
 });

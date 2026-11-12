@@ -48,4 +48,15 @@ describe("truncateJsonPayload", () => {
     expect(result.length).toBeLessThan(45_000);
     expect(() => JSON.parse(result)).not.toThrow();
   });
+
+  it("shrinks the head of an escape-heavy payload until the envelope fits the cap", () => {
+    const serialized = JSON.stringify({ data: '"'.repeat(40_000) }, null, 2);
+
+    const result = truncateJsonPayload(serialized);
+    const envelope = JSON.parse(result) as { partial_json_head: string };
+
+    expect(result.length).toBeLessThanOrEqual(30_000);
+    expect(envelope.partial_json_head).toHaveLength(10_000);
+    expect(serialized.startsWith(envelope.partial_json_head)).toBe(true);
+  });
 });

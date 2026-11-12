@@ -87,9 +87,16 @@ function toPartition(node: LsblkNode): UnassignedPartition {
   };
 }
 
-function toDisk(node: LsblkNode): UnassignedDisk {
+/** A whole-disk lsblk node that carries a kernel name. */
+type NamedDiskNode = LsblkNode & { kname: string };
+
+function isNamedDisk(node: LsblkNode): node is NamedDiskNode {
+  return node.type === "disk" && node.kname !== undefined;
+}
+
+function toDisk(node: NamedDiskNode): UnassignedDisk {
   return {
-    device: `/dev/${node.kname ?? "?"}`,
+    device: `/dev/${node.kname}`,
     model: node.model ?? null,
     serial: node.serial ?? null,
     size: node.size ?? "?",
@@ -108,10 +115,8 @@ function toDisk(node: LsblkNode): UnassignedDisk {
  */
 export function selectUnassigned(lsblkJson: string, assigned: Set<string>): UnassignedDisk[] {
   return parseLsblk(lsblkJson)
-    .filter((node) => node.type === "disk" && node.kname !== undefined)
-    .filter(
-      (node) => !PSEUDO_DEVICE_PATTERN.test(node.kname ?? "") && !assigned.has(node.kname ?? ""),
-    )
+    .filter(isNamedDisk)
+    .filter((node) => !PSEUDO_DEVICE_PATTERN.test(node.kname) && !assigned.has(node.kname))
     .map(toDisk);
 }
 

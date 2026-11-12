@@ -17,7 +17,7 @@ import {
   VmStopDocument,
   type VmStopMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, sequencedExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, sequencedExecutor } from "../_shared/test-support.js";
 import { createVmActionHandler, stripServerPrefix } from "./vm-action.js";
 
 describe("stripServerPrefix", () => {
@@ -425,5 +425,35 @@ describe("vm_action handler", () => {
     expect(calls).toHaveLength(2);
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Invalid state transition/);
+  });
+});
+
+describe("vm_action unavailable VM service and non-Error failures", () => {
+  it("reports no match when the VM service lists no domains at all", async () => {
+    const { executor, calls } = sequencedExecutor([
+      { vms: { domains: null } } satisfies VmResolveQuery,
+    ]);
+
+    const result = await createVmActionHandler(executor)({
+      vm: "Windows 11",
+      action: "start",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toBe("No VM matches 'Windows 11'.");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createVmActionHandler(rejectingExecutor("socket hang up"))({
+      vm: "Windows 11",
+      action: "stop",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to stop VM Windows 11: socket hang up");
   });
 });

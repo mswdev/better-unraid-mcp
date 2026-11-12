@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createUserScriptRunHandler } from "./user-script-run.js";
 
 const okResult = { stdout: "done\n", stderr: "", exitCode: 0 };
@@ -109,5 +114,30 @@ describe("user_script_run dot-name confinement", () => {
     expect(dot.isError).toBe(true);
     expect(dotdot.isError).toBe(true);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("user_script_run failure paths", () => {
+  const request = {
+    response_format: "concise",
+    name: "backup",
+    timeout_seconds: 60,
+    ...bothFlags,
+  } as const;
+
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createUserScriptRunHandler(null);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createUserScriptRunHandler(rejectingShell("channel closed"));
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toBe('Failed to run user script "backup" over SSH: channel closed');
   });
 });

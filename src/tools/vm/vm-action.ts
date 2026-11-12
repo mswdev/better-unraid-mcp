@@ -107,10 +107,7 @@ function matchesId(domain: VmDomain, vm: string): boolean {
 }
 
 /** Result of resolving the `vm` target: a matched domain, or an error message. */
-interface ResolveResult {
-  domain?: VmDomain;
-  error?: string;
-}
+type ResolveResult = { domain: VmDomain } | { error: string };
 
 /** Resolves `vm` to a single VM: tolerant id match first, then exact case-insensitive name. */
 function resolveVm(domains: VmDomain[], vm: string): ResolveResult {
@@ -189,10 +186,11 @@ export function createVmActionHandler(
     }
     try {
       const { vms } = await client.execute(VmResolveDocument);
-      const { domain, error } = resolveVm(vms.domains ?? [], vm);
-      if (!domain) {
-        return toolError(error ?? `No VM matches '${vm}'.`);
+      const resolved = resolveVm(vms.domains ?? [], vm);
+      if ("error" in resolved) {
+        return toolError(resolved.error);
       }
+      const { domain } = resolved;
       const ok = await runAction(client, action, domain.id);
       const label = domain.name ?? domain.id;
       const detailed = { ok, action, id: domain.id, name: domain.name ?? null };
