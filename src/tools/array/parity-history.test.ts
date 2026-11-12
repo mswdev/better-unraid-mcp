@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ParityHistoryQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createParityHistoryHandler } from "./parity-history.js";
 
 const history = {
@@ -59,6 +59,15 @@ const nullFields = {
   ],
 } satisfies ParityHistoryQuery;
 
+const undatedBetweenDated = {
+  parityHistory: [
+    { date: "2026-04-30T00:00:00Z", status: "COMPLETED", errors: 1, speed: "175" },
+    { date: null, status: "CANCELLED", errors: null, speed: null },
+    { date: "2026-05-30T00:00:00Z", status: "COMPLETED", errors: 0, speed: "180" },
+    { date: null, status: "NEVER_RUN", errors: null, speed: null },
+  ],
+};
+
 function fakeExecutor(result: ParityHistoryQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
@@ -112,6 +121,41 @@ describe("parity_history handler", () => {
     expect(firstText(result)).toMatch(/unknown/);
     expect(firstText(result)).toMatch(/0 errors/);
     expect(firstText(result)).toMatch(/unknown speed/);
+  });
+});
+
+describe("parity_history ordering and failures", () => {
+  it("sorts undated checks after every dated one", async () => {
+    const result = await createParityHistoryHandler(fakeExecutor(undatedBetweenDated as never))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    const dates = firstText(result)
+      .split("\n")
+      .slice(1)
+      .map((line) => line.split(" on ")[1].split(":")[0]);
+    expect(dates).toEqual(["2026-05-30T00", "2026-04-30T00", "unknown", "unknown"]);
+  });
+
+  it("maps executor failures to a clean error", async () => {
+    const result = await createParityHistoryHandler(throwingExecutor("forbidden"))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch parity history: forbidden");
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createParityHistoryHandler(rejectingExecutor("socket hang up"))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch parity history: socket hang up");
   });
 });
 

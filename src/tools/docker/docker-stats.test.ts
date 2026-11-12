@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import { LiveSnapshotStore } from "../../graphql/live-store.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createDockerStatsHandler } from "./docker-stats.js";
 
 const twoContainers = {
@@ -135,6 +141,116 @@ describe("docker_stats live subscription preference", () => {
   it("falls back to SSH when the live sample is stale and says so", async () => {
     const { shell, calls } = recordingShell(twoContainers);
     const handler = createDockerStatsHandler(shell, storeWith(60_000));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(calls).toHaveLength(1);
+    expect(firstText(result)).toContain("(source: ssh)");
+  });
+});
+
+describe("docker_stats ssh parsing edge cases", () => {
+  it("skips JSON lines that are not objects", async () => {
+    const { shell } = recordingShell({
+      stdout: '42\nnull\n{"Name":"web","CPUPerc":"3.00%"}\n',
+      stderr: "",
+      exitCode: 0,
+    });
+    const handler = createDockerStatsHandler(shell);
+
+    const result = await handler({ response_format: "detailed" });
+
+    expect(JSON.parse(firstText(result)).containers).toEqual([{ Name: "web", CPUPerc: "3.00%" }]);
+  });
+
+  it("sorts rows with a missing or unparseable CPU figure as idle", async () => {
+    const { shell } = recordingShell({
+      stdout: [
+        '{"Name":"blank"}',
+        '{"Name":"busy","CPUPerc":"5%"}',
+        '{"Name":"dash","CPUPerc":"--"}',
+      ].join("\n"),
+      stderr: "",
+      exitCode: 0,
+    });
+    const handler = createDockerStatsHandler(shell);
+
+    const result = await handler({ response_format: "detailed" });
+
+    const names = JSON.parse(firstText(result)).containers.map((row: { Name: string }) => row.Name);
+    expect(names[0]).toBe("busy");
+  });
+
+  it("renders placeholders for every field docker left out", async () => {
+    const { shell } = recordingShell({ stdout: "{}", stderr: "", exitCode: 0 });
+    const handler = createDockerStatsHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("(unnamed): CPU ?, MEM ? (?), NET ?, IO ?, PIDs ?");
+  });
+
+  it("says so when a failed docker stats wrote nothing to stderr", async () => {
+    const { shell } = recordingShell({ stdout: "", stderr: "  ", exitCode: 125 });
+    const handler = createDockerStatsHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("docker stats failed (exit 125): (no error output)");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createDockerStatsHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("Failed to collect docker stats over SSH: channel closed");
+  });
+});
+
+describe("docker_stats live sample shapes", () => {
+  const liveRow = {
+    memUsage: "1GiB / 8GiB",
+    memPercent: 12.5,
+    netIO: "1MB / 2MB",
+    blockIO: "0B / 0B",
+    seenAtMs: 0,
+  };
+
+  function storeHolding(data: unknown): LiveSnapshotStore {
+    const store = new LiveSnapshotStore(() => 0);
+    store.set("dockerContainerStats", data);
+    return store;
+  }
+
+  it("lists live containers hungriest first", async () => {
+    const store = storeHolding({
+      containers: {
+        "c-idle": { ...liveRow, id: "c-idle", cpuPercent: 0.5 },
+        "c-hog": { ...liveRow, id: "c-hog", cpuPercent: 88 },
+      },
+    });
+    const handler = createDockerStatsHandler(null, store);
+
+    const text = firstText(await handler({ response_format: "concise" }));
+
+    expect(text).toContain("(2 containers, source: live subscription, age 0 ms)");
+    expect(text.indexOf("c-hog")).toBeLessThan(text.indexOf("c-idle"));
+  });
+
+  it("falls back to SSH when the live sample is not an object", async () => {
+    const { shell, calls } = recordingShell(twoContainers);
+    const handler = createDockerStatsHandler(shell, storeHolding("garbled"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(calls).toHaveLength(1);
+    expect(firstText(result)).toContain("(source: ssh)");
+  });
+
+  it("falls back to SSH when the live sample has no containers yet", async () => {
+    const { shell, calls } = recordingShell(twoContainers);
+    const handler = createDockerStatsHandler(shell, storeHolding({ containers: {} }));
 
     const result = await handler({ response_format: "concise" });
 

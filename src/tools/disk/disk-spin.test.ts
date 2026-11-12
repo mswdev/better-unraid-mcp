@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  sequencedShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createDiskSpinHandler } from "./disk-spin.js";
 
 const okResult = { stdout: "", stderr: "", exitCode: 0 };
@@ -60,5 +66,84 @@ describe("disk_spin", () => {
     await handler({ action: "up", device: "/dev/sdb", confirm: true });
 
     expect(calls[0].command).toBe("/usr/local/sbin/sdspin /dev/sdb up");
+  });
+});
+
+describe("disk_spin failures", () => {
+  it("reports SSH unavailable when no shell is configured", async () => {
+    const handler = createDiskSpinHandler(null);
+
+    const result = await handler({ action: "down", disk: "disk1", confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("rejects an unknown array slot name before any command", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createDiskSpinHandler(shell);
+
+    const result = await handler({ action: "down", disk: "flash", confirm: true });
+
+    expect(firstText(result)).toBe(
+      "Invalid array disk name: flash (expected disk1, parity, cache, ...). No changes were made.",
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it("spins an array slot up through emcmd", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createDiskSpinHandler(shell);
+
+    await handler({ action: "up", disk: "parity", confirm: true });
+
+    expect(calls[0].command).toBe("/usr/local/sbin/emcmd cmdSpinup=parity");
+  });
+
+  it("reports stderr when the spin command fails", async () => {
+    const { shell } = sequencedShell([
+      { stdout: "ignored", stderr: "not an ATA drive", exitCode: 1 },
+    ]);
+    const handler = createDiskSpinHandler(shell);
+
+    const result = await handler({ action: "down", device: "/dev/sdb", confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("disk_spin down failed (exit 1): not an ATA drive");
+  });
+
+  it("falls back to stdout when a failed spin wrote nothing to stderr", async () => {
+    const { shell } = sequencedShell([{ stdout: "emhttpd busy", stderr: "", exitCode: 1 }]);
+    const handler = createDiskSpinHandler(shell);
+
+    const result = await handler({ action: "down", disk: "disk1", confirm: true });
+
+    expect(firstText(result)).toBe("disk_spin down failed (exit 1): emhttpd busy");
+  });
+
+  it("says so when a failed spin produced no output at all", async () => {
+    const { shell } = sequencedShell([{ stdout: " ", stderr: "", exitCode: 2 }]);
+    const handler = createDiskSpinHandler(shell);
+
+    const result = await handler({ action: "up", disk: "disk1", confirm: true });
+
+    expect(firstText(result)).toBe("disk_spin up failed (exit 2): (no output)");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const handler = createDiskSpinHandler(throwingShell("connection refused"));
+
+    const result = await handler({ action: "down", disk: "disk1", confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to spin down disk1 over SSH: connection refused");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createDiskSpinHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ action: "down", device: "/dev/sdc", confirm: true });
+
+    expect(firstText(result)).toBe("Failed to spin down /dev/sdc over SSH: channel closed");
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
 import { archiveNameFor, createFlashBackupHandler } from "./flash-backup.js";
 
 const fixedNow = new Date("2026-09-17T22:41:05Z");
@@ -132,6 +132,50 @@ describe("flash_backup archiving", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("verification");
+  });
+
+  it("fails when verification exits 0 but prints no entry and byte counts", async () => {
+    const garbled = ok("not-a-number\n");
+    const { handler } = handlerWith([probeOk, tarOk, garbled]);
+
+    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain(
+      `Archive verification failed for ${EXPECTED_FILE} (exit 0)`,
+    );
+  });
+
+  it("names the archive from the current time when no clock is injected", async () => {
+    const { shell, calls } = sequencedShell([probeOk, tarOk, verifyOk]);
+    const handler = createFlashBackupHandler({ shell });
+
+    await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    const year = String(new Date().getUTCFullYear());
+    expect(calls[1].command).toMatch(
+      new RegExp(`${EXPECTED_DIR}/flash-backup-config-${year}\\d{4}-\\d{6}\\.tar\\.gz`),
+    );
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { handler } = handlerWith([new Error("connection refused")]);
+
+    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      "Failed to back up the flash device over SSH: connection refused",
+    );
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createFlashBackupHandler({ shell: rejectingShell("channel closed") });
+
+    const result = await handler({ response_format: "concise", share: "backups", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to back up the flash device over SSH: channel closed");
   });
 
   it("returns a structured payload in detailed mode", async () => {

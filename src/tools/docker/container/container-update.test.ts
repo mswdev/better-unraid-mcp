@@ -4,7 +4,12 @@ import {
   DockerUpdateContainersDocument,
   type DockerUpdateContainersMutation,
 } from "../../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
 import { createDockerContainerUpdateHandler } from "./container-update.js";
 
 describe("docker_container_update handler", () => {
@@ -139,5 +144,18 @@ describe("docker_container_update progress", () => {
     const result = await handler({ response_format: "concise", ids: ["abc"], confirm: true });
 
     expect(result.isError).toBeUndefined();
+  });
+});
+
+describe("docker_container_update non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDockerContainerUpdateHandler(rejectingExecutor("socket hang up"))({
+      ids: ["srv:abc"],
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to update Docker container(s): socket hang up");
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerNetworkListQuery } from "../../types/unraid/graphql.js";
-import { firstText, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerNetworkListHandler } from "./network-list.js";
 
 const data = {
@@ -81,5 +81,40 @@ describe("docker_network_list handler", () => {
     );
 
     expect(firstText(result)).toMatch(/No Docker networks/);
+  });
+});
+
+describe("docker_network_list edge cases", () => {
+  it("adds no marker suffix to a plain network", async () => {
+    const plain = {
+      docker: {
+        networks: [
+          {
+            id: "srv:net3",
+            name: "host",
+            driver: "host",
+            scope: "local",
+            enableIPv6: false,
+            internal: false,
+            attachable: false,
+          },
+        ],
+      },
+    } satisfies DockerNetworkListQuery;
+
+    const result = await createDockerNetworkListHandler(fakeExecutor(plain))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toBe("host — host (local)");
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDockerNetworkListHandler(rejectingExecutor("socket hang up"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch Docker networks: socket hang up");
   });
 });

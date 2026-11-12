@@ -11,7 +11,12 @@ import {
   DockerUnpauseDocument,
   type DockerUnpauseMutation,
 } from "../../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
 import { createDockerContainerActionHandler } from "./container-action.js";
 
 // Per-action fixtures are typed `satisfies <Op>Mutation` so codegen/selection
@@ -180,5 +185,19 @@ describe("docker_container_action elicitation", () => {
 
     expect(result.isError).toBe(true);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("docker_container_action non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDockerContainerActionHandler(rejectingExecutor("socket hang up"))({
+      id: "srv:abc",
+      action: "stop",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to stop container srv:abc: socket hang up");
   });
 });

@@ -3,7 +3,12 @@ import {
   DockerRemoveContainerDocument,
   type DockerRemoveContainerMutation,
 } from "../../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
 import { createDockerContainerRemoveHandler } from "./container-remove.js";
 
 describe("docker_container_remove handler", () => {
@@ -110,5 +115,18 @@ describe("docker_container_remove handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to remove container srv:abc/);
     expect(firstText(result)).toMatch(/not found/);
+  });
+});
+
+describe("docker_container_remove non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDockerContainerRemoveHandler(rejectingExecutor("socket hang up"))({
+      id: "srv:abc",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to remove container srv:abc: socket hang up");
   });
 });

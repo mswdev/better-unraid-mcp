@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  rejectingShell,
+  sequencedShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createDiskSmartReportHandler } from "./disk-smart-report.js";
 
 const smartctlFound = { stdout: "/usr/sbin/smartctl\n", stderr: "", exitCode: 0 };
@@ -54,5 +59,32 @@ describe("disk_smart_report", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("Permission denied");
+  });
+});
+
+describe("disk_smart_report failures", () => {
+  it("reports SSH unavailable when no shell is configured", async () => {
+    const handler = createDiskSmartReportHandler(null);
+
+    const result = await handler({ device: "/dev/sda" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const handler = createDiskSmartReportHandler(throwingShell("connection refused"));
+
+    const result = await handler({ device: "/dev/sda" });
+
+    expect(firstText(result)).toBe("Failed to read SMART report over SSH: connection refused");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createDiskSmartReportHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ device: "/dev/sda" });
+
+    expect(firstText(result)).toBe("Failed to read SMART report over SSH: channel closed");
   });
 });

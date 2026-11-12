@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import type { DockerContainerLogsQuery } from "../../../types/unraid/graphql.js";
-import { firstText, recordingShell, throwingExecutor } from "../../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingExecutor,
+  throwingExecutor,
+  throwingShell,
+} from "../../_shared/test-support.js";
 import { createDockerContainerLogsHandler, sinceSchema } from "./container-logs.js";
 
 const data = {
@@ -240,5 +246,32 @@ describe("docker_container_logs timestamp-only artifact", () => {
     });
 
     expect(firstText(result)).toContain("backup finished at 2026-09-14T11:01:30Z");
+  });
+});
+
+describe("docker_container_logs failure paths", () => {
+  const noLines = {
+    docker: { logs: { containerId: "srv:abc", lines: [], cursor: null } },
+  } satisfies DockerContainerLogsQuery;
+
+  it("keeps the no-lines message when the SSH fallback itself throws", async () => {
+    const handler = createDockerContainerLogsHandler(
+      fakeExecutor(noLines),
+      throwingShell("connection refused"),
+    );
+
+    const result = await handler({ id: "Dozzle", response_format: "concise", tail: 50 });
+
+    expect(result.isError).toBeUndefined();
+    expect(firstText(result)).toMatch(/No log lines/);
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const handler = createDockerContainerLogsHandler(rejectingExecutor("socket hang up"), null);
+
+    const result = await handler({ id: "srv:abc", response_format: "concise", tail: 50 });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch logs for srv:abc: socket hang up");
   });
 });

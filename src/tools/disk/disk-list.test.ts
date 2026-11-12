@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DiskListQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createDiskListHandler, partitionsOfDevice } from "./disk-list.js";
 
 const disks = {
@@ -120,5 +120,24 @@ describe("disk_list handler partition filtering", () => {
 
     const parsed = JSON.parse(firstText(result)) as Array<{ partitions: Array<{ name: string }> }>;
     expect(parsed[0].partitions.map((p) => p.name)).toEqual(["sda1"]);
+  });
+});
+
+describe("disk_list failures", () => {
+  it("maps executor failures to a clean error", async () => {
+    const result = await createDiskListHandler(throwingExecutor("forbidden"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch disks: forbidden");
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDiskListHandler(rejectingExecutor("socket hang up"))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toBe("Failed to fetch disks: socket hang up");
   });
 });

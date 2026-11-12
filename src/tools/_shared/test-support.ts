@@ -147,6 +147,18 @@ export function throwingShell(message: string): ShellExecutor {
 }
 
 /**
+ * Builds a fake shell executor whose `execute` rejects with a non-`Error`
+ * value. Use it to cover the `String(error)` coercion branch of a handler's
+ * catch block.
+ *
+ * @param reason - The non-`Error` rejection value.
+ * @returns A fake executor that rejects every call with `reason`.
+ */
+export function rejectingShell(reason: unknown): ShellExecutor {
+  return { execute: () => Promise.reject(reason) };
+}
+
+/**
  * Builds a fake shell executor that returns (or throws) each result in
  * order — for tools that run several commands (probe, then work).
  *

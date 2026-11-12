@@ -84,7 +84,7 @@ export function createDiskSpinHandler(
     if (invalid) {
       return toolError(`${invalid} No changes were made.`);
     }
-    const target = args.disk ?? args.device ?? "";
+    const target = args.disk ?? args.device;
     const refusal = await requireConfirmationInteractive({
       confirm: args.confirm,
       actionDescription: `spin ${args.action} ${target}`,

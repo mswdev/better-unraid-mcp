@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { DockerPortConflictsQuery } from "../../types/unraid/graphql.js";
-import { firstText, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createDockerPortConflictsHandler } from "./port-conflicts.js";
 
 const data = {
@@ -69,5 +69,16 @@ describe("docker_port_conflicts handler", () => {
     });
 
     expect(firstText(result)).toMatch(/No port conflicts\./);
+  });
+});
+
+describe("docker_port_conflicts non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const result = await createDockerPortConflictsHandler(rejectingExecutor("socket hang up"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch Docker port conflicts: socket hang up");
   });
 });
