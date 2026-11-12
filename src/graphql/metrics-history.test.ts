@@ -151,3 +151,60 @@ describe("MetricsHistoryRecorder", () => {
     expect(recorder.isRunning()).toBe(false);
   });
 });
+
+/** Returns the subscription's error handler, failing the test when none was registered. */
+function requireErrorHandler(handlers: FeedHandlers | undefined): (error: unknown) => void {
+  const onError = handlers?.onError;
+  if (!onError) {
+    throw new Error("the recorder subscribed without an onError handler");
+  }
+  return onError;
+}
+
+describe("MetricsHistoryRecorder lifecycle edges", () => {
+  it("opens the feed subscriptions only once when started twice", () => {
+    const feed = fakeFeed();
+    const recorder = new MetricsHistoryRecorder({ feed, now: () => T0 });
+
+    recorder.start();
+    recorder.start();
+    recorder.dispose();
+
+    expect(feed.unsubscribed).toHaveLength(3);
+  });
+
+  it("registers an error handler that swallows feed errors and keeps recording", () => {
+    const feed = fakeFeed();
+    const recorder = new MetricsHistoryRecorder({ feed, now: () => T0 });
+    recorder.start();
+    const cpuQuery = [...feed.handlers.keys()].find((q) => q.includes("systemMetricsCpu")) ?? "";
+    const cpu = feed.handlers.get(cpuQuery);
+    const onError = requireErrorHandler(cpu);
+
+    onError(new Error("socket closed"));
+    cpu?.onData({ systemMetricsCpu: { percentTotal: 7 } });
+
+    expect(recorder.isRunning()).toBe(true);
+    expect(recorder.window("cpu", 60).points).toHaveLength(1);
+  });
+
+  it("reports the full requested window as gaps before recording starts", () => {
+    const recorder = new MetricsHistoryRecorder({ feed: fakeFeed(), now: () => T0 });
+
+    const result = recorder.window("cpu", 60);
+
+    expect(result.points).toHaveLength(0);
+    expect(result.expectedBuckets).toBe((60 * 60_000) / BUCKET_MS);
+    expect(result.gaps).toBe(result.expectedBuckets);
+  });
+
+  it("stamps the start time from the system clock when no clock is injected", () => {
+    const recorder = new MetricsHistoryRecorder({ feed: fakeFeed() });
+    const before = Date.now();
+
+    recorder.start();
+
+    expect(recorder.startedAtMs()).toBeGreaterThanOrEqual(before);
+    expect(recorder.startedAtMs()).toBeLessThanOrEqual(Date.now());
+  });
+});

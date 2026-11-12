@@ -9,6 +9,7 @@ import {
 } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_check";
@@ -172,7 +173,7 @@ export function createParityCheckHandler(
       const detailed = { requested: action, correct, outcome: "requested" };
       return formatResponse(response_format, summarize(action, correct), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return (
         mapKnownError({ action, message, format: response_format }) ??
         toolError(`Failed to ${action} the parity check: ${message}`)

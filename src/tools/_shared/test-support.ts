@@ -64,17 +64,6 @@ export function throwingExecutor(message: string): GraphQLExecutor {
 }
 
 /**
- * Builds a fake executor whose `execute` rejects with a non-`Error` value. Use
- * it to cover the `String(error)` coercion branch of a handler's catch block.
- *
- * @param reason - The non-`Error` rejection value.
- * @returns A fake executor that rejects every call with `reason`.
- */
-export function rejectingExecutor(reason: unknown): GraphQLExecutor {
-  return { execute: () => Promise.reject(reason) };
-}
-
-/**
  * Builds a fake executor that returns canned results in call order (one per
  * `execute` call) and records every call. A result that is an `Error` is thrown
  * instead of returned, so a multi-call handler can be exercised through both the

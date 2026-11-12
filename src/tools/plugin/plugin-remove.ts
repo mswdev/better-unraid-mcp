@@ -3,6 +3,7 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginRemoveDocument } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, toolError } from "../_shared/respond.js";
 import {
   buildInvalidNameError,
@@ -52,7 +53,7 @@ export function createPluginRemoveHandler(
       const summary = buildRestartReport("remove", input.names, data.removePlugin);
       return formatResponse(input.response_format, summary, data);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to remove plugin(s) ${input.names.join(", ")}: ${message}`);
     }
   };

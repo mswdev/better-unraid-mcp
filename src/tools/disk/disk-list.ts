@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { DiskListDocument, type DiskListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -83,7 +84,7 @@ export function createDiskListHandler(client: GraphQLExecutor) {
       const disks = withOwnPartitions(data.disks);
       return formatResponse(response_format, summarize(disks), disks);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch disks: ${message}`);
     }
   };

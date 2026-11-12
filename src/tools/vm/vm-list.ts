@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { VmListDocument, type VmListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "vm_list";
@@ -54,7 +55,7 @@ export function createVmListHandler(client: GraphQLExecutor) {
       const domains = filterByName(vms.domains ?? [], name);
       return formatResponse(response_format, summarize(domains, name), domains);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch VMs: ${message}`);
     }
   };

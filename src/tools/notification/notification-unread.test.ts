@@ -27,3 +27,14 @@ describe("notification_unread", () => {
     expect(firstText(result)).toContain("not found");
   });
 });
+
+describe("notification_unread failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createNotificationUnreadHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({ id: "n1" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to mark notification n1 unread: socket hang up");
+  });
+});

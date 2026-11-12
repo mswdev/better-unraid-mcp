@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ApiKeyListDocument, type ApiKeyListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "apikey_list";
@@ -39,7 +40,7 @@ export function createApiKeyListHandler(client: GraphQLExecutor) {
       const detailed = { keys: data.apiKeys };
       return formatResponse(input.response_format, summarize(data.apiKeys), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list API keys: ${message}`);
     }
   };

@@ -1,8 +1,8 @@
-import { type Client, createClient } from "graphql-ws";
+import { type ClientOptions, createClient } from "graphql-ws";
 import { WebSocket } from "ws";
 
 /** Bounded reconnect budget; graphql-ws backs off between attempts. */
-const RETRY_ATTEMPTS = 10;
+export const RETRY_ATTEMPTS = 10;
 
 /** What a subscriber receives. */
 export interface FeedHandlers {
@@ -23,12 +23,20 @@ export interface CreateClientLike {
   dispose(): void;
 }
 
+/** Builds a graphql-ws client from its options: graphql-ws `createClient` outside tests. */
+export type GraphqlWsClientFactory = (options: ClientOptions) => {
+  subscribe: CreateClientLike["subscribe"];
+  dispose(): void | Promise<void>;
+};
+
 /** Configuration for the live subscription feed. */
 export interface SubscriptionFeedOptions {
   endpoint: string;
   apiKey: string;
   /** Injectable client factory (tests). Default builds a real graphql-ws client. */
   createClientImpl?: () => CreateClientLike;
+  /** Injectable graphql-ws factory behind the default client (tests). Default: `createClient`. */
+  createGraphqlWsClient?: GraphqlWsClientFactory;
 }
 
 /**
@@ -56,7 +64,8 @@ export class SubscriptionFeed {
    * @param options - Endpoint, key, and the injectable client factory.
    */
   constructor(options: SubscriptionFeedOptions) {
-    this.buildClient = options.createClientImpl ?? (() => realClient(options));
+    this.buildClient =
+      options.createClientImpl ?? (() => realClient(options, options.createGraphqlWsClient));
   }
 
   /**
@@ -95,8 +104,11 @@ export class SubscriptionFeed {
 }
 
 /** Builds the real graphql-ws client bound to the Unraid endpoint. */
-function realClient(options: SubscriptionFeedOptions): CreateClientLike {
-  const client: Client = createClient({
+function realClient(
+  options: SubscriptionFeedOptions,
+  createGraphqlWsClient: GraphqlWsClientFactory = createClient,
+): CreateClientLike {
+  const client = createGraphqlWsClient({
     url: toWsUrl(options.endpoint),
     connectionParams: { "x-api-key": options.apiKey },
     webSocketImpl: WebSocket,

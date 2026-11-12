@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PluginAddDocument, type PluginAddMutation } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createPluginAddHandler } from "./plugin-add.js";
 
 const restarted = { addPlugin: false } satisfies PluginAddMutation;
@@ -61,15 +56,5 @@ describe("plugin_add dispatch + reporting", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to add plugin\(s\) nope: E404/);
-  });
-
-  it("coerces a non-Error rejection (String(error) branch)", async () => {
-    const result = await createPluginAddHandler(rejectingExecutor("boom"))({
-      response_format: "concise",
-      names: ["unraid-api-plugin-connect"],
-      confirm: true,
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to add plugin\(s\) unraid-api-plugin-connect: boom/);
   });
 });

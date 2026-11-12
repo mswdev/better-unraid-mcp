@@ -32,3 +32,52 @@ describe("zfs_snapshot_list", () => {
     expect(firstText(result)).toContain("No ZFS snapshots");
   });
 });
+
+describe("zfs_snapshot_list failure paths", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createZfsSnapshotListHandler(null);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("rejects an invalid dataset name before any command", async () => {
+    const { shell, calls } = sequencedShell([]);
+    const handler = createZfsSnapshotListHandler(shell);
+
+    const result = await handler({ response_format: "concise", dataset: "tank;rm" });
+
+    expect(firstText(result)).toBe("Invalid dataset name: tank;rm");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("stops when zpool is missing", async () => {
+    const { shell, calls } = sequencedShell([{ stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createZfsSnapshotListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("ZFS is not available on this server");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("surfaces a zfs snapshot listing failure with its stderr", async () => {
+    const failed = { stdout: "", stderr: "permission denied\n", exitCode: 1 };
+    const { shell } = sequencedShell([probeOk, failed]);
+    const handler = createZfsSnapshotListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("zfs snapshot list failed (exit 1): permission denied");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createZfsSnapshotListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("Failed to list ZFS snapshots over SSH: connection refused");
+  });
+});

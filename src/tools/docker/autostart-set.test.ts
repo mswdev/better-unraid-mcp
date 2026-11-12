@@ -5,7 +5,7 @@ import {
   DockerSetAutostartDocument,
   type DockerSetAutostartMutation,
 } from "../../types/unraid/graphql.js";
-import { firstText, sequencedExecutor } from "../_shared/test-support.js";
+import { firstText, sequencedExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { compareByOrder, createDockerAutostartSetHandler } from "./autostart-set.js";
 
 const state = {
@@ -277,6 +277,20 @@ describe("docker_autostart_set handler", () => {
     expect(calls).toHaveLength(2);
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/flag off/);
+  });
+});
+
+describe("docker_autostart_set failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerAutostartSetHandler(throwingExecutor("socket hang up"))({
+      changes: [{ id: "srv:app", auto_start: false }],
+      persist: false,
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to update Docker autostart: socket hang up");
   });
 });
 

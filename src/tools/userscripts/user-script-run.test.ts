@@ -111,3 +111,28 @@ describe("user_script_run dot-name confinement", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("user_script_run failure paths", () => {
+  const request = {
+    response_format: "concise",
+    name: "backup",
+    timeout_seconds: 60,
+    ...bothFlags,
+  } as const;
+
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createUserScriptRunHandler(null);
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createUserScriptRunHandler(throwingShell("channel closed"));
+
+    const result = await handler(request);
+
+    expect(firstText(result)).toBe('Failed to run user script "backup" over SSH: channel closed');
+  });
+});

@@ -6,6 +6,7 @@ import {
   DockerContainerListDocument,
   type DockerContainerListQuery,
 } from "../../../types/unraid/graphql.js";
+import { errorMessage } from "../../_shared/errors/error-message.js";
 import { formatStructuredResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
@@ -69,7 +70,7 @@ export function createDockerContainerListHandler(client: GraphQLExecutor) {
       const detailed = { containers, data_age_ms: cacheAgeMs(data) ?? 0 };
       return formatStructuredResponse(response_format, summarize(containers), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch Docker containers: ${message}`);
     }
   };

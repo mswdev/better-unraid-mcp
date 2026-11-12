@@ -64,3 +64,35 @@ describe("mover_action", () => {
     expect(firstText(result)).toContain("ECONNREFUSED");
   });
 });
+
+describe("mover_action failure output", () => {
+  it("falls back to stdout when a failed mover wrote nothing to stderr", async () => {
+    const { shell } = recordingShell({
+      stdout: "mover: array not started",
+      stderr: "",
+      exitCode: 1,
+    });
+    const handler = createMoverActionHandler(shell);
+
+    const result = await handler({ response_format: "concise", action: "start", confirm: true });
+
+    expect(firstText(result)).toBe("mover start failed (exit 1): mover: array not started");
+  });
+
+  it("says so when a failed mover produced no output at all", async () => {
+    const { shell } = recordingShell({ stdout: "", stderr: "", exitCode: 3 });
+    const handler = createMoverActionHandler(shell);
+
+    const result = await handler({ response_format: "concise", action: "stop", confirm: true });
+
+    expect(firstText(result)).toBe("mover stop failed (exit 3): (no output)");
+  });
+
+  it("prefixes SSH failures with the tool context", async () => {
+    const handler = createMoverActionHandler(throwingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise", action: "start", confirm: true });
+
+    expect(firstText(result)).toBe("Failed to start the mover over SSH: channel closed");
+  });
+});

@@ -4,7 +4,8 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { BUCKET_CAPACITY, REFILL_PER_SECOND } from "../../graphql/rate-limit.js";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { ConnectionDoctorDocument } from "../../types/unraid/graphql.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
+import { formatResponse, type ResponseFormat } from "../_shared/respond.js";
 
 const TOOL_NAME = "connection_doctor";
 
@@ -71,7 +72,7 @@ async function checkGraphql(client: GraphQLExecutor): Promise<GraphqlProbe> {
     };
     return { check, apiVersion: core.api ?? null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return { check: classifyGraphqlFailure(message), apiVersion: null };
   }
 }
@@ -141,7 +142,7 @@ async function checkSsh(shell: ShellExecutor | null): Promise<DoctorCheck> {
     }
     return { check: "ssh", status: "fail", detail: `SSH: failed (exit ${result.exitCode}).` };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return { check: "ssh", status: "fail", detail: `SSH: failed — ${message}` };
   }
 }
@@ -170,15 +171,6 @@ function summarize(checks: DoctorCheck[]): string {
 }
 
 /**
- * Creates the `connection_doctor` handler bound to its dependencies.
- *
- * @param deps - GraphQL executor, optional shell executor, read-only flag.
- * @returns An MCP handler that self-tests the server's connectivity.
- * @example
- * const handler = createConnectionDoctorHandler({ client, shell, readOnly: false });
- * await handler({ response_format: "concise" });
- */
-/**
  * Runs every doctor check, reused by the tool and the unraid://doctor resource.
  *
  * @param deps - GraphQL executor, optional shell executor, read-only flag.
@@ -196,15 +188,21 @@ export async function runConnectionDoctor(deps: DoctorDeps): Promise<{ checks: D
   };
 }
 
+/**
+ * Creates the `connection_doctor` handler bound to its dependencies. Every
+ * check converts its own failure into a failed check, so the handler itself
+ * never fails.
+ *
+ * @param deps - GraphQL executor, optional shell executor, read-only flag.
+ * @returns An MCP handler that self-tests the server's connectivity.
+ * @example
+ * const handler = createConnectionDoctorHandler({ client, shell, readOnly: false });
+ * await handler({ response_format: "concise" });
+ */
 export function createConnectionDoctorHandler(deps: DoctorDeps) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
-    try {
-      const { checks } = await runConnectionDoctor(deps);
-      return formatResponse(input.response_format, summarize(checks), { checks });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return toolError(`connection_doctor failed unexpectedly: ${message}`);
-    }
+    const { checks } = await runConnectionDoctor(deps);
+    return formatResponse(input.response_format, summarize(checks), { checks });
   };
 }
 

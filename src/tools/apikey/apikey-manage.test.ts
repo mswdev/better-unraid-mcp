@@ -3,6 +3,9 @@ import {
   ApiKeyAddRoleDocument,
   ApiKeyCreateDocument,
   ApiKeyDeleteDocument,
+  ApiKeyRemoveRoleDocument,
+  ApiKeyUpdateDocument,
+  type ApiKeyUpdateMutation,
 } from "../../types/unraid/graphql.js";
 import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createApiKeyManageHandler } from "./apikey-manage.js";
@@ -33,6 +36,28 @@ describe("apikey_manage validation and gate", () => {
     });
 
     expect(result.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects update without an id before the gate", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createApiKeyManageHandler(executor);
+
+    const result = await handler({ action: "update", name: "renamed", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain('action "update" requires `id`');
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects delete without any ids before the gate", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const handler = createApiKeyManageHandler(executor);
+
+    const result = await handler({ action: "delete", ids: [], ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain('action "delete" requires `ids`');
     expect(calls).toHaveLength(0);
   });
 
@@ -80,6 +105,40 @@ describe("apikey_manage actions", () => {
     expect(calls[0].variables).toEqual({ input: { apiKeyId: "k1", role: "VIEWER" } });
   });
 
+  it("updates a key and reports its new roles", async () => {
+    const updated = {
+      apiKey: {
+        update: { id: "k1", name: "renamed", description: null, roles: ["ADMIN", "VIEWER"] },
+      },
+    } satisfies ApiKeyUpdateMutation;
+    const { executor, calls } = recordingExecutor(updated);
+    const handler = createApiKeyManageHandler(executor);
+
+    const result = await handler({ action: "update", id: "k1", name: "renamed", ...bothFlags });
+
+    expect(calls[0].document).toBe(ApiKeyUpdateDocument);
+    expect(calls[0].variables).toEqual({
+      input: { id: "k1", name: "renamed", description: undefined, roles: undefined },
+    });
+    expect(firstText(result)).toBe('Updated API key "renamed" (id k1); roles now [ADMIN, VIEWER].');
+  });
+
+  it("removes a role via the remove-role document", async () => {
+    const { executor, calls } = recordingExecutor({ apiKey: { removeRole: true } });
+    const handler = createApiKeyManageHandler(executor);
+
+    const result = await handler({
+      action: "remove_role",
+      id: "k1",
+      roles: ["ADMIN"],
+      ...bothFlags,
+    });
+
+    expect(calls[0].document).toBe(ApiKeyRemoveRoleDocument);
+    expect(calls[0].variables).toEqual({ input: { apiKeyId: "k1", role: "ADMIN" } });
+    expect(firstText(result)).toContain("Role ADMIN removed from API key k1");
+  });
+
   it("deletes keys via the delete document", async () => {
     const { executor, calls } = recordingExecutor({ apiKey: { delete: true } });
     const handler = createApiKeyManageHandler(executor);
@@ -97,5 +156,14 @@ describe("apikey_manage actions", () => {
     const result = await handler({ action: "delete", ids: ["k1"], ...bothFlags });
 
     expect(result.isError).toBe(true);
+  });
+
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createApiKeyManageHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({ action: "delete", ids: ["k1"], ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to delete API key(s): socket hang up");
   });
 });

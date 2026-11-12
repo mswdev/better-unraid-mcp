@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ShareListDocument, type ShareListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -60,7 +61,7 @@ export function createShareListHandler(client: GraphQLExecutor) {
       const shares = filterByName(data.shares, name);
       return formatResponse(response_format, summarize(shares), shares);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to fetch shares: ${message}`);
     }
   };

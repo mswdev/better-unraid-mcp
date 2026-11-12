@@ -182,3 +182,17 @@ describe("docker_container_action elicitation", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("docker_container_action failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createDockerContainerActionHandler(throwingExecutor("socket hang up"))({
+      id: "srv:abc",
+      action: "stop",
+      confirm: true,
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to stop container srv:abc: socket hang up");
+  });
+});

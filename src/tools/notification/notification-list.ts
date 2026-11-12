@@ -5,6 +5,7 @@ import {
   NotificationListDocument,
   type NotificationListQuery,
 } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import {
   IMPORTANCE_TO_API,
@@ -75,7 +76,7 @@ export function createNotificationListHandler(client: GraphQLExecutor) {
         notifications.list,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list notifications: ${message}`);
     }
   };

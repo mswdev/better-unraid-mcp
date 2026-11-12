@@ -6,6 +6,7 @@ import {
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import {
   DRY_RUN_VALID_TEXT,
@@ -93,7 +94,7 @@ export function createGraphqlMutationHandler(
       const data = await client.execute(parsed.document, input.variables);
       return renderJsonResult(data);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`GraphQL mutation failed: ${message}`);
     }
   };

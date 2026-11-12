@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ArraySetStateDocument, type ArraySetStateMutation } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createArrayActionHandler, DESIRED_STATE } from "./array-action.js";
 
 /** Pre-mutation snapshot: a start issued against a stopped array (finding 1). */
@@ -223,18 +218,5 @@ describe("array_action error mapping", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toBe("Failed to start the array: Forbidden resource");
-  });
-
-  it("coerces non-Error rejections to strings", async () => {
-    const executor = rejectingExecutor("denied");
-
-    const result = await createArrayActionHandler(executor)({
-      response_format: "concise",
-      action: "start",
-      confirm: true,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toBe("Failed to start the array: denied");
   });
 });

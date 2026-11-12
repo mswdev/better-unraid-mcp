@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ParityHistoryQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createParityHistoryHandler } from "./parity-history.js";
 
 const history = {
@@ -48,6 +48,43 @@ const oldestFirst = {
 
 const nullFields = {
   parityHistory: [
+    {
+      date: null,
+      duration: null,
+      speed: null,
+      status: "NEVER_RUN",
+      errors: null,
+      correcting: null,
+    },
+  ],
+} satisfies ParityHistoryQuery;
+
+const undatedBetweenDated = {
+  parityHistory: [
+    {
+      date: "2026-04-30T00:00:00Z",
+      duration: 3700,
+      speed: "175",
+      status: "COMPLETED",
+      errors: 1,
+      correcting: true,
+    },
+    {
+      date: null,
+      duration: null,
+      speed: null,
+      status: "CANCELLED",
+      errors: null,
+      correcting: null,
+    },
+    {
+      date: "2026-05-30T00:00:00Z",
+      duration: 3600,
+      speed: "180",
+      status: "COMPLETED",
+      errors: 0,
+      correcting: true,
+    },
     {
       date: null,
       duration: null,
@@ -112,6 +149,28 @@ describe("parity_history handler", () => {
     expect(firstText(result)).toMatch(/unknown/);
     expect(firstText(result)).toMatch(/0 errors/);
     expect(firstText(result)).toMatch(/unknown speed/);
+  });
+});
+
+describe("parity_history ordering and failures", () => {
+  it("sorts undated checks after every dated one", async () => {
+    const result = await createParityHistoryHandler(fakeExecutor(undatedBetweenDated))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    const dates = [...firstText(result).matchAll(/ on (\S+): /g)].map((match) => match[1]);
+    expect(dates).toEqual(["2026-05-30T00:00:00Z", "2026-04-30T00:00:00Z", "unknown", "unknown"]);
+  });
+
+  it("maps executor failures to a clean error", async () => {
+    const result = await createParityHistoryHandler(throwingExecutor("forbidden"))({
+      response_format: "concise",
+      limit: 5,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch parity history: forbidden");
   });
 });
 

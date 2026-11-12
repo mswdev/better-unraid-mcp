@@ -5,12 +5,7 @@ import {
   DeleteNotificationDocument,
   type DeleteNotificationMutation,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationDeleteHandler } from "./notification-delete.js";
 
 const overview = {
@@ -97,15 +92,5 @@ describe("notification_delete dispatch + reporting", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to delete notifications: ENOENT/);
-  });
-
-  it("coerces a non-Error rejection (String(error) branch)", async () => {
-    const result = await createNotificationDeleteHandler(rejectingExecutor("boom"))({
-      response_format: "concise",
-      scope: "all_archived",
-      confirm: true,
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to delete notifications: boom/);
   });
 });

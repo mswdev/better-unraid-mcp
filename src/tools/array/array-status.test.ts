@@ -91,6 +91,20 @@ const checking = {
   },
 } satisfies ArrayStatusQuery;
 
+const startingCheck = {
+  array: {
+    ...started.array,
+    parityCheckStatus: {
+      status: "RUNNING",
+      progress: null,
+      errors: null,
+      running: true,
+      paused: false,
+      speed: null,
+    },
+  },
+} satisfies ArrayStatusQuery;
+
 function fakeExecutor(result: ArrayStatusQuery): GraphQLExecutor {
   return { execute: async () => result as never };
 }
@@ -156,5 +170,22 @@ describe("array_status handler", () => {
 
     expect(firstText(result)).toMatch(/Parity: COMPLETED \(errors: see parity_history\)/);
     expect(firstText(result)).not.toMatch(/0 errors/);
+  });
+
+  it("shows 0% at an unknown speed while a just-started check has no progress yet", async () => {
+    const result = await createArrayStatusHandler(fakeExecutor(startingCheck))({
+      response_format: "concise",
+    });
+
+    expect(firstText(result)).toMatch(/Parity check RUNNING: 0% at \? MB\/s/);
+  });
+
+  it("prefixes executor failures with the tool context", async () => {
+    const result = await createArrayStatusHandler(throwingExecutor("socket hang up"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch array status: socket hang up");
   });
 });

@@ -237,3 +237,62 @@ describe("SessionStore hardening", () => {
     expect(closed).toEqual(["dead-1"]);
   });
 });
+
+describe("SessionStore failure handling", () => {
+  it("only ends a response whose headers were already sent", async () => {
+    const { store } = storeWith(() => 0);
+    const calls = { wroteHead: false, ended: false };
+    const response = {
+      headersSent: true,
+      writeHead() {
+        calls.wroteHead = true;
+        return this;
+      },
+      end() {
+        calls.ended = true;
+      },
+    } as unknown as ServerResponse;
+
+    await store.handle(fakeRequest("POST"), response, { method: "tools/list" });
+
+    expect(calls).toEqual({ wroteHead: false, ended: true });
+  });
+
+  it("logs, rather than throws, when closing a session fails", async () => {
+    const warnings: string[] = [];
+    const logger = {
+      info() {},
+      warn: (_details: unknown, message: string) => warnings.push(message),
+    } as unknown as Logger;
+    const store = new SessionStore({
+      buildServer: fakeServer,
+      logger,
+      now: () => 0,
+      buildTransport: (onInitialized) => ({
+        handleRequest: async () => onInitialized("session-9"),
+        close: async () => {
+          throw new Error("already closed");
+        },
+      }),
+    });
+    await store.handle(fakeRequest("POST"), fakeResponse().response, initializeBody);
+
+    await store.handle(fakeRequest("DELETE", "session-9"), fakeResponse().response, undefined);
+
+    expect(store.size()).toBe(0);
+    expect(warnings).toEqual(["Failed to close MCP session session-9"]);
+  });
+
+  it("closes a session exactly once when two DELETEs race", async () => {
+    const { store, transports } = storeWith(() => 0);
+    await store.handle(fakeRequest("POST"), fakeResponse().response, initializeBody);
+
+    await Promise.all([
+      store.handle(fakeRequest("DELETE", "session-1"), fakeResponse().response, undefined),
+      store.handle(fakeRequest("DELETE", "session-1"), fakeResponse().response, undefined),
+    ]);
+
+    expect(store.size()).toBe(0);
+    expect(transports.closed).toEqual(["session-1"]);
+  });
+});

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
@@ -111,7 +112,7 @@ export function createShareDeleteHandler(
     try {
       return await runDelete(shell, args.name);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to delete share over SSH: ${message}`);
     }
   };

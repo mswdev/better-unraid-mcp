@@ -64,3 +64,14 @@ describe("mover_status", () => {
     expect(firstText(result)).toContain("boom");
   });
 });
+
+describe("mover_status failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createMoverStatusHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to read mover status: socket hang up");
+  });
+});

@@ -132,3 +132,14 @@ describe("graphql_mutation risk gate", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("graphql_mutation failure messages", () => {
+  it("prefixes executor failures with the tool context", async () => {
+    const handler = createGraphqlMutationHandler(throwingExecutor("socket hang up"));
+
+    const result = await handler({ mutation: ARCHIVE_ALL, confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("GraphQL mutation failed: socket hang up");
+  });
+});

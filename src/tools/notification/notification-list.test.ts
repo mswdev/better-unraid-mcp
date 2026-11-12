@@ -3,12 +3,7 @@ import {
   NotificationListDocument,
   type NotificationListQuery,
 } from "../../types/unraid/graphql.js";
-import {
-  firstText,
-  recordingExecutor,
-  rejectingExecutor,
-  throwingExecutor,
-} from "../_shared/test-support.js";
+import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createNotificationListHandler } from "./notification-list.js";
 
 const data = {
@@ -94,14 +89,5 @@ describe("notification_list handler", () => {
     });
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to list notifications: nope/);
-  });
-
-  it("coerces a non-Error rejection (String(error) branch)", async () => {
-    const result = await createNotificationListHandler(rejectingExecutor("boom"))({
-      response_format: "concise",
-      type: "archive",
-    });
-    expect(result.isError).toBe(true);
-    expect(firstText(result)).toMatch(/Failed to list notifications: boom/);
   });
 });

@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { PROBE_TIMEOUT_MS, probeZfs, ZFS_COMMAND_TIMEOUT_MS } from "./_shared.js";
@@ -101,7 +102,7 @@ export function createZfsStatusHandler(shell: ShellExecutor | null) {
       const detailed = { pools, arc: { sizeBytes: arcInfo.sizeBytes, maxBytes: arcInfo.maxBytes } };
       return formatResponse(input.response_format, summarize(pools, arcInfo.text), detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to read ZFS status over SSH: ${message}`);
     }
   };

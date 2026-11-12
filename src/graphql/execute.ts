@@ -1,15 +1,13 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { print } from "graphql";
-import { Agent, fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch } from "undici";
+import { DispatcherPool } from "./dispatcher-pool.js";
 
 /** Subset of the fetch signature we depend on (lets tests inject a fake). */
 export type FetchLike = (url: string, init: Record<string, unknown>) => Promise<Response>;
 
 /** Default per-request deadline so no GraphQL call can hang forever. */
 export const REQUEST_TIMEOUT_MS = 30_000;
-
-/** How long an idle keep-alive socket to the Unraid API stays open. */
-const KEEP_ALIVE_TIMEOUT_MS = 30_000;
 
 /** Options for a single GraphQL request. */
 export interface GraphQLExecuteOptions {
@@ -19,6 +17,8 @@ export interface GraphQLExecuteOptions {
   fetchImpl?: FetchLike;
   /** Per-request deadline in milliseconds; defaults to REQUEST_TIMEOUT_MS. */
   timeoutMs?: number;
+  /** Connection pools to dispatch through; defaults to the process-wide shared pools. */
+  dispatchers?: DispatcherPool;
 }
 
 /** Raw GraphQL response envelope. */
@@ -42,31 +42,11 @@ export class HttpStatusError extends Error {
   }
 }
 
-let keepAliveDispatcher: Agent | undefined;
-let selfSignedDispatcher: Agent | undefined;
+/** The pools every Unraid API request shares unless a caller injects its own. */
+const sharedDispatchers = new DispatcherPool();
 
-/** Lazily constructs the shared keep-alive dispatcher (reused, never per-request). */
-function getKeepAliveDispatcher(): Agent {
-  keepAliveDispatcher ??= new Agent({ keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS });
-  return keepAliveDispatcher;
-}
-
-/** Lazily constructs the self-signed-TLS dispatcher, also kept alive. */
-function getSelfSignedDispatcher(): Agent {
-  selfSignedDispatcher ??= new Agent({
-    keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS,
-    connect: { rejectUnauthorized: false },
-  });
-  return selfSignedDispatcher;
-}
-
-function defaultFetch(allowSelfSigned: boolean): FetchLike {
-  return (url, init) =>
-    undiciFetch(url, {
-      ...init,
-      dispatcher: allowSelfSigned ? getSelfSignedDispatcher() : getKeepAliveDispatcher(),
-    }) as unknown as Promise<Response>;
-}
+/** Undici's fetch, narrowed to the subset of the signature we depend on. */
+const undiciFetchLike = undiciFetch as unknown as FetchLike;
 
 /** True for the abort/timeout errors AbortSignal.timeout produces. */
 function isAbortError(error: unknown): boolean {
@@ -102,7 +82,8 @@ export async function executeGraphQL<TData, TVariables>(
 
 /** Sends the POST under the configured deadline, mapping aborts to a clear error. */
 async function postWithDeadline(options: GraphQLExecuteOptions, body: string): Promise<Response> {
-  const doFetch = options.fetchImpl ?? defaultFetch(options.allowSelfSigned ?? false);
+  const doFetch = options.fetchImpl ?? undiciFetchLike;
+  const dispatchers = options.dispatchers ?? sharedDispatchers;
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   try {
     return await doFetch(options.endpoint, {
@@ -110,6 +91,7 @@ async function postWithDeadline(options: GraphQLExecuteOptions, body: string): P
       headers: { "content-type": "application/json", "x-api-key": options.apiKey },
       body,
       signal: AbortSignal.timeout(timeoutMs),
+      dispatcher: dispatchers.for(options.allowSelfSigned ?? false),
     });
   } catch (error) {
     if (isAbortError(error)) {

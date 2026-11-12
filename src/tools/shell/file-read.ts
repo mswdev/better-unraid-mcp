@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
@@ -96,7 +97,7 @@ export function createFileReadHandler(shell: ShellExecutor | null) {
       const result = await shell.execute(buildReadCommand(input), READ_TIMEOUT_MS);
       return renderResult(input, result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to read ${input.path} over SSH: ${message}`);
     }
   };

@@ -7,6 +7,7 @@ import {
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_action";
@@ -160,7 +161,7 @@ export function createArrayActionHandler(
       };
       return formatResponse(response_format, REQUESTED_SUMMARY[action], detailed);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return (
         mapKnownError({ action, message, format: response_format }) ??
         toolError(`Failed to ${action} the array: ${message}`)

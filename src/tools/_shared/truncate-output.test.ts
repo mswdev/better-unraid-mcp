@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { truncateJsonPayload, truncateOutput } from "./truncate-output.js";
+import {
+  MAX_OUTPUT_CHARS,
+  TRUNCATED_HEAD_CHARS,
+  truncateJsonPayload,
+  truncateOutput,
+} from "./truncate-output.js";
 
 describe("truncateOutput", () => {
   it("returns short output unchanged", () => {
@@ -47,5 +52,17 @@ describe("truncateJsonPayload", () => {
 
     expect(result.length).toBeLessThan(45_000);
     expect(() => JSON.parse(result)).not.toThrow();
+  });
+
+  it("shrinks the head of an escape-heavy payload until the envelope fits the cap", () => {
+    const serialized = JSON.stringify({ data: '"'.repeat(40_000) }, null, 2);
+
+    const result = truncateJsonPayload(serialized);
+    const envelope = JSON.parse(result) as { partial_json_head: string };
+
+    const headAfterOneHalving = TRUNCATED_HEAD_CHARS / 2;
+    expect(result.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(envelope.partial_json_head).toHaveLength(headAfterOneHalving);
+    expect(serialized.startsWith(envelope.partial_json_head)).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginListDocument, type PluginListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "plugin_list";
@@ -53,7 +54,7 @@ export function createPluginListHandler(client: GraphQLExecutor) {
       const data = await client.execute(PluginListDocument);
       return formatResponse(input.response_format, summarize(data), data);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list plugins: ${message}`);
     }
   };

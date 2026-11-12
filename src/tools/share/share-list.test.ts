@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ShareListQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
+import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createShareListHandler } from "./share-list.js";
 
 const shares = {
@@ -91,5 +91,25 @@ describe("share_list handler", () => {
     });
 
     expect(firstText(result)).toMatch(/\(unnamed\)/);
+  });
+});
+
+describe("share_list filtering and failures", () => {
+  it("never matches a null-named share against a name filter", async () => {
+    const result = await createShareListHandler(fakeExecutor(unnamedShare))({
+      response_format: "concise",
+      name: "unnamed",
+    });
+
+    expect(firstText(result)).toBe("No shares found.");
+  });
+
+  it("maps executor failures to a clean error", async () => {
+    const result = await createShareListHandler(throwingExecutor("forbidden"))({
+      response_format: "concise",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to fetch shares: forbidden");
   });
 });

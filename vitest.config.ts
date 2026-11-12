@@ -1,5 +1,8 @@
 import { defineConfig } from "vitest/config";
 
+/** Every metric must stay fully covered; CI runs `npm run test:coverage`, so a drop fails the build. */
+const FULL_COVERAGE_PERCENT = 100;
+
 export default defineConfig({
   test: {
     globals: true,
@@ -19,6 +22,12 @@ export default defineConfig({
       ],
       // json-summary feeds the README badge (see the coverage-badge job in ci.yml).
       reporter: ["text-summary", "json-summary"],
+      thresholds: {
+        lines: FULL_COVERAGE_PERCENT,
+        statements: FULL_COVERAGE_PERCENT,
+        functions: FULL_COVERAGE_PERCENT,
+        branches: FULL_COVERAGE_PERCENT,
+      },
     },
   },
 });

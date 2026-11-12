@@ -52,6 +52,20 @@ describe("runDoctorCli", () => {
   });
 });
 
+describe("runDoctorCli non-Error crashes", () => {
+  it("reports a non-Error crash as text", async () => {
+    const lines: string[] = [];
+
+    const code = await runDoctorCli({
+      runDoctor: () => Promise.reject("config unreadable"),
+      write: (line) => lines.push(line),
+    });
+
+    expect(code).toBe(1);
+    expect(lines[0]).toBe("✗ doctor crashed: config unreadable");
+  });
+});
+
 describe("isDoctorInvocation", () => {
   it("is true only when the first CLI argument is doctor", () => {
     expect(isDoctorInvocation(["node", "dist/index.js", "doctor"])).toBe(true);

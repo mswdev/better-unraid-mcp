@@ -2,6 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { LogListDocument, type LogListQuery } from "../../types/unraid/graphql.js";
+import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
@@ -48,7 +49,7 @@ export function createLogListHandler(client: GraphQLExecutor) {
       const files = sortNewestFirst(data.logFiles);
       return formatResponse(response_format, summarize(files), files);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return toolError(`Failed to list log files: ${message}`);
     }
   };
