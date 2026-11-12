@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createShellExecHandler } from "./shell-exec.js";
 
 const ok = { stdout: "hello\n", stderr: "", exitCode: 0 };
@@ -141,5 +146,21 @@ describe("shell_exec progress heartbeat", () => {
 
     expect(notifications.length).toBeGreaterThanOrEqual(1);
     expect(notifications[0].params.message).toContain("sleep 10");
+  });
+});
+
+describe("shell_exec non-Error failures", () => {
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createShellExecHandler(rejectingShell("channel closed"));
+
+    const result = await handler({
+      response_format: "concise",
+      command: "uptime",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to run command over SSH: channel closed");
   });
 });

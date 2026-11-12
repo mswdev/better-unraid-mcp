@@ -6,7 +6,7 @@ import {
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
-import { firstText, throwingExecutor } from "../_shared/test-support.js";
+import { firstText, rejectingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemHealthHandler } from "./system-health.js";
 
 /** No UPS reporting at all — the common case on servers without apcupsd. */
@@ -256,5 +256,87 @@ describe("system_health UPS semantics", () => {
     const result = await handler({ response_format: "concise" });
 
     expect(firstText(result)).toContain("OVERALL: WARNING");
+  });
+});
+
+describe("system_health partial readings", () => {
+  it("reports capacity as not reported when the total is unparseable", async () => {
+    const fixture = healthyFixture();
+    fixture.array.capacity.kilobytes.total = "n/a";
+    const handler = createSystemHealthHandler(recordingExecutor(fixture).executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("✓ capacity: Capacity not reported.");
+  });
+
+  it("treats a null disk status as an empty slot and a null temperature as cool", async () => {
+    const fixture = healthyFixture();
+    fixture.array.parities[0] = { name: "parity", status: null, temp: null };
+    const handler = createSystemHealthHandler(recordingExecutor(fixture).executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("✓ disks: 3 disks healthy.");
+  });
+
+  it("flags a disk at the critical temperature as critical", async () => {
+    const fixture = healthyFixture();
+    fixture.array.caches[0].temp = 60;
+    const handler = createSystemHealthHandler(recordingExecutor(fixture).executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("⚠ disks: Disk problems: cache (critical).");
+  });
+
+  it("names a faulted disk with no name as unnamed", async () => {
+    const fixture = healthyFixture();
+    fixture.array.disks[0] = { name: null, status: "DISK_INVALID", temp: 30, numErrors: "0" };
+    const handler = createSystemHealthHandler(recordingExecutor(fixture).executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("Disk problems: (unnamed) (critical).");
+  });
+
+  it("mentions a parity check in progress", async () => {
+    const fixture = healthyFixture();
+    fixture.array.parityCheckStatus.running = true;
+    const handler = createSystemHealthHandler(recordingExecutor(fixture).executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain(
+      "✓ parity: No parity errors reported. A parity check is running.",
+    );
+  });
+});
+
+describe("system_health non-Error failures", () => {
+  it("quotes a non-Error UPS rejection in the ups detail", async () => {
+    const executor: GraphQLExecutor = {
+      execute: async (document) => {
+        const requested: unknown = document;
+        if (requested === UpsStatusDocument) {
+          return Promise.reject("apcaccess timed out");
+        }
+        return healthyFixture() as never;
+      },
+    };
+    const handler = createSystemHealthHandler(executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toMatch(/ups: UPS data unavailable .*\(apcaccess timed out\)\.$/m);
+  });
+
+  it("reports a non-Error health-read rejection as text", async () => {
+    const handler = createSystemHealthHandler(rejectingExecutor("socket hang up"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to compute system health: socket hang up");
   });
 });

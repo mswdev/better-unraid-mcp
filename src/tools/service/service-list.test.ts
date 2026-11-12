@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
 import { parseStatusOutput, rcScript } from "./_shared.js";
 import { createServiceListHandler } from "./service-list.js";
 
@@ -59,5 +59,37 @@ describe("service_list", () => {
     const result = await createServiceListHandler(null)({ response_format: "concise" });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("service_list partial output and failures", () => {
+  it("reports a service missing from the listing as unknown", async () => {
+    const { shell } = sequencedShell([
+      { stdout: "rc.samba: Samba server daemon is currently running.\n", stderr: "", exitCode: 0 },
+    ]);
+    const handler = createServiceListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("samba: running");
+    expect(firstText(result)).toContain("nfs: unknown");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createServiceListHandler(shell);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to list services over SSH: connection refused");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createServiceListHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe("Failed to list services over SSH: channel closed");
   });
 });

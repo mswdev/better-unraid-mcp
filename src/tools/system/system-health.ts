@@ -181,7 +181,7 @@ function checkUps(reading: UpsReading): SubsystemHealth {
     const detail = `${UPS_UNAVAILABLE_DETAIL} (${reading.failure}).`;
     return { subsystem: "ups", severity: "ok", detail };
   }
-  const reporting = reading.devices.filter((ups) => (ups.status ?? "").trim().length > 0);
+  const reporting = reading.devices.filter((ups) => ups.status.trim().length > 0);
   if (reporting.length === 0) {
     return { subsystem: "ups", severity: "ok", detail: "No UPS reporting live data." };
   }

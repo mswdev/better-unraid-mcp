@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createSystemPowerHandler } from "./system-power.js";
 
 const okResult = { stdout: "", stderr: "", exitCode: 0 };
@@ -147,5 +152,43 @@ describe("system_power SSH failure classification", () => {
     });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("system_power command failures", () => {
+  const confirmed = { response_format: "concise", confirm: true, acknowledge_risk: true } as const;
+
+  it("surfaces a non-zero exit with its stderr", async () => {
+    const { shell } = recordingShell({
+      stdout: "",
+      stderr: "reboot: must be superuser\n",
+      exitCode: 1,
+    });
+    const handler = createSystemPowerHandler(shell);
+
+    const result = await handler({ ...confirmed, action: "reboot" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("reboot failed (exit 1): reboot: must be superuser");
+  });
+
+  it("says so when a failed power command produced no error output", async () => {
+    const { shell } = recordingShell({ stdout: "", stderr: "", exitCode: 1 });
+    const handler = createSystemPowerHandler(shell);
+
+    const result = await handler({ ...confirmed, action: "shutdown" });
+
+    expect(firstText(result)).toBe("shutdown failed (exit 1): (no error output)");
+  });
+
+  it("treats a non-Error SSH rejection as a failure to send", async () => {
+    const handler = createSystemPowerHandler(rejectingShell("handshake failed"));
+
+    const result = await handler({ ...confirmed, action: "reboot" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      "Failed to reboot: the command was never sent — SSH failed first: handshake failed",
+    );
   });
 });

@@ -391,3 +391,57 @@ describe("system_metrics temperature plausibility filter", () => {
     expect(firstText(result)).toMatch(/no plausible readings/);
   });
 });
+
+describe("system_metrics multi-sensor summary and clock", () => {
+  function sensor(name: string, value: number, status: "NORMAL" | "WARNING" | "CRITICAL") {
+    return {
+      name,
+      type: "DISK" as const,
+      current: { value, unit: "CELSIUS" as const, status },
+      warning: 60,
+      critical: 70,
+    };
+  }
+
+  it("names the hottest of several plausible sensors and counts their states", async () => {
+    const sensors = [
+      sensor("disk1", 40, "NORMAL"),
+      sensor("nvme0", 71, "CRITICAL"),
+      sensor("disk2", 62, "WARNING"),
+    ];
+    const several = {
+      metrics: {
+        ...full.metrics,
+        temperature: { sensors, summary: full.metrics.temperature.summary },
+      },
+      systemTime: full.systemTime,
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(several);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: true,
+    });
+
+    expect(firstText(result)).toContain(
+      "Temperature: avg 57.7°C — 1 warning, 1 critical (hottest: nvme0 71.0°C)",
+    );
+  });
+
+  it("notes when the server clock is not NTP-synchronized", async () => {
+    const unsynced = {
+      ...full,
+      systemTime: { ...full.systemTime, useNtp: false },
+    } satisfies SystemMetricsQuery;
+    const { executor } = recordingExecutor(unsynced);
+
+    const result = await createSystemMetricsHandler(executor)({
+      response_format: "concise",
+      include_temperature: false,
+    });
+
+    expect(firstText(result)).toMatch(
+      /^As of 2026-06-06T16:00:08\.000Z \(America\/New_York, NTP off\):/,
+    );
+  });
+});

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createGraphqlMutationHandler } from "./graphql-mutation.js";
 
 const ARCHIVE_ALL = "mutation { archiveAll { unread { total } } }";
@@ -130,5 +135,16 @@ describe("graphql_mutation risk gate", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("validation failed");
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("graphql_mutation non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const handler = createGraphqlMutationHandler(rejectingExecutor("socket hang up"));
+
+    const result = await handler({ mutation: ARCHIVE_ALL, confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("GraphQL mutation failed: socket hang up");
   });
 });

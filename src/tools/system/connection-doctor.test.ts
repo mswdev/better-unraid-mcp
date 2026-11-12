@@ -4,6 +4,8 @@ import {
   firstText,
   recordingExecutor,
   recordingShell,
+  rejectingExecutor,
+  rejectingShell,
   throwingExecutor,
   throwingShell,
 } from "../_shared/test-support.js";
@@ -191,5 +193,60 @@ describe("connection_doctor schema check", () => {
     };
 
     expect(parsed.checks[1]).toMatchObject({ check: "schema", status: "warn" });
+  });
+});
+
+describe("connection_doctor partial reports and non-Error failures", () => {
+  const deps = { shell: null, readOnly: false, schemaApiVersion: "4.35.0" };
+
+  it("shows placeholders when the server reports no versions, and skips the schema compare", async () => {
+    const unversioned = {
+      online: true,
+      info: { versions: { core: { unraid: null, api: null } } },
+    } satisfies ConnectionDoctorQuery;
+    const { executor } = recordingExecutor(unversioned);
+    const handler = createConnectionDoctorHandler({ ...deps, client: executor });
+
+    const result = await handler({ response_format: "detailed" });
+    const parsed = JSON.parse(firstText(result)) as {
+      checks: Array<{ check: string; status: string; detail: string }>;
+    };
+
+    expect(parsed.checks[0].detail).toMatch(/Unraid \?, API \?, online=true\.$/);
+    expect(parsed.checks[1]).toMatchObject({ check: "schema", status: "warn" });
+  });
+
+  it("classifies a non-Error GraphQL rejection by its text", async () => {
+    const handler = createConnectionDoctorHandler({
+      ...deps,
+      client: rejectingExecutor("socket hang up"),
+    });
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("Endpoint unreachable (socket hang up)");
+  });
+
+  it("fails the SSH check when the probe exits non-zero", async () => {
+    const { executor } = recordingExecutor(doctorFixture);
+    const { shell } = recordingShell({ stdout: "", stderr: "denied", exitCode: 255 });
+    const handler = createConnectionDoctorHandler({ ...deps, client: executor, shell });
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("✗ SSH: failed (exit 255).");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const { executor } = recordingExecutor(doctorFixture);
+    const handler = createConnectionDoctorHandler({
+      ...deps,
+      client: executor,
+      shell: rejectingShell("channel closed"),
+    });
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("✗ SSH: failed — channel closed");
   });
 });

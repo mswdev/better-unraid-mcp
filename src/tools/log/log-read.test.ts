@@ -183,6 +183,24 @@ describe("log_read handler", () => {
     expect(firstText(result)).toMatch(/12 lines/);
   });
 
+  it("anchors a past-the-end explanation at line 1 when the response omits startLine", async () => {
+    const past = {
+      logFile: { path: "/var/log/syslog", content: "", totalLines: 12, startLine: null },
+    } satisfies LogReadContentQuery;
+    const { executor } = sequencedExecutor([allowlist, past]);
+
+    const result = await createLogReadHandler(executor)({
+      response_format: "concise",
+      path: "syslog",
+      lines: 100,
+      start_line: 99,
+    });
+
+    expect(firstText(result)).toBe(
+      "/var/log/syslog: no lines at or after start_line=1 (file has 12 lines).",
+    );
+  });
+
   it("reports an empty file", async () => {
     const empty = {
       logFile: { path: "/var/log/syslog", content: "", totalLines: 0, startLine: 1 },

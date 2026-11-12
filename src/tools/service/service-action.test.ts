@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
 import { createServiceActionHandler } from "./service-action.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -120,5 +120,43 @@ describe("service_action execution", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("boom");
+  });
+});
+
+describe("service_action failure paths", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createServiceActionHandler(null);
+
+    const result = await handler({ service: "samba", action: "restart", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("falls back to stdout when a failing rc.d verb wrote nothing to stderr", async () => {
+    const failed = { stdout: "Starting Samba: failed\n", stderr: "", exitCode: 1 };
+    const { shell } = sequencedShell([installed, failed]);
+    const handler = createServiceActionHandler(shell);
+
+    const result = await handler({ service: "samba", action: "restart", ...bothFlags });
+
+    expect(firstText(result)).toBe("rc.samba restart failed (exit 1): Starting Samba: failed");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createServiceActionHandler(shell);
+
+    const result = await handler({ service: "samba", action: "restart", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to restart samba over SSH: connection refused");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createServiceActionHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ service: "samba", action: "restart", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to restart samba over SSH: channel closed");
   });
 });

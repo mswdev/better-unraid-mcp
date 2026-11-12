@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createGraphqlQueryHandler } from "./graphql-query.js";
 
 describe("graphql_query", () => {
@@ -100,5 +105,16 @@ describe("graphql_query", () => {
     expect(firstText(result)).toMatch(/[Vv]alid/);
     expect(firstText(result)).toContain("not sent");
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("graphql_query non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const handler = createGraphqlQueryHandler(rejectingExecutor("socket hang up"));
+
+    const result = await handler({ query: "query { online }" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("GraphQL query failed: socket hang up");
   });
 });

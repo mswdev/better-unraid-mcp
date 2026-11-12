@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { buildReadCommand, createFileReadHandler } from "./file-read.js";
 
 const ok = { stdout: "line one\nline two\n", stderr: "", exitCode: 0 };
@@ -121,5 +126,61 @@ describe("file_read", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("ECONNREFUSED");
+  });
+});
+
+describe("file_read pattern rendering and failure output", () => {
+  it("labels the window with the pattern when grep matched lines", async () => {
+    const { shell } = recordingShell({ stdout: "kernel: oops\n", stderr: "", exitCode: 0 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({
+      response_format: "concise",
+      path: "/var/log/syslog",
+      lines: 5,
+      pattern: "oops",
+    });
+
+    expect(firstText(result)).toBe("/var/log/syslog: last 5 lines matching oops:\n\nkernel: oops");
+  });
+
+  it("notes the pattern when the matched window is blank", async () => {
+    const { shell } = recordingShell({ stdout: "\n", stderr: "", exitCode: 0 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({
+      response_format: "concise",
+      path: "/var/log/syslog",
+      lines: 5,
+      pattern: "^$",
+    });
+
+    expect(firstText(result)).toBe("/var/log/syslog is empty (or nothing matched ^$).");
+  });
+
+  it("falls back to stdout when a failed read wrote nothing to stderr", async () => {
+    const { shell } = recordingShell({ stdout: "permission denied", stderr: "", exitCode: 2 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({ response_format: "concise", path: "/root/x", lines: 10 });
+
+    expect(firstText(result)).toBe("Failed to read /root/x (exit 2): permission denied");
+  });
+
+  it("says so when a failed read produced no output at all", async () => {
+    const { shell } = recordingShell({ stdout: "", stderr: "", exitCode: 141 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({ response_format: "concise", path: "/root/x", lines: 10 });
+
+    expect(firstText(result)).toBe("Failed to read /root/x (exit 141): (no error output)");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createFileReadHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise", path: "/etc/hosts", lines: 10 });
+
+    expect(firstText(result)).toBe("Failed to read /etc/hosts over SSH: channel closed");
   });
 });

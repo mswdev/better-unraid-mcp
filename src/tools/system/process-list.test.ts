@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingShell,
+  rejectingShell,
+  throwingShell,
+} from "../_shared/test-support.js";
 import { createProcessListHandler } from "./process-list.js";
 
 const psOutput = {
@@ -41,5 +46,33 @@ describe("process_list", () => {
     const result = await handler({ response_format: "concise", sort_by: "cpu", count: 15 });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("process_list failure paths", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createProcessListHandler(null);
+
+    const result = await handler({ response_format: "concise", sort_by: "cpu", count: 15 });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("surfaces a ps failure with its stderr", async () => {
+    const { shell } = recordingShell({ stdout: "", stderr: "ps: bad option\n", exitCode: 1 });
+    const handler = createProcessListHandler(shell);
+
+    const result = await handler({ response_format: "concise", sort_by: "cpu", count: 15 });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("ps failed (exit 1): ps: bad option");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createProcessListHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ response_format: "concise", sort_by: "cpu", count: 15 });
+
+    expect(firstText(result)).toBe("Failed to list processes over SSH: channel closed");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
-import { firstText, sequencedShell } from "../_shared/test-support.js";
+import { firstText, rejectingShell, sequencedShell } from "../_shared/test-support.js";
 import { createShareCreateHandler } from "./share-create.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -147,5 +147,82 @@ describe("share_create execution", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("shareUseCache");
     expect(firstText(result)).toContain("not verified");
+  });
+});
+
+describe("share_create host checks and emhttpd outcomes", () => {
+  const noPools = ok('["disk1"]\ntype="Data"\n=== VAR\nreservedNames="flash"\n');
+
+  it("says the server has no pools when asked for a cache pool on a pool-less server", async () => {
+    const { shell } = sequencedShell([missing, noPools]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "media", cachePool: "cache", ...bothFlags });
+
+    expect(firstText(result)).toBe(
+      'Unknown cache pool "cache". Pools on this server: (none). No changes were made.',
+    );
+  });
+
+  it("falls back to stderr when emhttpd fails without printing to stdout", async () => {
+    const rejected = { stdout: "", stderr: "emcmd: connection refused", exitCode: 1 };
+    const { shell } = sequencedShell([missing, context, rejected]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toContain(
+      "emhttpd rejected the change (exit 1): emcmd: connection refused.",
+    );
+  });
+
+  it("stops before verifying when emhttpd rejects the SMB form", async () => {
+    const smbRejected = { stdout: "Invalid security mode\n", stderr: "", exitCode: 1 };
+    const { shell, calls } = sequencedShell([missing, context, ok(), smbRejected]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "media", smbExport: "e", ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("Invalid security mode");
+    expect(calls).toHaveLength(4);
+  });
+
+  it("reports an unverified create when the cfg cannot be read back", async () => {
+    const { shell } = sequencedShell([missing, context, ok(), missing]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toBe(
+      "emhttpd accepted the change but /boot/config/shares/media.cfg could not be read back — not verified. Check the share in the web UI.",
+    );
+  });
+});
+
+describe("share_create failures", () => {
+  it("reports SSH unavailable without a shell", async () => {
+    const handler = createShareCreateHandler(null);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toContain("SSH is not configured");
+  });
+
+  it("maps an SSH failure to a clean error", async () => {
+    const { shell } = sequencedShell([new Error("connection refused")]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to create share over SSH: connection refused");
+  });
+
+  it("reports a non-Error SSH rejection as text", async () => {
+    const handler = createShareCreateHandler(rejectingShell("channel closed"));
+
+    const result = await handler({ name: "media", ...bothFlags });
+
+    expect(firstText(result)).toBe("Failed to create share over SSH: channel closed");
   });
 });

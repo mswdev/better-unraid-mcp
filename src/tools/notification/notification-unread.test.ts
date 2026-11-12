@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { NotificationUnreadDocument } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createNotificationUnreadHandler } from "./notification-unread.js";
 
 describe("notification_unread", () => {
@@ -25,5 +30,16 @@ describe("notification_unread", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("not found");
+  });
+});
+
+describe("notification_unread non-Error failures", () => {
+  it("reports a non-Error rejection as text", async () => {
+    const handler = createNotificationUnreadHandler(rejectingExecutor("socket hang up"));
+
+    const result = await handler({ id: "n1" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe("Failed to mark notification n1 unread: socket hang up");
   });
 });

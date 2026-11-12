@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { PluginInstallPlgDocument } from "../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
+import {
+  PluginInstallPlgDocument,
+  type PluginInstallPlgMutation,
+} from "../../types/unraid/graphql.js";
+import {
+  firstText,
+  recordingExecutor,
+  rejectingExecutor,
+  throwingExecutor,
+} from "../_shared/test-support.js";
 import { createPluginInstallPlgHandler } from "./plugin-install-plg.js";
 
 const bothFlags = { confirm: true, acknowledge_risk: true } as const;
@@ -55,5 +63,27 @@ describe("plugin_install_plg", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("download failed");
+  });
+});
+
+describe("plugin_install_plg naming and failures", () => {
+  it("names the install by its URL when the operation carries no plugin name", async () => {
+    const { executor } = recordingExecutor({
+      unraidPlugins: { installPlugin: { id: "op-2", url: PLG_URL, name: null, status: "RUNNING" } },
+    } satisfies PluginInstallPlgMutation);
+    const handler = createPluginInstallPlgHandler(executor);
+
+    const result = await handler({ url: PLG_URL, ...bothFlags });
+
+    expect(firstText(result)).toContain(`Plugin install RUNNING (operation op-2) for ${PLG_URL}.`);
+  });
+
+  it("reports a non-Error rejection as text", async () => {
+    const handler = createPluginInstallPlgHandler(rejectingExecutor("socket hang up"));
+
+    const result = await handler({ url: PLG_URL, ...bothFlags });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(`Failed to install plugin from ${PLG_URL}: socket hang up`);
   });
 });
