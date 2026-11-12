@@ -9,10 +9,13 @@
 [![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmswdev%2Fbetter-unraid-mcp%2Fbadges%2Fcoverage-summary.json&query=%24.total.lines.pct&suffix=%25&label=coverage&color=brightgreen)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+
 [![MCP protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-8b5cf6)](https://modelcontextprotocol.io)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.mswdev%2Fbetter--unraid--mcp-0ea5e9)](https://registry.modelcontextprotocol.io/v0.1/servers?search=better-unraid-mcp)
 [![Docker](https://img.shields.io/badge/ghcr.io-better--unraid--mcp-2496ed?logo=docker&logoColor=white)](https://github.com/mswdev/better-unraid-mcp/pkgs/container/better-unraid-mcp)
 [![Claude Desktop bundle](https://img.shields.io/badge/.mcpb-one--click%20install-d97706)](https://github.com/mswdev/better-unraid-mcp/releases/latest)
+
+[Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote--http-transport) · [Security](#security) · [Development](#development)
 
 <img src="docs/assets/demo.svg" alt="A Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
@@ -54,11 +57,13 @@ On your Unraid server (7.2 or newer), go to **Settings > Management Access > API
 unraid-api apikey --create
 ```
 
-The key controls your server, so treat it like a password and give it the least privilege you need. A viewer-level key is enough for every read-only tool.
+> [!IMPORTANT]
+> The key controls your server, so treat it like a password and give it the least privilege you need. A viewer-level key is enough for every read-only tool.
 
 ### 2. Add the server to your MCP client
 
-**Claude Code**
+<details open>
+<summary><strong>Claude Code</strong></summary>
 
 ```bash
 claude mcp add better-unraid \
@@ -66,6 +71,8 @@ claude mcp add better-unraid \
   -e UNRAID_API_KEY=your-api-key \
   -- npx -y better-unraid-mcp@latest
 ```
+
+</details>
 
 <details>
 <summary><strong>Claude Desktop</strong></summary>
@@ -134,14 +141,18 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.1`) if you want fully predictable behavior.
 
-**Other ways to install.** All of them run the same server, and none of them install anything on the Unraid box.
+#### Other ways to install
 
-- **Claude Desktop, one click:** download `better-unraid-mcp-<version>.mcpb` from the [latest release](https://github.com/mswdev/better-unraid-mcp/releases/latest) and open it. Claude Desktop asks for the URL and API key.
-- **Claude Code plugin marketplace:** `claude plugin marketplace add mswdev/better-unraid-mcp`, then `claude plugin install better-unraid@better-unraid-mcp`. The plugin reads `UNRAID_API_URL` and `UNRAID_API_KEY` from your environment.
-- **Docker (remote HTTP transport):** `ghcr.io/mswdev/better-unraid-mcp`. See [Docker](#docker-http-transport).
-- **MCP Registry:** listed as `io.github.mswdev/better-unraid-mcp` for clients that browse the registry.
+All of them run the same server, and none of them install anything on the Unraid box.
 
-### Cautious quickstart (read-only)
+| Option | Details |
+| --- | --- |
+| Claude Desktop, one click | Download `better-unraid-mcp-<version>.mcpb` from the [latest release](https://github.com/mswdev/better-unraid-mcp/releases/latest) and open it. Claude Desktop asks for the URL and API key. |
+| Claude Code plugin marketplace | `claude plugin marketplace add mswdev/better-unraid-mcp`, then `claude plugin install better-unraid@better-unraid-mcp`. The plugin reads `UNRAID_API_URL` and `UNRAID_API_KEY` from your environment. |
+| Docker (remote HTTP transport) | `ghcr.io/mswdev/better-unraid-mcp`. See [Docker](#docker-http-transport). |
+| MCP Registry | Listed as `io.github.mswdev/better-unraid-mcp` for clients that browse the registry. |
+
+#### Cautious quickstart (read-only)
 
 Not ready to let a model touch anything? Add `MCP_READ_ONLY=true` to the environment above and the server registers only the read-only tools. The state-changing tools aren't refused at call time; they never appear at all. Pair that with a VIEWER-role API key and nothing in this server can change your machine.
 
@@ -155,7 +166,7 @@ UNRAID_API_URL=https://tower.local/graphql UNRAID_API_KEY=... npx better-unraid-
 
 It prints one line per check (GraphQL reachability and versions, schema skew against the server's API version, SSH when configured, rate limiting, and read-only mode) and exits non-zero when something is broken:
 
-```
+```text
 ✓ Reachable in 12 ms — Unraid 7.3.2, API 4.37.4+ad268301, online=true.
 ✓ Vendored schema matches the server API (4.37.4 vs 4.37.4+ad268301).
 ⚠ SSH: not configured (optional). Host tools (...) are unavailable; set UNRAID_SSH_* to enable them.
@@ -174,6 +185,24 @@ Ask your client:
 
 Read-only tools never change anything. Destructive tools always require `confirm: true`; without it they refuse and leave your server alone.
 
+| Category | Tools |
+| --- | --- |
+| [System and storage](#system-and-storage) | 14 |
+| [Array control](#array-control) | 3 |
+| [Docker](#docker) | 9 |
+| [Virtual machines](#virtual-machines) | 4 |
+| [Notifications](#notifications) | 8 |
+| [Observability](#observability) | 4 |
+| [Plugins](#plugins) | 4 |
+| [ZFS (SSH)](#zfs-ssh) | 4 |
+| [Host configuration (SSH)](#host-configuration-ssh) | 7 |
+| [Backup (SSH)](#backup-ssh) | 1 |
+| [User Scripts (SSH)](#user-scripts-ssh) | 2 |
+| [API keys](#api-keys) | 2 |
+| [UPS](#ups) | 1 |
+| [Host shell (optional, needs SSH)](#host-shell-optional-needs-ssh) | 2 |
+| [Raw GraphQL (advanced)](#raw-graphql-advanced) | 2 |
+
 ### Speed and safety
 
 The SSH channel is one kept-alive connection: it connects lazily, sends keepalive probes, reconnects on its own, and closes after `UNRAID_SSH_IDLE_SECONDS` of idle time, so commands don't pay for a new handshake each time. GraphQL requests reuse a keep-alive HTTP agent and have a hard 30-second timeout, and idempotent queries get a small jittered retry on transient failures. The busiest reads (`system_metrics`, `array_status`, `docker_container_list`) come from a 5-second snapshot cache, and detailed output includes `data_age_ms` so you can see how fresh the data is. Long-running `shell_exec` and `docker_container_update` calls send MCP progress notifications when the client asks for them (stdio or session-mode HTTP).
@@ -181,6 +210,9 @@ The SSH channel is one kept-alive connection: it connects lazily, sends keepaliv
 All tool output goes through secret redaction: your configured API key, SSH password, and bearer token, plus credential-shaped key/value pairs and JWTs, come back as `[redacted]`. A client-side rate limiter keeps request bursts inside the Unraid API's throttle, and oversized JSON results are truncated into an envelope that still parses with `JSON.parse`.
 
 ### System and storage
+
+<details>
+<summary>14 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -199,9 +231,14 @@ All tool output goes through secret redaction: your configured API key, SSH pass
 | `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
 | `system_power` | destructive | Reboots or shuts down the whole server over SSH. Requires `confirm: true` and `acknowledge_risk: true`. |
 
+</details>
+
 ### Array control
 
 Both tools require an API key with the **ADMIN** role. They report that the request was issued; run `array_status` afterward to confirm the result.
+
+<details>
+<summary>3 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -209,7 +246,12 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `array_disk_action` | destructive | Adds a disk to the array (checks first that the array is STOPPED), mounts or unmounts an array disk, or clears disk statistics. The Unraid API (4.37+) no longer supports removing a disk, so use the web UI for that. Requires `confirm` + `acknowledge_risk`. |
 | `parity_check` | destructive | Starts (optionally correcting), pauses, resumes, or cancels a parity check. |
 
+</details>
+
 ### Docker
+
+<details>
+<summary>9 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -223,7 +265,12 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `docker_container_update` | destructive | Pulls the latest image and recreates containers, by id or all with updates. Needs Unraid 7.3+. |
 | `docker_autostart_set` | destructive | Sets which containers start on boot without losing the existing boot order. Needs Unraid 7.3+. |
 
+</details>
+
 ### Virtual machines
+
+<details>
+<summary>4 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -232,7 +279,12 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `vm_snapshot_list` | read-only | Lists a VM's libvirt snapshots through virsh (SSH; the GraphQL API doesn't expose them). |
 | `vm_snapshot_create` | destructive | Creates an EXTERNAL disk snapshot through virsh, the same way Unraid 7 does. Requires `confirm` + `acknowledge_risk`. Revert and delete stay in the Unraid UI on purpose. |
 
+</details>
+
 ### Notifications
+
+<details>
+<summary>8 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -245,7 +297,12 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `notification_recalculate` | mutation | Re-syncs cached overview counts from disk (no confirmation needed). |
 | `notification_delete` | destructive | Permanently deletes notifications (irreversible). |
 
+</details>
+
 ### Observability
+
+<details>
+<summary>4 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -254,7 +311,12 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `system_metrics` | read-only | Point-in-time CPU load, memory pressure, per-interface network rates, and server time. Temperature data is opt-in. |
 | `metrics_history` | read-only | Recent CPU, memory, and network history from the opt-in in-memory recorder (`MCP_METRICS_HISTORY=true`): 30-second min/avg/max buckets for up to 24 hours, with gaps reported as gaps. When recording is off, it says how to turn it on. |
 
+</details>
+
 ### Plugins
+
+<details>
+<summary>4 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -263,9 +325,14 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `plugin_remove` | destructive | Uninstalls API plugins by npm package name, then restarts the Unraid API. |
 | `plugin_install_plg` | destructive | Installs a native Unraid OS plugin from a `.plg` URL. A `.plg` runs arbitrary code as root, so this requires `confirm` + `acknowledge_risk`. Only install from sources you trust. |
 
+</details>
+
 ### ZFS (SSH)
 
 ZFS ships with Unraid 6.12+. These tools say so plainly when no pools exist.
+
+<details>
+<summary>4 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -274,9 +341,14 @@ ZFS ships with Unraid 6.12+. These tools say so plainly when no pools exist.
 | `zfs_snapshot_list` | read-only | Snapshots with size and creation time; optional dataset filter. |
 | `zfs_snapshot_action` | destructive | Create, destroy, or roll back a snapshot. Rollback discards everything after the snapshot, so this requires `confirm` + `acknowledge_risk`. |
 
+</details>
+
 ### Host configuration (SSH)
 
 The GraphQL API has nothing for services, share changes, or unassigned devices, so these tools use the same mechanisms as the web UI: the `/etc/rc.d/rc.*` scripts, emhttpd's form handler through `emcmd`, and the Unassigned Devices plugin. Every write is checked by reading the result back.
+
+<details>
+<summary>7 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
@@ -288,64 +360,99 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 | `share_edit` | destructive | Changes that same subset of settings on an existing share, leaves the other settings alone, and checks the result by reading it back. Requires `confirm` + `acknowledge_risk`. |
 | `share_delete` | destructive | Deletes an EMPTY share's configuration. It never deletes files and refuses while the share holds data. Requires `confirm` + `acknowledge_risk`. |
 
+</details>
+
 ### Backup (SSH)
+
+<details>
+<summary>1 tool</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
 
+</details>
+
 ### User Scripts (SSH)
+
+<details>
+<summary>2 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin. |
 | `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary root code, so this requires `confirm` + `acknowledge_risk`. |
 
+</details>
+
 ### API keys
 
 These tools hand the model the credentials that control access to your server, so use them with the same care as the keys themselves.
+
+<details>
+<summary>2 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `apikey_list` | read-only | Lists configured API keys (name, roles, permissions, created). Key values are never selected or returned. |
 | `apikey_manage` | destructive | Creates, updates, adds or removes roles on, or deletes API keys. Requires `confirm` + `acknowledge_risk`. The key value is shown exactly once, at creation. Deleting the key this MCP server uses locks it out. |
 
+</details>
+
 ### UPS
+
+<details>
+<summary>1 tool</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. When apcaccess has nothing to report, it says "no live UPS data" instead of erroring or inventing a healthy reading. That includes NUT-managed servers, which the Unraid API can't see. |
 
+</details>
+
 ### Host shell (optional, needs SSH)
 
 The GraphQL API can't reach everything: old boot logs under `/boot/logs`, `/proc`, one-off commands. These tools fill that gap over SSH. They are off by default and turn on only when you set the `UNRAID_SSH_*` variables (see [Configuration](#configuration)); without them they refuse and explain how to set it up. `docker_stats` also falls back to this channel when no fresh live sample is available.
+
+<details>
+<summary>2 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `file_read` | read-only | Tails any absolute file path on the host (default 200 lines, max 2000). An optional `pattern` greps on the server first, so searching huge logs stays cheap. |
 | `shell_exec` | destructive | Runs an arbitrary command as the SSH user (typically root). Every call requires `confirm: true`. Output is capped, and timeouts are enforced (default 30 s, max 120 s). |
 
+</details>
+
 ### Raw GraphQL (advanced)
 
 These cover the parts of the Unraid API that no dedicated tool wraps yet, such as users and registration. Use a dedicated tool when one exists, because the dedicated tools handle server quirks that these passthroughs don't. The full schema ships with the package at `schema/unraid.graphql`.
+
+<details>
+<summary>2 tools</summary>
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. Validated against the vendored schema before sending, with did-you-mean hints; `dry_run: true` validates without sending. |
 | `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. Validated against the vendored schema before the confirm gate; `dry_run: true` validates without sending and needs no confirm. |
 
-> **Note:** tool behavior is checked against the vendored Unraid API 4.37.4 schema and covered by unit tests at 100% coverage. The read-only tools have been run against a live Unraid 7.3 server, but the write paths haven't been widely exercised on live servers yet. Treat destructive tools with care, and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
+</details>
+
+> [!NOTE]
+> Tool behavior is checked against the vendored Unraid API 4.37.4 schema and covered by unit tests at 100% coverage. The read-only tools have been run against a live Unraid 7.3 server, but the write paths haven't been widely exercised on live servers yet. Treat destructive tools with care, and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
 ## MCP features beyond tools
 
 The server is built on the MCP TypeScript SDK v2 (protocol revision 2026-07-28). Clients on older revisions are negotiated down automatically.
 
-- **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools show a real confirmation prompt instead of refusing; the riskiest actions show the warning with two checkboxes. The `confirm` and `acknowledge_risk` arguments still work everywhere and are the only option on stateless HTTP. Declining the prompt changes nothing on the server.
-- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU, memory, and network history when `MCP_METRICS_HISTORY=true`, or a hint on how to turn it on).
-- **Live resources.** Subscribe to `unraid://live/parity`, `unraid://live/docker-stats`, `unraid://live/metrics`, `unraid://live/ups`, `unraid://live/array`, and `unraid://live/notifications` for updates pushed over the Unraid API's WebSocket, or to `unraid://logs/{path}` to follow a log file.
-- **Prompts.** Four guided workflows: `triage-array-problem`, `find-resource-hog`, `safe-container-update` (takes an optional `container` argument), and `health-report`.
-- **Structured output.** `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human-readable text in both response formats.
-- **Complete annotations.** Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, and a registry test enforces it.
+| Feature | Details |
+| --- | --- |
+| Interactive confirmation (elicitation) | When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools show a real confirmation prompt instead of refusing; the riskiest actions show the warning with two checkboxes. The `confirm` and `acknowledge_risk` arguments still work everywhere and are the only option on stateless HTTP. Declining the prompt changes nothing on the server. |
+| Resources | `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU, memory, and network history when `MCP_METRICS_HISTORY=true`, or a hint on how to turn it on). |
+| Live resources | Subscribe to `unraid://live/parity`, `unraid://live/docker-stats`, `unraid://live/metrics`, `unraid://live/ups`, `unraid://live/array`, and `unraid://live/notifications` for updates pushed over the Unraid API's WebSocket, or to `unraid://logs/{path}` to follow a log file. |
+| Prompts | Four guided workflows: `triage-array-problem`, `find-resource-hog`, `safe-container-update` (takes an optional `container` argument), and `health-report`. |
+| Structured output | `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human-readable text in both response formats. |
+| Complete annotations | Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, and a registry test enforces it. |
 
 ## Configuration
 
@@ -398,7 +505,8 @@ By default the endpoint is stateless: each POST gets a complete JSON response, a
 
 The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To run an open endpoint on a trusted network on purpose, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true`, and the server logs a warning at startup. Requests without a matching token get a 401, and the token comparison is constant-time.
 
-> **Warning:** every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), put TLS in front with a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
+> [!WARNING]
+> Every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), put TLS in front with a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
 
 ### Docker (HTTP transport)
 
