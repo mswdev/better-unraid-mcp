@@ -1,0 +1,25 @@
+{
+  "name": "better-unraid-mcp",
+  "version": "0.1.1",
+  "description": "Monitor and manage an Unraid server from Gemini CLI: array, Docker, VMs, ZFS, logs, and UPS.",
+  "mcpServers": {
+    "better-unraid": {
+      "command": "npx",
+      "args": ["-y", "better-unraid-mcp@latest"]
+    }
+  },
+  "settings": [
+    {
+      "name": "Unraid API URL",
+      "description": "Full Unraid GraphQL endpoint, including /graphql (for example https://tower.local/graphql).",
+      "envVar": "UNRAID_API_URL",
+      "sensitive": false
+    },
+    {
+      "name": "Unraid API key",
+      "description": "Unraid API key from Settings > Management Access > API Keys. A viewer-level key is enough for every read-only tool.",
+      "envVar": "UNRAID_API_KEY",
+      "sensitive": true
+    }
+  ]
+}
