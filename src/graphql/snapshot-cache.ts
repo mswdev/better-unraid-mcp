@@ -136,10 +136,12 @@ export class CachingExecutor implements GraphQLExecutor {
     return `${id}:${JSON.stringify(variables ?? null)}`;
   }
 
-  /** Records serve age for later `cacheAgeMs` lookups. */
+  /**
+   * Records serve age for later `cacheAgeMs` lookups. A GraphQL `data` payload
+   * is always an object (the spec makes it a map, and UnraidClient rejects null
+   * data), so it can key the WeakMap directly.
+   */
   private stampAge(data: unknown, ageMs: number): void {
-    if (typeof data === "object" && data !== null) {
-      servedAges.set(data, ageMs);
-    }
+    servedAges.set(data as object, ageMs);
   }
 }

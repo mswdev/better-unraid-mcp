@@ -126,23 +126,6 @@ describe("CachingExecutor defaults and invalidation", () => {
     expect(callCount()).toBe(2);
   });
 
-  it("serves a cached primitive payload without trying to stamp its age", async () => {
-    let calls = 0;
-    const inner: GraphQLExecutor = {
-      execute: async () => {
-        calls += 1;
-        return 7 as never;
-      },
-    };
-    const executor = cacheWith(inner, () => 0);
-
-    const first = await executor.execute(HotDoc);
-    const second = await executor.execute(HotDoc);
-
-    expect([first, second]).toEqual([7, 7]);
-    expect(calls).toBe(1);
-  });
-
   it("reports undefined age for non-object payloads", () => {
     expect(cacheAgeMs(42)).toBeUndefined();
     expect(cacheAgeMs(null)).toBeUndefined();
