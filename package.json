@@ -4,6 +4,17 @@
   "version": "0.1.0",
   "description": "A complete, maintained Model Context Protocol server for the Unraid GraphQL API.",
   "license": "MIT",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "unraid",
+    "nas",
+    "homelab",
+    "self-hosted",
+    "claude",
+    "graphql"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mswdev/better-unraid-mcp.git"
