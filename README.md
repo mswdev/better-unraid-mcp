@@ -2,7 +2,7 @@
 
 # Better Unraid MCP
 
-**Monitor and manage your Unraid server through natural language, from any MCP client.**
+**Monitor and manage your Unraid server in plain English, from any MCP client.**
 
 [![npm version](https://img.shields.io/npm/v/better-unraid-mcp)](https://www.npmjs.com/package/better-unraid-mcp)
 [![CI](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
@@ -22,7 +22,7 @@ Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Features
 
-Ask a plain question and get a real answer from your server. "Why is my array degraded?" becomes calls to `array_status` and `disk_list`, and you get back which disk is unhappy and what SMART thinks of it, without opening an SSH session or digging through WebGUI tabs.
+Ask a plain question and get a real answer from your server. "Why is my array degraded?" turns into calls to `array_status` and `disk_list`, and you find out which disk is unhappy and what SMART thinks of it without opening an SSH session or clicking through WebGUI tabs.
 
 The 67 tools cover most of what you would normally do over SSH or in the WebGUI:
 
@@ -36,13 +36,13 @@ The 67 tools cover most of what you would normally do over SSH or in the WebGUI:
 - Go past the API when you need to (optional, via SSH): read any file on the host, such as `/boot/logs/syslog-previous`, or run a confirmed one-off command
 - Work with ZFS: pool health, datasets, snapshots (create, destroy, rollback), and ARC usage
 - Reach the host when the API can't: processes, GPU metrics, disk spin, SMART deep reports, User Scripts, VM snapshots
-- Manage the platform itself: API keys, native `.plg` plugin installs, mover control, reboot/shutdown
-- Watch things live: WebSocket-fed resources for parity progress, docker stats, system metrics (CPU, memory, network, temperature), UPS, array state, notifications, and log following (`unraid://live/*`, `unraid://logs/{path}`)
-- Reach the rest of the API surface with raw `graphql_query` and confirm-gated `graphql_mutation`, so nothing is off limits while dedicated tools catch up
+- Manage the platform itself: API keys, native `.plg` plugin installs, mover control, reboot and shutdown
+- Watch things live: WebSocket-fed resources for parity progress, Docker stats, system metrics (CPU, memory, network, temperature), UPS, array state, notifications, and log following (`unraid://live/*`, `unraid://logs/{path}`)
+- Reach the rest of the API with raw `graphql_query` and a confirm-gated `graphql_mutation` while dedicated tools catch up
 
-The tools are deliberately paranoid. Destructive ones refuse to run unless the request includes `confirm: true`, so a stray sentence in a chat cannot stop your array, and the genuinely dangerous operations (stopping the array, hard-killing a VM, rebooting the host) require a second `acknowledge_risk` flag on top. When your client supports MCP elicitation, those gates become real interactive prompts instead. Every read works with a viewer-level API key — and `MCP_READ_ONLY=true` removes every state-changing tool from the listing entirely.
+The tools are deliberately paranoid. A destructive tool refuses to run unless the request includes `confirm: true`, so a stray sentence in a chat can't stop your array. The operations that can really hurt (stopping the array, hard-killing a VM, rebooting the host) also need `acknowledge_risk: true`. If your client supports MCP elicitation, you get an interactive confirmation prompt instead. Every read works with a viewer-level API key, and `MCP_READ_ONLY=true` takes every state-changing tool out of the listing.
 
-There is nothing to install on the server itself. The MCP server runs on your machine, talks to Unraid's built-in GraphQL API with a single key, and starts with one `npx` command.
+You don't install anything on the Unraid server. The MCP server runs on your machine, talks to Unraid's built-in GraphQL API with one API key, and starts with a single `npx` command.
 
 ## Quick start
 
@@ -54,7 +54,7 @@ On your Unraid server (7.2 or newer), go to **Settings > Management Access > API
 unraid-api apikey --create
 ```
 
-The key grants control of your server, so treat it like a password and scope it to the least privilege you need. A viewer-level key is enough for every read-only tool.
+The key controls your server, so treat it like a password and give it the least privilege you need. A viewer-level key is enough for every read-only tool.
 
 ### 2. Add the server to your MCP client
 
@@ -132,18 +132,18 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 </details>
 
-If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To enable the optional host-shell tools (reading files like `/boot/logs/syslog-previous`, running commands, per-container stats), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). Using `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.0.1`) if you prefer fully predictable behavior.
+If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.1`) if you want fully predictable behavior.
 
-**Other ways to install** (all run the same server; nothing is installed on the Unraid box):
+**Other ways to install.** All of them run the same server, and none of them install anything on the Unraid box.
 
-- **Claude Desktop, one click:** download `better-unraid-mcp-<version>.mcpb` from the [latest release](https://github.com/mswdev/better-unraid-mcp/releases/latest) and open it — Claude Desktop asks for the URL and API key.
-- **Claude Code plugin marketplace:** `claude plugin marketplace add mswdev/better-unraid-mcp` then `claude plugin install better-unraid@better-unraid-mcp` (reads `UNRAID_API_URL` / `UNRAID_API_KEY` from your environment).
-- **Docker (remote HTTP transport):** `ghcr.io/mswdev/better-unraid-mcp` — see [Docker](#docker-http-transport).
+- **Claude Desktop, one click:** download `better-unraid-mcp-<version>.mcpb` from the [latest release](https://github.com/mswdev/better-unraid-mcp/releases/latest) and open it. Claude Desktop asks for the URL and API key.
+- **Claude Code plugin marketplace:** `claude plugin marketplace add mswdev/better-unraid-mcp`, then `claude plugin install better-unraid@better-unraid-mcp`. The plugin reads `UNRAID_API_URL` and `UNRAID_API_KEY` from your environment.
+- **Docker (remote HTTP transport):** `ghcr.io/mswdev/better-unraid-mcp`. See [Docker](#docker-http-transport).
 - **MCP Registry:** listed as `io.github.mswdev/better-unraid-mcp` for clients that browse the registry.
 
 ### Cautious quickstart (read-only)
 
-Not ready to let a model touch anything? Add `MCP_READ_ONLY=true` to the environment above and the server registers only read-only tools — the state-changing ones aren't rejected at call time, they simply don't exist. Combined with a VIEWER-role API key, nothing in this server can change your machine.
+Not ready to let a model touch anything? Add `MCP_READ_ONLY=true` to the environment above and the server registers only the read-only tools. The state-changing tools aren't refused at call time; they never appear at all. Pair that with a VIEWER-role API key and nothing in this server can change your machine.
 
 ### 3. Verify your setup
 
@@ -153,7 +153,7 @@ Before wiring up a client, run the built-in doctor with the same environment:
 UNRAID_API_URL=https://tower.local/graphql UNRAID_API_KEY=... npx better-unraid-mcp doctor
 ```
 
-It prints one line per check (GraphQL reachability and versions, schema skew against the server's API version, SSH when configured, rate-limit and read-only mode) and exits non-zero when something is broken:
+It prints one line per check (GraphQL reachability and versions, schema skew against the server's API version, SSH when configured, rate limiting, and read-only mode) and exits non-zero when something is broken:
 
 ```
 ✓ Reachable in 12 ms — Unraid 7.3.2, API 4.37.4+ad268301, online=true.
@@ -172,11 +172,13 @@ Ask your client:
 
 ## Tools
 
-Read-only tools never change anything. Destructive tools always require `confirm: true`; without it they refuse and never touch your server.
+Read-only tools never change anything. Destructive tools always require `confirm: true`; without it they refuse and leave your server alone.
 
-**Fast by default.** The SSH channel is a single kept-alive connection (lazy connect, keepalive probes, auto-reconnect, idle disconnect after `UNRAID_SSH_IDLE_SECONDS`) instead of a handshake per command. GraphQL requests reuse a keep-alive HTTP agent, carry a hard 30 s timeout, and idempotent queries get a small jittered retry on transient failures. The hottest reads (`system_metrics`, `array_status`, `docker_container_list`) are served from a 5-second snapshot cache — detailed output includes `data_age_ms` so you always know how fresh the data is. Long-running `shell_exec` and `docker_container_update` calls emit MCP progress notifications when the client requests them (stdio or session-mode HTTP).
+### Speed and safety
 
-**Cautious by default.** Set `MCP_READ_ONLY=true` and the server registers only read-only tools — state-changing tools are structurally absent from the listing, not merely rejected. All tool output passes through secret redaction (your configured API key, SSH password, bearer token, credential-shaped key/values, and JWTs are replaced with `[redacted]`), a client-side rate limiter keeps request bursts inside the Unraid API's configured throttle, and oversized JSON results are truncated into an envelope that always survives `JSON.parse`.
+The SSH channel is one kept-alive connection: it connects lazily, sends keepalive probes, reconnects on its own, and closes after `UNRAID_SSH_IDLE_SECONDS` of idle time, so commands don't pay for a new handshake each time. GraphQL requests reuse a keep-alive HTTP agent and have a hard 30-second timeout, and idempotent queries get a small jittered retry on transient failures. The busiest reads (`system_metrics`, `array_status`, `docker_container_list`) come from a 5-second snapshot cache, and detailed output includes `data_age_ms` so you can see how fresh the data is. Long-running `shell_exec` and `docker_container_update` calls send MCP progress notifications when the client asks for them (stdio or session-mode HTTP).
+
+All tool output goes through secret redaction: your configured API key, SSH password, and bearer token, plus credential-shaped key/value pairs and JWTs, come back as `[redacted]`. A client-side rate limiter keeps request bursts inside the Unraid API's throttle, and oversized JSON results are truncated into an envelope that still parses with `JSON.parse`.
 
 ### System and storage
 
@@ -187,12 +189,12 @@ Read-only tools never change anything. Destructive tools always require `confirm
 | `parity_history` | read-only | Recent parity checks (date, status, errors, speed). |
 | `disk_list` | read-only | Physical disks with model, size, SMART status, temperature, and partitions. |
 | `disk_smart_report` | read-only | Full smartctl attribute report for one disk (SSH). |
-| `disk_spin` | mutation | Spins a disk up or down (SSH; `confirm`): array slots via emhttpd for consistent state, unassigned `/dev/sdX` via sdspin (ATA only). |
+| `disk_spin` | mutation | Spins a disk up or down (SSH; `confirm`): array slots through emhttpd so the state stays consistent, unassigned `/dev/sdX` through sdspin (ATA only). |
 | `share_list` | read-only | User shares with usage; filter by name. |
 | `mover_status` | read-only | Whether the mover (cache-to-array migration) is running, plus its schedule. |
-| `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks/temps, parity, notifications, UPS, and pending container updates. Start here. |
-| `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability/latency, API key validity, versions, schema skew (vendored schema vs the server's API version), SSH connectivity, rate-limit config, read-only mode. Run it first when something misbehaves — also available as `npx better-unraid-mcp doctor`. |
-| `gpu_metrics` | read-only | GPU utilization over SSH — full metrics via nvidia-smi, a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top, clear absence report otherwise. |
+| `system_health` | read-only | One severity-scored health rollup (OK / WARNING / CRITICAL) across array, capacity, disks and temperatures, parity, notifications, UPS, and pending container updates. Start here. |
+| `connection_doctor` | read-only | Self-test of this MCP server's plumbing: GraphQL reachability and latency, API key validity, versions, schema skew (vendored schema vs the server's API version), SSH connectivity, rate-limit config, and read-only mode. Run it first when something misbehaves; it is also available as `npx better-unraid-mcp doctor`. |
+| `gpu_metrics` | read-only | GPU utilization over SSH: full metrics from nvidia-smi, a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top, or a clear report when neither is present. |
 | `process_list` | read-only | The host's busiest processes by CPU or memory (SSH). |
 | `mover_action` | destructive | Starts or stops the mover over SSH (requires `confirm: true`). Stopping can leave partial files on the destination. |
 | `system_power` | destructive | Reboots or shuts down the whole server over SSH. Requires `confirm: true` and `acknowledge_risk: true`. |
@@ -204,7 +206,7 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | Tool | Type | Description |
 | --- | --- | --- |
 | `array_action` | destructive | Starts or stops the array. Stopping takes every share, container, and VM offline, so `stop` also requires `acknowledge_risk: true`. |
-| `array_disk_action` | destructive | Add a disk to the array (needs a STOPPED array — checked first), mount/unmount an array disk, or clear disk statistics. Removing a disk was retired by the Unraid API (4.37+) — use the web UI. Requires `confirm` + `acknowledge_risk`. |
+| `array_disk_action` | destructive | Adds a disk to the array (checks first that the array is STOPPED), mounts or unmounts an array disk, or clears disk statistics. The Unraid API (4.37+) no longer supports removing a disk, so use the web UI for that. Requires `confirm` + `acknowledge_risk`. |
 | `parity_check` | destructive | Starts (optionally correcting), pauses, resumes, or cancels a parity check. |
 
 ### Docker
@@ -215,11 +217,11 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `docker_container_logs` | read-only | Recent log lines for a container, with tail and time-based paging. |
 | `docker_network_list` | read-only | Docker networks (driver, scope, IPv6/internal/attachable). |
 | `docker_port_conflicts` | read-only | Container and LAN port conflicts. |
-| `docker_stats` | read-only | Per-container CPU, memory, network, and block IO usage, hungriest first. Needs SSH configured (see Host shell). |
+| `docker_stats` | read-only | Per-container CPU, memory, network, and block IO usage, hungriest first. Uses a fresh sample from the live WebSocket subscription when one exists and otherwise falls back to `docker stats` over SSH (see Host shell); the response says which source it used. |
 | `docker_container_action` | destructive | Start, stop, pause, unpause, or restart a container (restart uses the API's native restart mutation, API 4.37+). |
-| `docker_container_remove` | destructive | Permanently deletes a container (irreversible); optionally deletes its image. Needs Unraid 7.3+. |
+| `docker_container_remove` | destructive | Permanently deletes a container (irreversible) and optionally its image. Needs Unraid 7.3+. |
 | `docker_container_update` | destructive | Pulls the latest image and recreates containers, by id or all with updates. Needs Unraid 7.3+. |
-| `docker_autostart_set` | destructive | Sets which containers auto-start on boot, merge-safely preserving boot order. Needs Unraid 7.3+. |
+| `docker_autostart_set` | destructive | Sets which containers start on boot without losing the existing boot order. Needs Unraid 7.3+. |
 
 ### Virtual machines
 
@@ -227,8 +229,8 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | --- | --- | --- |
 | `vm_list` | read-only | Virtual machines with run state; filter by name. |
 | `vm_action` | destructive | Start, stop, pause, resume, forceStop, reboot, or reset a VM by name or id. `forceStop` and `reset` are ungraceful and also require `acknowledge_risk: true`. |
-| `vm_snapshot_list` | read-only | Lists a VM's libvirt snapshots via virsh (SSH; not exposed by the GraphQL API). |
-| `vm_snapshot_create` | destructive | Creates an EXTERNAL disk snapshot via virsh (the flow Unraid 7 itself uses). Requires `confirm` + `acknowledge_risk`. Revert/delete deliberately stay in the Unraid UI. |
+| `vm_snapshot_list` | read-only | Lists a VM's libvirt snapshots through virsh (SSH; the GraphQL API doesn't expose them). |
+| `vm_snapshot_create` | destructive | Creates an EXTERNAL disk snapshot through virsh, the same way Unraid 7 does. Requires `confirm` + `acknowledge_risk`. Revert and delete stay in the Unraid UI on purpose. |
 
 ### Notifications
 
@@ -237,10 +239,10 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `notification_overview` | read-only | Unread and archived counts broken down by importance. |
 | `notification_list` | read-only | Notifications by type (`unread` or `archive`) with paging; the source of truth for ids. |
 | `notification_alerts` | read-only | Deduplicated unread warnings and alerts: the "needs attention now" view. |
-| `notification_archive` | mutation | Archives or unarchives notifications (reversible, ungated). The API swallows per-id failures, so verify with `notification_list`. |
-| `notification_unread` | mutation | Marks one notification as unread again (reversible, ungated). |
-| `notification_create` | mutation | Creates a notification (ungated). |
-| `notification_recalculate` | mutation | Re-syncs cached overview counts from disk (ungated). |
+| `notification_archive` | mutation | Archives or unarchives notifications (reversible, no confirmation needed). The API swallows per-id failures, so verify with `notification_list`. |
+| `notification_unread` | mutation | Marks one notification as unread again (reversible, no confirmation needed). |
+| `notification_create` | mutation | Creates a notification (no confirmation needed). |
+| `notification_recalculate` | mutation | Re-syncs cached overview counts from disk (no confirmation needed). |
 | `notification_delete` | destructive | Permanently deletes notifications (irreversible). |
 
 ### Observability
@@ -250,99 +252,100 @@ Both tools require an API key with the **ADMIN** role. They report that the requ
 | `log_list` | read-only | The server's log files with size and last-modified time. |
 | `log_read` | read-only | Tails or windows a log file (default 100 lines, max 2000), with paging hints. |
 | `system_metrics` | read-only | Point-in-time CPU load, memory pressure, per-interface network rates, and server time. Temperature data is opt-in. |
-| `metrics_history` | read-only | Recent CPU / memory / network history from the opt-in in-memory recorder (`MCP_METRICS_HISTORY=true`): 30-second min/avg/max buckets for up to 24 hours, honest about gaps; says how to enable recording when it is off. |
+| `metrics_history` | read-only | Recent CPU, memory, and network history from the opt-in in-memory recorder (`MCP_METRICS_HISTORY=true`): 30-second min/avg/max buckets for up to 24 hours, with gaps reported as gaps. When recording is off, it says how to turn it on. |
 
 ### Plugins
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `plugin_list` | read-only | Installed API plugins and OS `.plg` plugins. |
-| `plugin_add` | destructive | Installs API plugins by npm package name, then restarts the Unraid API. Running `npm install` on your server executes package lifecycle scripts, so only install packages you trust. |
+| `plugin_add` | destructive | Installs API plugins by npm package name, then restarts the Unraid API. `npm install` on your server runs package lifecycle scripts, so only install packages you trust. |
 | `plugin_remove` | destructive | Uninstalls API plugins by npm package name, then restarts the Unraid API. |
-| `plugin_install_plg` | destructive | Installs a native Unraid OS plugin from a `.plg` URL. A `.plg` runs arbitrary code as root, so this requires `confirm` + `acknowledge_risk` — only install from trusted sources. |
+| `plugin_install_plg` | destructive | Installs a native Unraid OS plugin from a `.plg` URL. A `.plg` runs arbitrary code as root, so this requires `confirm` + `acknowledge_risk`. Only install from sources you trust. |
 
 ### ZFS (SSH)
 
-ZFS ships with Unraid 6.12+; these tools report clearly when no pools exist.
+ZFS ships with Unraid 6.12+. These tools say so plainly when no pools exist.
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `zfs_status` | read-only | Pool health/capacity plus ARC memory usage. |
-| `zfs_dataset_list` | read-only | Datasets with used/available space and mountpoints; optional pool filter. |
+| `zfs_status` | read-only | Pool health and capacity, plus ARC memory usage. |
+| `zfs_dataset_list` | read-only | Datasets with used and available space and mountpoints; optional pool filter. |
 | `zfs_snapshot_list` | read-only | Snapshots with size and creation time; optional dataset filter. |
 | `zfs_snapshot_action` | destructive | Create, destroy, or roll back a snapshot. Rollback discards everything after the snapshot, so this requires `confirm` + `acknowledge_risk`. |
 
 ### Host configuration (SSH)
 
-The GraphQL API has no service, share-mutation, or unassigned-devices surface, so these go through the same mechanisms the web UI uses — `/etc/rc.d/rc.*` scripts, emhttpd's form handler via `emcmd`, and the Unassigned Devices plugin — and every write is verified by reading the result back.
+The GraphQL API has nothing for services, share changes, or unassigned devices, so these tools use the same mechanisms as the web UI: the `/etc/rc.d/rc.*` scripts, emhttpd's form handler through `emcmd`, and the Unassigned Devices plugin. Every write is checked by reading the result back.
 
-| Tool | Kind | What it does |
-|------|------|--------------|
-| `service_list` | read-only | Running / stopped / not-installed state of samba, nfs, sshd, docker, libvirt, tailscale. |
-| `service_action` | destructive | `restart`, `start`, or `stop` one of those services and verify the status afterwards. `stop` needs `allow_stop: true`; stopping docker/libvirt is refused (use `array_action`). Requires `confirm` + `acknowledge_risk`. |
+| Tool | Type | Description |
+| --- | --- | --- |
+| `service_list` | read-only | Running, stopped, or not-installed state of samba, nfs, sshd, docker, libvirt, and tailscale. |
+| `service_action` | destructive | `restart`, `start`, or `stop` one of those services, then check its status. `stop` needs `allow_stop: true`, and stopping docker or libvirt is refused (use `array_action`). Requires `confirm` + `acknowledge_risk`. |
 | `unassigned_list` | read-only | Disks outside the array, pools, and flash, with partitions, filesystems, and mount points. |
-| `unassigned_action` | destructive | Mount / unmount an unassigned partition through the Unassigned Devices plugin (`rc.unassigned`), verified with lsblk; refuses without the plugin. Requires `confirm` + `acknowledge_risk`. |
-| `share_create` | destructive | Create a user share via emhttpd with a validated settings subset (comment, allocator, cache mode/pool, SMB export/security), verified against the written `.cfg`. Requires `confirm` + `acknowledge_risk`. |
-| `share_edit` | destructive | Change that same settings subset on an existing share, other settings untouched, verified by read-back. Requires `confirm` + `acknowledge_risk`. |
-| `share_delete` | destructive | Delete an EMPTY share's configuration (never files; refuses while data exists). Requires `confirm` + `acknowledge_risk`. |
+| `unassigned_action` | destructive | Mounts or unmounts an unassigned partition through the Unassigned Devices plugin (`rc.unassigned`) and checks the result with lsblk. Refuses when the plugin isn't installed. Requires `confirm` + `acknowledge_risk`. |
+| `share_create` | destructive | Creates a user share through emhttpd with a validated subset of settings (comment, allocator, cache mode and pool, SMB export and security), then checks the written `.cfg`. Requires `confirm` + `acknowledge_risk`. |
+| `share_edit` | destructive | Changes that same subset of settings on an existing share, leaves the other settings alone, and checks the result by reading it back. Requires `confirm` + `acknowledge_risk`. |
+| `share_delete` | destructive | Deletes an EMPTY share's configuration. It never deletes files and refuses while the share holds data. Requires `confirm` + `acknowledge_risk`. |
 
 ### Backup (SSH)
 
-| Tool | Kind | What it does |
-|------|------|--------------|
-| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share — `/boot/config` by default, the whole flash with `full: true` — as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`, verified with `tar -tzf`; `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
+| Tool | Type | Description |
+| --- | --- | --- |
+| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
 
 ### User Scripts (SSH)
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin. |
-| `user_script_run` | destructive | Runs one user script (arbitrary root code by design — `confirm` + `acknowledge_risk`), replicating the plugin's noexec-safe runner. |
+| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary root code, so this requires `confirm` + `acknowledge_risk`. |
 
 ### API keys
 
-Managing API keys means the model is handling the credentials that control access to your server — treat these tools with the same care as the keys themselves.
+These tools hand the model the credentials that control access to your server, so use them with the same care as the keys themselves.
 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `apikey_list` | read-only | Lists configured API keys (name, roles, permissions, created). Key values are never selected or returned. |
-| `apikey_manage` | destructive | Create, update, add/remove roles, or delete API keys. Requires `confirm` + `acknowledge_risk`. The key value is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. |
+| `apikey_manage` | destructive | Creates, updates, adds or removes roles on, or deletes API keys. Requires `confirm` + `acknowledge_risk`. The key value is shown exactly once, at creation. Deleting the key this MCP server uses locks it out. |
 
 ### UPS
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. Reports "no live UPS data" instead of an error or a fabricated healthy reading when apcaccess has nothing to say — including on NUT-managed servers, which the Unraid API cannot see. |
+| `ups_status` | read-only | Live UPS telemetry from apcupsd: status (`ONLINE`, `ONBATT`, `LOWBATT`, ...), battery charge and runtime, and power load. When apcaccess has nothing to report, it says "no live UPS data" instead of erroring or inventing a healthy reading. That includes NUT-managed servers, which the Unraid API can't see. |
 
 ### Host shell (optional, needs SSH)
 
-The GraphQL API cannot reach everything (old boot logs under `/boot/logs`, `/proc`, one-off commands). These tools close that gap over SSH. They are **off by default**: they activate only when you set the `UNRAID_SSH_*` variables (see Configuration), and without them they refuse with setup guidance. `docker_stats` above also uses this channel.
+The GraphQL API can't reach everything: old boot logs under `/boot/logs`, `/proc`, one-off commands. These tools fill that gap over SSH. They are off by default and turn on only when you set the `UNRAID_SSH_*` variables (see [Configuration](#configuration)); without them they refuse and explain how to set it up. `docker_stats` also falls back to this channel when no fresh live sample is available.
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `file_read` | read-only | Tails any absolute file path on the host (default 200 lines, max 2000). Optional `pattern` greps server-side first, so searching huge logs stays cheap. |
-| `shell_exec` | destructive | Runs an arbitrary command as the SSH user (typically root). Every call requires `confirm: true`; output is capped and timeouts are enforced (default 30s, max 120s). |
+| `file_read` | read-only | Tails any absolute file path on the host (default 200 lines, max 2000). An optional `pattern` greps on the server first, so searching huge logs stays cheap. |
+| `shell_exec` | destructive | Runs an arbitrary command as the SSH user (typically root). Every call requires `confirm: true`. Output is capped, and timeouts are enforced (default 30 s, max 120 s). |
 
 ### Raw GraphQL (advanced)
 
-Escape hatches for the parts of the Unraid API no dedicated tool wraps yet (users, API keys, registration, share edits, disk operations). Prefer the dedicated tools when one exists: they encode server quirks these passthroughs do not. The full schema ships with the package at `schema/unraid.graphql`.
+These cover the parts of the Unraid API that no dedicated tool wraps yet, such as users and registration. Use a dedicated tool when one exists, because the dedicated tools handle server quirks that these passthroughs don't. The full schema ships with the package at `schema/unraid.graphql`.
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. Validated against the vendored schema before sending (did-you-mean hints); `dry_run: true` validates only. |
-| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. Validated against the vendored schema before the confirm gate; `dry_run: true` validates only and needs no confirm. |
+| `graphql_query` | read-only | Runs an arbitrary GraphQL query and returns the raw JSON. Query operations only; output is capped. Validated against the vendored schema before sending, with did-you-mean hints; `dry_run: true` validates without sending. |
+| `graphql_mutation` | destructive | Runs an arbitrary GraphQL mutation. Requires `confirm: true` on every call, plus `acknowledge_risk: true` when it selects a known-dangerous field (`setState`, `forceStop`, `reset`, `configureUps`). Verify results with a follow-up read. Validated against the vendored schema before the confirm gate; `dry_run: true` validates without sending and needs no confirm. |
 
-> **Note:** tool behavior is validated against the Unraid API v4.35.0 source and covered by 370+ unit tests, but has not yet been broadly exercised against live servers. Treat destructive tools with care and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
+> **Note:** tool behavior is checked against the vendored Unraid API 4.37.4 schema and covered by unit tests at 100% coverage. The read-only tools have been run against a live Unraid 7.3 server, but the write paths haven't been widely exercised on live servers yet. Treat destructive tools with care, and please [open an issue](https://github.com/mswdev/better-unraid-mcp/issues) if anything misbehaves.
 
-## Modern MCP surface
+## MCP features beyond tools
 
-Beyond tools, the server speaks the wider MCP protocol (built on the MCP TypeScript SDK v2, protocol revision 2026-07-28, with clients on older revisions negotiated down automatically):
+The server is built on the MCP TypeScript SDK v2 (protocol revision 2026-07-28). Clients on older revisions are negotiated down automatically.
 
-- **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools present a real confirmation prompt — tier-2 actions show the blast-radius warning with two checkboxes — instead of refusing. The `confirm` / `acknowledge_risk` arguments still work everywhere and remain the only path on stateless HTTP. Declining the prompt changes nothing on the server.
-- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU/memory/network history when `MCP_METRICS_HISTORY=true`, or the enable hint).
+- **Interactive confirmation (elicitation).** When your client supports MCP elicitation (over stdio or session-mode HTTP), gated tools show a real confirmation prompt instead of refusing; the riskiest actions show the warning with two checkboxes. The `confirm` and `acknowledge_risk` arguments still work everywhere and are the only option on stateless HTTP. Declining the prompt changes nothing on the server.
+- **Resources.** `unraid://schema` (the vendored GraphQL SDL this package was built against), `unraid://health` (the system-health rollup as JSON), `unraid://doctor` (the connection self-test as JSON), and `unraid://live/history` (the last hour of recorded CPU, memory, and network history when `MCP_METRICS_HISTORY=true`, or a hint on how to turn it on).
+- **Live resources.** Subscribe to `unraid://live/parity`, `unraid://live/docker-stats`, `unraid://live/metrics`, `unraid://live/ups`, `unraid://live/array`, and `unraid://live/notifications` for updates pushed over the Unraid API's WebSocket, or to `unraid://logs/{path}` to follow a log file.
 - **Prompts.** Four guided workflows: `triage-array-problem`, `find-resource-hog`, `safe-container-update` (takes an optional `container` argument), and `health-report`.
-- **Structured output.** `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human text in both response formats.
-- **Complete annotations.** Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, enforced by a registry test.
+- **Structured output.** `system_health`, `system_metrics`, `array_status`, and `docker_container_list` declare an `outputSchema` and return `structuredContent` alongside the human-readable text in both response formats.
+- **Complete annotations.** Every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`, and a registry test enforces it.
 
 ## Configuration
 
@@ -353,20 +356,20 @@ Beyond tools, the server speaks the wider MCP protocol (built on the MCP TypeScr
 | `MCP_TRANSPORT` | no | `stdio` | `stdio` (local clients) or `http` (remote clients). |
 | `MCP_HTTP_PORT` | no | `3000` | Port for the `http` transport. |
 | `MCP_HTTP_HOST` | no | `127.0.0.1` | Bind address for the `http` transport. |
-| `MCP_HTTP_ALLOWED_HOSTS` | no | | Comma-separated `Host` allow-list; enables DNS-rebinding protection. |
+| `MCP_HTTP_ALLOWED_HOSTS` | no | | Comma-separated `Host` allow-list; turns on DNS-rebinding protection. |
 | `UNRAID_ALLOW_SELF_SIGNED` | no | `false` | Set `true` only for a self-signed TLS certificate on the LAN. |
-| `MCP_READ_ONLY` | no | `false` | Set `true` to hide every state-changing tool — the server registers read-only tools only. |
+| `MCP_READ_ONLY` | no | `false` | Set `true` to register only the read-only tools. |
 | `MCP_METRICS_HISTORY` | no | `false` | Set `true` to record CPU, memory, and network history in memory (30-second min/avg/max buckets, 24 hours, cleared on restart) for `metrics_history` and `unraid://live/history`. Keeps one WebSocket open to the server. |
 | `MCP_HTTP_BEARER_TOKEN` | http | | Required for the `http` transport: clients must send `Authorization: Bearer <token>`. |
 | `MCP_HTTP_ALLOW_UNAUTHENTICATED` | no | `false` | Explicit opt-in to run the `http` transport with no auth (trusted networks only). |
 | `LOG_LEVEL` | no | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`. |
-| `UNRAID_SSH_HOST` | no | | Enables the host-shell tools (`file_read`, `shell_exec`, `docker_stats`). Requires a password or key path. |
+| `UNRAID_SSH_HOST` | no | | Turns on every tool marked SSH above, plus the SSH fallback for `docker_stats`. Requires a password or key path. |
 | `UNRAID_SSH_PORT` | no | `22` | SSH port. |
-| `UNRAID_SSH_USER` | no | `root` | SSH user. Unraid administration is normally `root`. |
-| `UNRAID_SSH_PASSWORD` | no | | SSH password. Prefer `UNRAID_SSH_KEY_PATH` where possible. |
+| `UNRAID_SSH_USER` | no | `root` | SSH user. Unraid administration is normally done as `root`. |
+| `UNRAID_SSH_PASSWORD` | no | | SSH password. Prefer `UNRAID_SSH_KEY_PATH` where you can. |
 | `UNRAID_SSH_KEY_PATH` | no | | Path to an SSH private key file (readable by the MCP server process). |
-| `UNRAID_SSH_IDLE_SECONDS` | no | `90` | Idle seconds before the persistent SSH connection is closed (it reconnects lazily). |
-| `MCP_HTTP_SESSIONS` | no | `false` | Set `true` for stateful HTTP sessions (SSE responses). Enables server-initiated messages — progress notifications now, elicitation and subscriptions in later releases. |
+| `UNRAID_SSH_IDLE_SECONDS` | no | `90` | Idle seconds before the persistent SSH connection closes (it reconnects when next needed). |
+| `MCP_HTTP_SESSIONS` | no | `false` | Set `true` for stateful HTTP sessions (SSE responses), which carry server-initiated messages: progress notifications, elicitation prompts, and live-resource updates. |
 
 See [`.env.example`](.env.example) for a copy-paste template.
 
@@ -391,15 +394,15 @@ curl -X POST http://host:3000/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-By default the endpoint is stateless: each POST gets a complete JSON response, and server-initiated messages (progress notifications, and in later releases elicitation prompts and subscription updates) are silently unavailable. Set `MCP_HTTP_SESSIONS=true` to switch to stateful streamable-HTTP sessions: the client initializes once, carries the returned `mcp-session-id` header, receives SSE responses that can carry server-initiated messages, and may end the session with a DELETE. Idle sessions expire after 5 minutes.
+By default the endpoint is stateless: each POST gets a complete JSON response, and server-initiated messages (progress notifications, elicitation prompts, live-resource updates) are unavailable. Set `MCP_HTTP_SESSIONS=true` for stateful streamable-HTTP sessions. The client initializes once, sends the returned `mcp-session-id` header on later requests, receives SSE responses that can carry server-initiated messages, and can end the session with a DELETE. Idle sessions expire after 5 minutes.
 
-The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To deliberately run an open endpoint on a trusted network, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` (a warning is logged at startup). Requests without a matching token get a 401; token comparison is constant-time.
+The server **refuses to start** in HTTP mode without `MCP_HTTP_BEARER_TOKEN`. To run an open endpoint on a trusted network on purpose, set `MCP_HTTP_ALLOW_UNAUTHENTICATED=true`, and the server logs a warning at startup. Requests without a matching token get a 401, and the token comparison is constant-time.
 
-> **Warning:** every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), add TLS via a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
+> **Warning:** every request uses your privileged Unraid API key upstream. The server binds to localhost by default. To expose it further (including to cloud clients such as ChatGPT connectors), put TLS in front with a reverse proxy and set `MCP_HTTP_ALLOWED_HOSTS` for DNS-rebinding protection. Never expose the endpoint unauthenticated to an untrusted network.
 
 ### Docker (HTTP transport)
 
-The image runs the HTTP transport only (`MCP_TRANSPORT=http`, bound to `0.0.0.0:3000` inside the container) and, like the CLI, refuses to start without `MCP_HTTP_BEARER_TOKEN`:
+The image runs only the HTTP transport (`MCP_TRANSPORT=http`, bound to `0.0.0.0:3000` inside the container) and, like the CLI, refuses to start without `MCP_HTTP_BEARER_TOKEN`:
 
 ```yaml
 services:
@@ -415,11 +418,11 @@ services:
     restart: unless-stopped
 ```
 
-Point your client at `http://<host>:3000/mcp` with `Authorization: Bearer <token>`; put TLS in front before leaving the LAN. Multi-arch (amd64/arm64) images are published for every release tag.
+Point your client at `http://<host>:3000/mcp` with `Authorization: Bearer <token>`, and put TLS in front before it leaves the LAN. Every release publishes multi-arch (amd64/arm64) images.
 
 ## Security
 
-The Unraid API key grants control of your server. Scope it to the least privilege you need, store it only in environment variables or your client's secret store, and never commit it to version control.
+The Unraid API key controls your server. Give it the least privilege you need, keep it only in environment variables or your client's secret store, and never commit it to version control.
 
 ## Development
 
@@ -430,13 +433,13 @@ npm install
 npm run build      # or: npm run dev
 ```
 
-Run the quality gate before every commit:
+Run the quality gate before every commit (`npm run test:coverage` also enforces the coverage threshold that CI checks):
 
 ```bash
 npm run typecheck && npm run build && npm test && npm run lint
 ```
 
-Contributions: branch off `develop`, one logical change per commit (conventional commits), and open a draft PR into `develop`. The vendored schema (`schema/unraid.graphql`) and generated types (`src/types/unraid/**`) are never hand-edited; refresh them with `npm run schema:update` and `npm run generate`.
+To contribute, branch off `develop`, keep one logical change per commit (conventional commits), and open a draft PR into `develop`. Never hand-edit the vendored schema (`schema/unraid.graphql`) or the generated types (`src/types/unraid/**`); refresh them with `npm run schema:update` and `npm run generate`.
 
 ## License
 
