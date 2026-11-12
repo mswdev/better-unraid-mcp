@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TokenBucket } from "./rate-limit.js";
 
 /** Deterministic clock + sleep: sleeping advances the clock. */
@@ -64,5 +64,29 @@ describe("TokenBucket", () => {
     await bucket.acquire();
 
     await expect(bucket.acquire()).rejects.toThrow(/max wait/i);
+  });
+});
+
+describe("TokenBucket default clock and sleep", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("waits on a real timer for the next token when no sleep is injected", async () => {
+    vi.useFakeTimers();
+    const bucket = new TokenBucket({ capacity: 1, refillPerSecond: 1 });
+    await bucket.acquire();
+    let granted = false;
+
+    const second = bucket.acquire().then(() => {
+      granted = true;
+    });
+    await vi.advanceTimersByTimeAsync(999);
+    const grantedEarly = granted;
+    await vi.advanceTimersByTimeAsync(1);
+    await second;
+
+    expect(grantedEarly).toBe(false);
+    expect(granted).toBe(true);
   });
 });

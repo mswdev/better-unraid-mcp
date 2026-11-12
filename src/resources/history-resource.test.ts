@@ -50,3 +50,50 @@ describe("unraid://live/history", () => {
     expect(body.topics.cpu.points).toEqual([]);
   });
 });
+
+describe("unraid://live/history recorder states", () => {
+  const T0 = 1_760_000_000_000;
+
+  it("reports no recording start for a recorder that has not started", async () => {
+    const { server, readers } = captureResource();
+    const recorder = new MetricsHistoryRecorder({
+      feed: { subscribe: () => () => {} },
+      now: () => T0,
+    });
+    registerHistoryResource(server, recorder);
+
+    const body = JSON.parse((await readers[HISTORY_URI]()).contents[0].text) as {
+      recording_since: string | null;
+    };
+
+    expect(body.recording_since).toBeNull();
+  });
+
+  it("renders recorded points with ISO bucket times", async () => {
+    const { server, readers } = captureResource();
+    let cpu: ((data: unknown) => void) | undefined;
+    const recorder = new MetricsHistoryRecorder({
+      feed: {
+        subscribe: (query, _variables, handlers) => {
+          if (query.includes("systemMetricsCpu")) {
+            cpu = handlers.onData;
+          }
+          return () => {};
+        },
+      },
+      now: () => T0,
+    });
+    recorder.start();
+    cpu?.({ systemMetricsCpu: { percentTotal: 25 } });
+    registerHistoryResource(server, recorder);
+
+    const body = JSON.parse((await readers[HISTORY_URI]()).contents[0].text) as {
+      recording_since: string;
+      topics: { cpu: { points: Array<{ time: string; series: { percent: { avg: number } } }> } };
+    };
+
+    expect(body.recording_since).toBe(new Date(T0).toISOString());
+    expect(body.topics.cpu.points[0].series.percent.avg).toBe(25);
+    expect(Date.parse(body.topics.cpu.points[0].time)).toBeLessThanOrEqual(T0);
+  });
+});

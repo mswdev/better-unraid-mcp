@@ -1,10 +1,17 @@
+import type { ClientOptions } from "graphql-ws";
 import { describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
 import {
   DOCKER_CONTAINER_EVICTION_MS,
   LiveSnapshotStore,
   mergeDockerStatsSample,
 } from "./live-store.js";
-import { type CreateClientLike, SubscriptionFeed, toWsUrl } from "./subscription-feed.js";
+import {
+  type CreateClientLike,
+  type GraphqlWsClientFactory,
+  SubscriptionFeed,
+  toWsUrl,
+} from "./subscription-feed.js";
 
 interface RecordedSubscribe {
   payload: { query: string; variables?: Record<string, unknown> };
@@ -91,6 +98,73 @@ describe("SubscriptionFeed", () => {
   });
 });
 
+type FeedSink = Parameters<CreateClientLike["subscribe"]>[1];
+
+/** A hand-written graphql-ws factory recording the options and calls it receives. */
+function fakeGraphqlWs() {
+  const built: ClientOptions[] = [];
+  const subscribed: Array<{ query: string; sink: FeedSink }> = [];
+  let disposed = 0;
+  const create: GraphqlWsClientFactory = (clientOptions) => {
+    built.push(clientOptions);
+    return {
+      subscribe: (payload, sink) => {
+        subscribed.push({ query: payload.query, sink });
+        return () => {};
+      },
+      dispose: () => {
+        disposed += 1;
+      },
+    };
+  };
+  return { create, built, subscribed, disposedCount: () => disposed };
+}
+
+describe("SubscriptionFeed default graphql-ws client", () => {
+  it("connects lazily to the WebSocket twin with the API key and a bounded retry budget", () => {
+    const graphqlWs = fakeGraphqlWs();
+    const feed = new SubscriptionFeed({ ...options, createGraphqlWsClient: graphqlWs.create });
+
+    feed.subscribe("subscription { a }", undefined, { onData: () => {} });
+
+    const [clientOptions] = graphqlWs.built;
+    expect(clientOptions).toMatchObject({
+      url: "wss://tower.local/graphql",
+      connectionParams: { "x-api-key": "k" },
+      lazy: true,
+      retryAttempts: 10,
+    });
+    expect(clientOptions.webSocketImpl).toBe(WebSocket);
+    expect(clientOptions.shouldRetry?.(new Error("socket closed"))).toBe(true);
+  });
+
+  it("forwards subscriptions and their samples through the graphql-ws client", () => {
+    const graphqlWs = fakeGraphqlWs();
+    const feed = new SubscriptionFeed({ ...options, createGraphqlWsClient: graphqlWs.create });
+    const received: unknown[] = [];
+
+    feed.subscribe("subscription { b }", undefined, { onData: (data) => received.push(data) });
+    graphqlWs.subscribed[0].sink.next({ data: { b: 1 } });
+    graphqlWs.subscribed[0].sink.complete();
+
+    expect(graphqlWs.subscribed[0].query).toBe("subscription { b }");
+    expect(received).toEqual([{ b: 1 }]);
+  });
+
+  it("disposes the client once and rebuilds it on the next subscribe", () => {
+    const graphqlWs = fakeGraphqlWs();
+    const feed = new SubscriptionFeed({ ...options, createGraphqlWsClient: graphqlWs.create });
+    feed.subscribe("subscription { a }", undefined, { onData: () => {} });
+
+    feed.dispose();
+    feed.dispose();
+    feed.subscribe("subscription { a }", undefined, { onData: () => {} });
+
+    expect(graphqlWs.disposedCount()).toBe(1);
+    expect(graphqlWs.built).toHaveLength(2);
+  });
+});
+
 describe("LiveSnapshotStore", () => {
   it("age-stamps stored samples", () => {
     let nowMs = 1_000;
@@ -125,6 +199,28 @@ describe("mergeDockerStatsSample", () => {
     expect(Object.keys(second.containers).sort()).toEqual(["a", "b"]);
     expect(second.containers.a.seenAtMs).toBe(1_000);
     expect(second.containers.b.seenAtMs).toBe(2_000);
+  });
+
+  it("starts a fresh aggregate when the previous sample has no containers map", () => {
+    const merged = mergeDockerStatsSample(
+      { unrelated: true },
+      { dockerContainerStats: { id: "a", cpuPercent: 1 } },
+      5,
+    );
+
+    expect(Object.keys(merged.containers)).toEqual(["a"]);
+  });
+
+  it("keeps the aggregate unchanged for an event without a container id", () => {
+    const first = mergeDockerStatsSample(
+      undefined,
+      { dockerContainerStats: { id: "a", cpuPercent: 1 } },
+      0,
+    );
+
+    const merged = mergeDockerStatsSample(first, { dockerContainerStats: null }, 10);
+
+    expect(merged.containers).toEqual(first.containers);
   });
 
   it("evicts containers unseen for longer than the eviction window", () => {

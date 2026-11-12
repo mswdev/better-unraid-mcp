@@ -1,7 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { recordingExecutor } from "../tools/_shared/test-support.js";
-import type { ConnectionDoctorQuery } from "../types/unraid/graphql.js";
+import type {
+  ConnectionDoctorQuery,
+  SystemHealthQuery,
+  UpsStatusQuery,
+} from "../types/unraid/graphql.js";
 import { registerAllResources } from "./registry.js";
 import { loadSchemaSdl } from "./schema-sdl.js";
 
@@ -98,5 +102,39 @@ describe("registerAllResources", () => {
     const parsed = JSON.parse(result.contents[0].text) as { checks: Array<{ check: string }> };
 
     expect(parsed.checks.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("serves the health rollup as JSON", async () => {
+    const health: SystemHealthQuery & UpsStatusQuery = {
+      array: {
+        state: "STARTED",
+        capacity: { kilobytes: { used: "1", total: "10" } },
+        parityCheckStatus: { status: "COMPLETED", errors: 0, running: false },
+        parities: [],
+        disks: [],
+        caches: [],
+      },
+      notifications: { overview: { unread: { warning: 0, alert: 0 } } },
+      docker: { containers: [] },
+      upsDevices: [],
+    };
+    const { server, resources } = fakeServer();
+    const { executor } = recordingExecutor(health);
+    registerAllResources(server, {
+      client: executor,
+      shell: null,
+      readOnly: false,
+      schemaApiVersion: null,
+    });
+
+    const result = await resources[1].read();
+    const parsed = JSON.parse(result.contents[0].text) as {
+      overall: string;
+      subsystems: unknown[];
+    };
+
+    expect(result.contents[0].uri).toBe("unraid://health");
+    expect(parsed.overall).toBe("ok");
+    expect(parsed.subsystems).toHaveLength(7);
   });
 });

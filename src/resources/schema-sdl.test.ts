@@ -33,6 +33,8 @@ describe("loadSchemaVersion", () => {
   it("returns null when the sidecar has no version string", () => {
     expect(loadSchemaVersion(() => "{}")).toBeNull();
     expect(loadSchemaVersion(() => "not json")).toBeNull();
+    expect(loadSchemaVersion(() => "null")).toBeNull();
+    expect(loadSchemaVersion(() => '"4.37.4"')).toBeNull();
   });
 
   it("reads the real sidecar shipped next to the schema", () => {

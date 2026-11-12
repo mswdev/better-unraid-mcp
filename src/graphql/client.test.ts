@@ -1,6 +1,6 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { parse } from "graphql";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { UnraidClient } from "./client.js";
 import { UnraidApiError } from "./errors.js";
 import type { TokenBucket } from "./rate-limit.js";
@@ -172,5 +172,72 @@ describe("UnraidClient rate limiting and retry", () => {
     await client.execute(PingDoc);
 
     expect(acquires).toBe(1);
+  });
+});
+
+describe("UnraidClient transport failures", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries a query after a transport error and succeeds", async () => {
+    let callCount = 0;
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: async () => {
+        callCount += 1;
+        if (callCount === 1) {
+          throw new Error("ECONNRESET");
+        }
+        return okOnline;
+      },
+      sleep: async () => {},
+    });
+
+    const data = await client.execute(PingDoc);
+
+    expect(data).toEqual({ online: true });
+    expect(callCount).toBe(2);
+  });
+
+  it("does not retry a query when the transport rejects with a non-Error value", async () => {
+    let callCount = 0;
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: () => {
+        callCount += 1;
+        return Promise.reject("opaque failure");
+      },
+      sleep: async () => {},
+    });
+
+    await expect(client.execute(PingDoc)).rejects.toBe("opaque failure");
+    expect(callCount).toBe(1);
+  });
+
+  it("waits the fixed 429 delay on a real timer when no sleep is injected", async () => {
+    vi.useFakeTimers();
+    const responses = [
+      { ok: false, status: 429, statusText: "Too Many Requests" } as Response,
+      okOnline,
+    ];
+    const client = new UnraidClient({
+      endpoint: "http://x/graphql",
+      apiKey: "k",
+      allowSelfSigned: false,
+      fetchImpl: async () => responses.shift() as Response,
+    });
+
+    const pending = client.execute(PingDoc);
+    await vi.advanceTimersByTimeAsync(999);
+    const remainingBeforeDelay = responses.length;
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(remainingBeforeDelay).toBe(1);
+    await expect(pending).resolves.toEqual({ online: true });
   });
 });

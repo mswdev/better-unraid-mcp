@@ -177,3 +177,81 @@ describe("live subscription lifecycle hardening", () => {
     expect(Object.keys(aggregate.containers)).toEqual(["old"]);
   });
 });
+
+describe("live resource reads", () => {
+  type ReadResult = { contents: Array<{ uri: string; text: string }> };
+
+  async function readBody(fake: ReturnType<typeof fakeMcpServer>, name: string, uri?: URL) {
+    const resource = fake.resources.find((entry) => entry.name === name);
+    const result = (await resource?.read(uri)) as ReadResult;
+    return JSON.parse(result.contents[0].text) as Record<string, unknown>;
+  }
+
+  it("serves the waiting envelope from a single-topic resource before any sample", async () => {
+    const { fake } = setup();
+
+    const body = await readBody(fake, "unraid-live-parity");
+
+    expect(body.waiting).toBe(true);
+  });
+
+  it("serves the latest sample and its age from a single-topic resource", async () => {
+    const { fake, store } = setup();
+    store.set("parityHistorySubscription", { progress: 12 });
+
+    const body = await readBody(fake, "unraid-live-parity");
+
+    expect(body).toEqual({ data: { progress: 12 }, age_ms: 0 });
+  });
+
+  it("serves the waiting envelope from a merged resource until any part arrives", async () => {
+    const { fake } = setup();
+
+    const body = await readBody(fake, "unraid-live-metrics");
+
+    expect(body.waiting).toBe(true);
+  });
+
+  it("serves per-topic parts once any merged topic has a sample", async () => {
+    const { fake, store } = setup();
+    store.set("systemMetricsCpu", { percentTotal: 9 });
+
+    const body = await readBody(fake, "unraid-live-metrics");
+
+    expect(body).toEqual({
+      parts: {
+        systemMetricsCpu: { data: { percentTotal: 9 }, age_ms: 0 },
+        systemMetricsMemory: null,
+        systemMetricsNetwork: null,
+        systemMetricsTemperature: null,
+      },
+    });
+  });
+
+  it("serves a followed log keyed by its full resource URI", async () => {
+    const { fake, store } = setup();
+    const uri = new URL("unraid://logs/syslog");
+    const before = await readBody(fake, "unraid-logs", uri);
+    store.set("unraid://logs/syslog", { logFile: { content: "line" } });
+
+    const after = await readBody(fake, "unraid-logs", uri);
+
+    expect(before.waiting).toBe(true);
+    expect(after).toEqual({ data: { logFile: { content: "line" } }, age_ms: 0 });
+  });
+
+  it("still stores a sample when the resource-updated notification fails", async () => {
+    const { subs, store, fake, subscribe } = setup();
+    (
+      fake.server.server as unknown as { sendResourceUpdated: () => Promise<void> }
+    ).sendResourceUpdated = async () => {
+      throw new Error("transport closed");
+    };
+    await subscribe({ params: { uri: "unraid://live/ups" } });
+
+    subs[0].handlers.onData({ upsUpdates: { status: "ONLINE" } });
+    await Promise.resolve();
+
+    expect(store.get("upsUpdates")?.data).toEqual({ upsUpdates: { status: "ONLINE" } });
+  });
+});
