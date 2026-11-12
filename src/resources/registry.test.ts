@@ -130,11 +130,19 @@ describe("registerAllResources", () => {
     const result = await resources[1].read();
     const parsed = JSON.parse(result.contents[0].text) as {
       overall: string;
-      subsystems: unknown[];
+      subsystems: Array<{ subsystem: string }>;
     };
 
     expect(result.contents[0].uri).toBe("unraid://health");
     expect(parsed.overall).toBe("ok");
-    expect(parsed.subsystems).toHaveLength(7);
+    expect(parsed.subsystems.map((entry) => entry.subsystem)).toEqual([
+      "array",
+      "capacity",
+      "disks",
+      "parity",
+      "notifications",
+      "ups",
+      "docker",
+    ]);
   });
 });

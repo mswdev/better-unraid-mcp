@@ -61,12 +61,40 @@ const nullFields = {
 
 const undatedBetweenDated = {
   parityHistory: [
-    { date: "2026-04-30T00:00:00Z", status: "COMPLETED", errors: 1, speed: "175" },
-    { date: null, status: "CANCELLED", errors: null, speed: null },
-    { date: "2026-05-30T00:00:00Z", status: "COMPLETED", errors: 0, speed: "180" },
-    { date: null, status: "NEVER_RUN", errors: null, speed: null },
+    {
+      date: "2026-04-30T00:00:00Z",
+      duration: 3700,
+      speed: "175",
+      status: "COMPLETED",
+      errors: 1,
+      correcting: true,
+    },
+    {
+      date: null,
+      duration: null,
+      speed: null,
+      status: "CANCELLED",
+      errors: null,
+      correcting: null,
+    },
+    {
+      date: "2026-05-30T00:00:00Z",
+      duration: 3600,
+      speed: "180",
+      status: "COMPLETED",
+      errors: 0,
+      correcting: true,
+    },
+    {
+      date: null,
+      duration: null,
+      speed: null,
+      status: "NEVER_RUN",
+      errors: null,
+      correcting: null,
+    },
   ],
-};
+} satisfies ParityHistoryQuery;
 
 function fakeExecutor(result: ParityHistoryQuery): GraphQLExecutor {
   return { execute: async () => result as never };
@@ -126,16 +154,13 @@ describe("parity_history handler", () => {
 
 describe("parity_history ordering and failures", () => {
   it("sorts undated checks after every dated one", async () => {
-    const result = await createParityHistoryHandler(fakeExecutor(undatedBetweenDated as never))({
+    const result = await createParityHistoryHandler(fakeExecutor(undatedBetweenDated))({
       response_format: "concise",
       limit: 5,
     });
 
-    const dates = firstText(result)
-      .split("\n")
-      .slice(1)
-      .map((line) => line.split(" on ")[1].split(":")[0]);
-    expect(dates).toEqual(["2026-05-30T00", "2026-04-30T00", "unknown", "unknown"]);
+    const dates = [...firstText(result).matchAll(/ on (\S+): /g)].map((match) => match[1]);
+    expect(dates).toEqual(["2026-05-30T00:00:00Z", "2026-04-30T00:00:00Z", "unknown", "unknown"]);
   });
 
   it("maps executor failures to a clean error", async () => {

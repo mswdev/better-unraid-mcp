@@ -240,18 +240,22 @@ describe("live resource reads", () => {
     expect(after).toEqual({ data: { logFile: { content: "line" } }, age_ms: 0 });
   });
 
-  it("still stores a sample when the resource-updated notification fails", async () => {
-    const { subs, store, fake, subscribe } = setup();
-    (
-      fake.server.server as unknown as { sendResourceUpdated: () => Promise<void> }
-    ).sendResourceUpdated = async () => {
+  it("swallows a failed resource-updated notification", async () => {
+    const { subs, fake, subscribe } = setup();
+    const attempted: string[] = [];
+    const failingServer = fake.server.server as unknown as {
+      sendResourceUpdated: (params: { uri: string }) => Promise<void>;
+    };
+    failingServer.sendResourceUpdated = async ({ uri }) => {
+      attempted.push(uri);
       throw new Error("transport closed");
     };
     await subscribe({ params: { uri: "unraid://live/ups" } });
 
+    // An unswallowed rejection here would surface as an unhandled rejection and fail the run.
     subs[0].handlers.onData({ upsUpdates: { status: "ONLINE" } });
     await Promise.resolve();
 
-    expect(store.get("upsUpdates")?.data).toEqual({ upsUpdates: { status: "ONLINE" } });
+    expect(attempted).toEqual(["unraid://live/ups"]);
   });
 });

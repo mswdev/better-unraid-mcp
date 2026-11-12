@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ShellResult } from "../../shell/executor.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { firstText, sequencedShell } from "../_shared/test-support.js";
@@ -71,6 +71,10 @@ describe("flash_backup gates and validation", () => {
 });
 
 describe("flash_backup archiving", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("archives /boot/config into the share and verifies it", async () => {
     const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk]);
 
@@ -146,15 +150,16 @@ describe("flash_backup archiving", () => {
     );
   });
 
-  it("names the archive from the current time when no clock is injected", async () => {
+  it("names the archive from the system clock when no clock is injected", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(fixedNow);
     const { shell, calls } = sequencedShell([probeOk, tarOk, verifyOk]);
     const handler = createFlashBackupHandler({ shell });
 
     await handler({ response_format: "concise", share: "backups", ...bothFlags });
 
-    const year = String(new Date().getUTCFullYear());
-    expect(calls[1].command).toMatch(
-      new RegExp(`${EXPECTED_DIR}/flash-backup-config-${year}\\d{4}-\\d{6}\\.tar\\.gz`),
+    expect(calls[1].command).toBe(
+      `mkdir -p '${EXPECTED_DIR}' && tar -czf '${EXPECTED_FILE}' -C '/boot' 'config'`,
     );
   });
 

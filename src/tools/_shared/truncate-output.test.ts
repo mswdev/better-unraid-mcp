@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { truncateJsonPayload, truncateOutput } from "./truncate-output.js";
+import {
+  MAX_OUTPUT_CHARS,
+  TRUNCATED_HEAD_CHARS,
+  truncateJsonPayload,
+  truncateOutput,
+} from "./truncate-output.js";
 
 describe("truncateOutput", () => {
   it("returns short output unchanged", () => {
@@ -55,8 +60,9 @@ describe("truncateJsonPayload", () => {
     const result = truncateJsonPayload(serialized);
     const envelope = JSON.parse(result) as { partial_json_head: string };
 
-    expect(result.length).toBeLessThanOrEqual(30_000);
-    expect(envelope.partial_json_head).toHaveLength(10_000);
+    const headAfterOneHalving = TRUNCATED_HEAD_CHARS / 2;
+    expect(result.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(envelope.partial_json_head).toHaveLength(headAfterOneHalving);
     expect(serialized.startsWith(envelope.partial_json_head)).toBe(true);
   });
 });

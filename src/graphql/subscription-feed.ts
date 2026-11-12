@@ -2,7 +2,7 @@ import { type ClientOptions, createClient } from "graphql-ws";
 import { WebSocket } from "ws";
 
 /** Bounded reconnect budget; graphql-ws backs off between attempts. */
-const RETRY_ATTEMPTS = 10;
+export const RETRY_ATTEMPTS = 10;
 
 /** What a subscriber receives. */
 export interface FeedHandlers {

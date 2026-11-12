@@ -2,7 +2,7 @@
  * Cap on rendered tool output so one call cannot flood the conversation:
  * 30k characters is roughly 7k tokens, a bounded worst case per call.
  */
-const MAX_OUTPUT_CHARS = 30_000;
+export const MAX_OUTPUT_CHARS = 30_000;
 
 /**
  * Caps output at the rendering limit, keeping the tail (the newest lines,
@@ -24,7 +24,7 @@ export function truncateOutput(output: string): string {
  * MAX_OUTPUT_CHARS because JSON-escaping the head (quotes, newlines) expands
  * it; 20k keeps the worst-case envelope safely inside the output budget.
  */
-const TRUNCATED_HEAD_CHARS = 20_000;
+export const TRUNCATED_HEAD_CHARS = 20_000;
 
 /** Remediation copy carried in the truncation envelope. */
 const TRUNCATION_HINT =

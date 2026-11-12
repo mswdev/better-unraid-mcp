@@ -219,7 +219,7 @@ describe("UnraidClient transport failures", () => {
     expect(callCount).toBe(1);
   });
 
-  it("waits the fixed 429 delay on a real timer when no sleep is injected", async () => {
+  it("waits the fixed 429 delay on the default sleep when none is injected", async () => {
     const tooManyRequestsDelayMs = 1_000;
     vi.useFakeTimers();
     const responses = [

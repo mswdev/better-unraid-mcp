@@ -206,20 +206,22 @@ describe("gpu_metrics intel edge cases and failures", () => {
     );
   });
 
-  it("says the intel sample was empty and records no raw sample", async () => {
+  it("says the intel sample was empty when it captured only whitespace", async () => {
     const { shell } = sequencedShell([missing, found, { stdout: "  ", stderr: "", exitCode: 124 }]);
     const handler = createGpuMetricsHandler(shell);
 
-    const concise = await handler({ response_format: "concise" });
-    const { shell: detailedShell } = sequencedShell([
-      missing,
-      found,
-      { stdout: "", stderr: "", exitCode: 1 },
-    ]);
-    const detailed = await createGpuMetricsHandler(detailedShell)({ response_format: "detailed" });
+    const result = await handler({ response_format: "concise" });
 
-    expect(firstText(concise)).toContain("but the sample returned no data");
-    expect(JSON.parse(firstText(detailed))).toEqual({
+    expect(firstText(result)).toContain("but the sample returned no data");
+  });
+
+  it("records no raw sample in detailed mode when the intel capture is empty", async () => {
+    const { shell } = sequencedShell([missing, found, { stdout: "", stderr: "", exitCode: 1 }]);
+    const handler = createGpuMetricsHandler(shell);
+
+    const result = await handler({ response_format: "detailed" });
+
+    expect(JSON.parse(firstText(result))).toEqual({
       vendor: "intel",
       sample: null,
       rawSample: null,

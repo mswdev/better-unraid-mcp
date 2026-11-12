@@ -9,6 +9,7 @@ import {
 import {
   type CreateClientLike,
   type GraphqlWsClientFactory,
+  RETRY_ATTEMPTS,
   SubscriptionFeed,
   toWsUrl,
 } from "./subscription-feed.js";
@@ -132,7 +133,7 @@ describe("SubscriptionFeed default graphql-ws client", () => {
       url: "wss://tower.local/graphql",
       connectionParams: { "x-api-key": "k" },
       lazy: true,
-      retryAttempts: 10,
+      retryAttempts: RETRY_ATTEMPTS,
     });
     expect(clientOptions.webSocketImpl).toBe(WebSocket);
     expect(clientOptions.shouldRetry?.(new Error("socket closed"))).toBe(true);

@@ -72,7 +72,7 @@ describe("TokenBucket default clock and sleep", () => {
     vi.useRealTimers();
   });
 
-  it("waits on a real timer for the next token when no sleep is injected", async () => {
+  it("waits for the next token on the default sleep when none is injected", async () => {
     const msPerToken = 1_000;
     vi.useFakeTimers();
     const bucket = new TokenBucket({ capacity: 1, refillPerSecond: 1 });
