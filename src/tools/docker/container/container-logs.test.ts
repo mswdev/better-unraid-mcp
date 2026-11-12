@@ -5,8 +5,8 @@ import {
   firstText,
   recordingShell,
   rejectingExecutor,
+  sequencedShell,
   throwingExecutor,
-  throwingShell,
 } from "../../_shared/test-support.js";
 import { createDockerContainerLogsHandler, sinceSchema } from "./container-logs.js";
 
@@ -254,14 +254,14 @@ describe("docker_container_logs failure paths", () => {
     docker: { logs: { containerId: "srv:abc", lines: [], cursor: null } },
   } satisfies DockerContainerLogsQuery;
 
-  it("keeps the no-lines message when the SSH fallback itself throws", async () => {
-    const handler = createDockerContainerLogsHandler(
-      fakeExecutor(noLines),
-      throwingShell("connection refused"),
-    );
+  it("attempts the SSH fallback once and keeps the no-lines message when it throws", async () => {
+    const { shell, calls } = sequencedShell([new Error("connection refused")]);
+    const handler = createDockerContainerLogsHandler(fakeExecutor(noLines), shell);
 
     const result = await handler({ id: "Dozzle", response_format: "concise", tail: 50 });
 
+    expect(calls).toHaveLength(1);
+    expect(calls[0].command).toContain("docker logs");
     expect(result.isError).toBeUndefined();
     expect(firstText(result)).toMatch(/No log lines/);
   });
