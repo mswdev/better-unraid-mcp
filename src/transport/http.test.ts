@@ -55,8 +55,13 @@ function fakeResponse() {
 
 const noopLogger = { error() {}, info() {} } as unknown as Logger;
 
+/** Stands in for a server factory that fails: the handler must answer 500, not crash. */
+function failingBuildServer(): McpServer {
+  throw new Error("server construction failed");
+}
+
 const options: HttpTransportOptions = {
-  buildServer: () => ({}) as McpServer,
+  buildServer: failingBuildServer,
   port: 0,
   host: "127.0.0.1",
   logger: noopLogger,
@@ -189,10 +194,7 @@ describe("requestPath and method edge cases", () => {
 
   it("returns 404 for a request without a method in session mode", async () => {
     const { response, calls } = fakeResponse();
-    const sessionStore = new SessionStore({
-      buildServer: () => ({}) as McpServer,
-      logger: noopLogger,
-    });
+    const sessionStore = new SessionStore({ buildServer: failingBuildServer, logger: noopLogger });
 
     await routeRequest(fakeRequest(undefined, "/mcp"), response, { ...options, sessionStore });
 
@@ -223,11 +225,8 @@ describe("requestPath and method edge cases", () => {
   });
 });
 
-/**
- * A real IncomingMessage/ServerResponse pair over an in-memory socket: the
- * SDK transport runs for real, but no listener or network is involved.
- */
-function memoryExchange(method: string, extra: { body?: unknown; sessionId?: string } = {}) {
+/** An in-memory duplex socket that records every byte written to it. */
+function memorySocket() {
   const written: Buffer[] = [];
   const socket = new Duplex({
     read() {},
@@ -236,6 +235,15 @@ function memoryExchange(method: string, extra: { body?: unknown; sessionId?: str
       callback();
     },
   });
+  return { socket, raw: () => Buffer.concat(written).toString("utf8") };
+}
+
+/** A fully-buffered request on the socket, shaped the way node's HTTP parser leaves it. */
+function memoryRequest(
+  socket: Duplex,
+  method: string,
+  extra: { body?: unknown; sessionId?: string },
+) {
   const request = new IncomingMessage(socket as never);
   const headers: Record<string, string> = {
     host: "localhost",
@@ -255,11 +263,21 @@ function memoryExchange(method: string, extra: { body?: unknown; sessionId?: str
   request.push(null);
   // Set by the HTTP parser on a real server; without it, reading the body destroys the socket.
   request.complete = true;
+  return request;
+}
+
+/**
+ * A real IncomingMessage/ServerResponse pair over an in-memory socket: the
+ * SDK transport runs for real, but no listener or network is involved.
+ */
+function memoryExchange(method: string, extra: { body?: unknown; sessionId?: string } = {}) {
+  const { socket, raw } = memorySocket();
+  const request = memoryRequest(socket, method, extra);
   const response = new ServerResponse(request);
   response.assignSocket(socket as never);
   // Response bytes reach the socket asynchronously (corked writes, streamed SSE bodies).
   const finished = new Promise<void>((resolve) => response.on("finish", () => resolve()));
-  return { request, response, finished, raw: () => Buffer.concat(written).toString("utf8") };
+  return { request, response, finished, raw };
 }
 
 const initializeRequest = {
@@ -290,20 +308,23 @@ describe("routeRequest with the real SDK transport", () => {
   });
 
   it("closes the per-request server once the response closes", async () => {
-    let server: McpServer | undefined;
+    const server = buildRealServer();
+    const serverClosed = new Promise<void>((resolve) => {
+      server.server.onclose = resolve;
+    });
     const exchange = memoryExchange("POST", { body: initializeRequest });
-    const buildServer = () => {
-      server = buildRealServer();
-      return server;
-    };
-    await routeRequest(exchange.request, exchange.response, { ...options, buildServer });
+    await routeRequest(exchange.request, exchange.response, {
+      ...options,
+      buildServer: () => server,
+    });
     await exchange.finished;
-    const connectedBeforeClose = server?.isConnected();
+    const connectedBeforeClose = server.isConnected();
 
     exchange.response.emit("close");
+    await serverClosed;
 
     expect(connectedBeforeClose).toBe(true);
-    await vi.waitFor(() => expect(server?.isConnected()).toBe(false));
+    expect(server.isConnected()).toBe(false);
   });
 
   it("opens a session on initialize and tears it down on DELETE", async () => {
@@ -328,12 +349,19 @@ describe("routeRequest with the real SDK transport", () => {
 function recordingLogger() {
   const infos: string[] = [];
   const errors: string[] = [];
+  let signalError: () => void = () => {};
+  const errorLogged = new Promise<void>((resolve) => {
+    signalError = resolve;
+  });
   const logger = {
     info: (message: string) => infos.push(message),
-    error: (_details: unknown, message: string) => errors.push(message),
+    error: (_details: unknown, message: string) => {
+      errors.push(message);
+      signalError();
+    },
     warn() {},
   } as unknown as Logger;
-  return { logger, infos, errors };
+  return { logger, infos, errors, errorLogged };
 }
 
 /** A fake node:http server: captures the request listener and scripts listen's outcome. */
@@ -455,26 +483,26 @@ describe("startHttp", () => {
   });
 
   it("logs a routing crash and answers 500 when no headers were sent", async () => {
-    const { logger, errors } = recordingLogger();
+    const { logger, errors, errorLogged } = recordingLogger();
     const { factory, captured } = fakeHttpServer("listening");
     await startHttp({ ...options, logger }, factory);
     const { response, calls } = hungUpResponse(false);
 
     captured.listener?.(fakeRequest("GET", "/elsewhere"), response);
-    await new Promise((resolve) => setImmediate(resolve));
+    await errorLogged;
 
     expect(errors).toEqual(["Fatal error routing MCP request"]);
     expect(calls.statuses).toEqual([500]);
   });
 
   it("logs a routing crash without rewriting a response that already started", async () => {
-    const { logger, errors } = recordingLogger();
+    const { logger, errors, errorLogged } = recordingLogger();
     const { factory, captured } = fakeHttpServer("listening");
     await startHttp({ ...options, logger }, factory);
     const { response, calls } = hungUpResponse(true);
 
     captured.listener?.(fakeRequest("GET", "/elsewhere"), response);
-    await new Promise((resolve) => setImmediate(resolve));
+    await errorLogged;
 
     expect(errors).toEqual(["Fatal error routing MCP request"]);
     expect(calls.attempts).toBe(1);
