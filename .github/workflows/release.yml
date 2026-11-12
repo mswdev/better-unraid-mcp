@@ -9,8 +9,10 @@
 # "latest" tag at an old release.
 #
 # After tagging it also starts docker.yml for the new tag (a tag pushed with
-# GITHUB_TOKEN cannot trigger workflows on its own) and, on a real publish,
-# lists the version on the MCP Registry via GitHub OIDC (no stored token).
+# GITHUB_TOKEN cannot trigger workflows on its own) and lists the version on
+# the MCP Registry via GitHub OIDC (no stored token). The Registry step also
+# runs on any later push to main while npm has the version but the Registry
+# does not, so a failed Registry publish recovers on the next push.
 #
 # Recovery: if a previous run published to npm but failed before tagging,
 # the next run detects the missing tag and creates the tag and Release
@@ -113,6 +115,27 @@ jobs:
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "tag=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Decide whether the MCP Registry needs this version
+        id: registry
+        env:
+          VERSION: ${{ steps.decide.outputs.version }}
+          PUBLISH: ${{ steps.decide.outputs.publish }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          SERVER_NAME="$(node -p "encodeURIComponent(require('./server.json').name)")"
+          LOOKUP_URL="https://registry.modelcontextprotocol.io/v0.1/servers/$SERVER_NAME/versions/$VERSION"
+          LOOKUP_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' "$LOOKUP_URL")"
+          ON_NPM="$(npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null || true)"
+          if [ "$LOOKUP_STATUS" = "404" ] && [ "$ON_NPM" = "$VERSION" ]; then
+            echo "::notice::$VERSION is on npm but not on the MCP Registry; publishing it there."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install dependencies
         if: steps.decide.outputs.publish == 'true'
         run: npm ci
@@ -150,10 +173,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run docker.yml --ref main -f tag="v${{ steps.decide.outputs.version }}"
       - name: Install cosign
-        if: steps.decide.outputs.publish == 'true'
+        if: steps.registry.outputs.needed == 'true'
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
       - name: Download and verify mcp-publisher
-        if: steps.decide.outputs.publish == 'true'
+        if: steps.registry.outputs.needed == 'true'
         run: |
           set -euo pipefail
           archive="mcp-publisher_linux_amd64.tar.gz"
@@ -168,13 +191,25 @@ jobs:
           tar xzf "$archive" mcp-publisher
           rm -f "$archive" "$archive.sigstore.json"
       # Last on purpose: a Registry hiccup must not block the npm release,
-      # tag, or bundle. The Registry checks the npm package's mcpName, so
-      # retry while the new version propagates.
+      # tag, or bundle. The Registry checks the npm package's mcpName, and npm
+      # can take several minutes to serve a new version, so wait for it first.
       - name: Publish to the MCP Registry
-        if: steps.decide.outputs.publish == 'true'
+        if: steps.registry.outputs.needed == 'true'
+        env:
+          VERSION: ${{ steps.decide.outputs.version }}
         run: |
+          NPM_WAIT_ATTEMPTS=40
+          NPM_WAIT_SECONDS=15
           MAX_ATTEMPTS=5
           RETRY_DELAY_SECONDS=30
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          for attempt in $(seq 1 "$NPM_WAIT_ATTEMPTS"); do
+            if curl --fail --silent --output /dev/null "https://registry.npmjs.org/$PACKAGE_NAME/$VERSION"; then
+              break
+            fi
+            echo "npm is not serving $PACKAGE_NAME@$VERSION yet (check $attempt of $NPM_WAIT_ATTEMPTS)."
+            sleep "$NPM_WAIT_SECONDS"
+          done
           ./mcp-publisher login github-oidc
           for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
             if ./mcp-publisher publish; then
