@@ -15,13 +15,13 @@
 [![Docker](https://img.shields.io/badge/ghcr.io-better--unraid--mcp-2496ed?logo=docker&logoColor=white)](https://github.com/mswdev/better-unraid-mcp/pkgs/container/better-unraid-mcp)
 [![Claude Desktop bundle](https://img.shields.io/badge/.mcpb-one--click%20install-d97706)](https://github.com/mswdev/better-unraid-mcp/releases/latest)
 
-[Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote-http-transport) · [Security](#security) · [Development](#development)
+[Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote-http-transport) · [Security](#security) · [FAQ](#faq) · [Development](#development)
 
 <img src="docs/assets/demo.svg" alt="A Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
 </div>
 
-Better Unraid MCP is a [Model Context Protocol](https://modelcontextprotocol.io) server for the [Unraid](https://unraid.net) GraphQL API. Connect it to Claude Desktop, Claude Code, Codex, Gemini CLI, or any other MCP client and ask things like *"why is my array degraded?"*, *"tail the syslog"*, or *"restart the Plex container"*.
+Better Unraid MCP is an open-source Unraid MCP server. It connects Claude Desktop, Claude Code, Codex, Gemini CLI, or any other [Model Context Protocol](https://modelcontextprotocol.io) client to the [Unraid](https://unraid.net) GraphQL API, so you can ask things like *"why is my array degraded?"*, *"tail the syslog"*, or *"restart the Plex container"*.
 
 ## Features
 
@@ -531,6 +531,36 @@ Point your client at `http://<host>:3000/mcp` with `Authorization: Bearer <token
 ## Security
 
 The Unraid API key controls your server. Give it the least privilege you need, keep it only in environment variables or your client's secret store, and never commit it to version control.
+
+## FAQ
+
+### What is an Unraid MCP server?
+
+The Model Context Protocol (MCP) is the standard AI clients use to call outside tools. An Unraid MCP server exposes your Unraid server's status and controls as MCP tools, so an assistant such as Claude, Codex, or Gemini CLI can check the array, read a log, or restart a container when you ask. Better Unraid MCP provides 67 of those tools.
+
+### Is this an official Unraid project?
+
+No. Better Unraid MCP is an independent, MIT-licensed community project and isn't affiliated with Unraid or Lime Technology. It talks to the official GraphQL API that ships with Unraid.
+
+### Which Unraid versions does it support?
+
+Unraid 7.2 or newer, where the GraphQL API is built into the OS. Three Docker tools (`docker_container_remove`, `docker_container_update`, and `docker_autostart_set`) need Unraid 7.3 or newer.
+
+### Do I have to install anything on my Unraid server?
+
+No. The MCP server runs on your own computer with `npx` and reaches Unraid over the network with an API key. If you would rather host it, the Docker image serves the same tools over HTTP; see [Docker](#docker-http-transport).
+
+### Which AI clients does it work with?
+
+Any MCP client. The [Quick start](#quick-start) has setup steps for Claude Code, Claude Desktop, Codex, and Gemini CLI, and remote clients can connect over the [HTTP transport](#remote-http-transport).
+
+### Can I keep it read-only?
+
+Yes. Set `MCP_READ_ONLY=true` and use a VIEWER-role API key, and nothing in the server can change your machine; see the [cautious quickstart](#cautious-quickstart-read-only). With writes enabled, every destructive tool refuses to run without `confirm: true`, and the riskiest ones also need `acknowledge_risk: true`.
+
+### Do I need SSH?
+
+No. The GraphQL API covers most of the tools. SSH is optional and turns on the tools marked SSH in the [tool list](#tools), such as ZFS, SMART reports, flash backup, User Scripts, file reads, and one-off commands.
 
 ## Development
 
