@@ -1,5 +1,5 @@
-import { ResourceTemplate } from "@modelcontextprotocol/server";
 import type { McpServer } from "@modelcontextprotocol/server";
+import { ResourceTemplate } from "@modelcontextprotocol/server";
 import {
   DOCKER_STATS_TOPIC,
   type LiveSnapshotStore,

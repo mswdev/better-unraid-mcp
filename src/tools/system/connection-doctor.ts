@@ -4,7 +4,7 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { BUCKET_CAPACITY, REFILL_PER_SECOND } from "../../graphql/rate-limit.js";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { ConnectionDoctorDocument } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "connection_doctor";
 

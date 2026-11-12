@@ -2,10 +2,10 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "shell_exec";

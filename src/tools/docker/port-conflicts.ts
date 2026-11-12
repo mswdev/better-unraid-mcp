@@ -5,7 +5,7 @@ import {
   DockerPortConflictsDocument,
   type DockerPortConflictsQuery,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_port_conflicts";
@@ -62,7 +62,9 @@ function summarize(conflicts: Conflicts): string {
 export function createDockerPortConflictsHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerPortConflictsDocument);
       const conflicts = data.docker.portConflicts;

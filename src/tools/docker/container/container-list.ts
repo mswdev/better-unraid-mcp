@@ -6,7 +6,7 @@ import {
   DockerContainerListDocument,
   type DockerContainerListQuery,
 } from "../../../types/unraid/graphql.js";
-import { type ResponseFormat, formatStructuredResponse, toolError } from "../../_shared/respond.js";
+import { formatStructuredResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_list";
@@ -59,7 +59,10 @@ export function createDockerContainerListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
     name,
-  }: { response_format: ResponseFormat; name?: string }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+    name?: string;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerContainerListDocument);
       const containers = filterByName(data.docker.containers, name);

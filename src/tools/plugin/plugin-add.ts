@@ -2,13 +2,13 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginAddDocument } from "../../types/unraid/graphql.js";
 import { requireConfirmationInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { formatResponse, toolError } from "../_shared/respond.js";
 import {
-  type PluginNamesInput,
   buildInvalidNameError,
   buildRestartReport,
   firstInvalidName,
+  type PluginNamesInput,
   pluginNamesSchema,
 } from "./_shared.js";
 

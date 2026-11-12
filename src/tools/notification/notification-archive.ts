@@ -7,7 +7,7 @@ import {
   UnarchiveAllDocument,
   UnarchiveNotificationsDocument,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
 const TOOL_NAME = "notification_archive";

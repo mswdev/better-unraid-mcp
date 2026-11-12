@@ -5,7 +5,7 @@ import {
   requireConfirmationInteractive,
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import {
   DRY_RUN_VALID_TEXT,

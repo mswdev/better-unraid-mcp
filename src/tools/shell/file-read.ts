@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "file_read";

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ShareListDocument, type ShareListQuery } from "../../types/unraid/graphql.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "share_list";
 
@@ -51,7 +51,10 @@ export function createShareListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
     name,
-  }: { response_format: ResponseFormat; name?: string }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+    name?: string;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ShareListDocument);
       const shares = filterByName(data.shares, name);

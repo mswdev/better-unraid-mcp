@@ -8,7 +8,7 @@ import {
   type TemperatureUnit,
 } from "../../types/unraid/graphql.js";
 import { humanizeBytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
+import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_metrics";
 

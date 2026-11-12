@@ -2,8 +2,8 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
-import { PROBE_TIMEOUT_MS, ZFS_COMMAND_TIMEOUT_MS, probeZfs } from "./_shared.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import { PROBE_TIMEOUT_MS, probeZfs, ZFS_COMMAND_TIMEOUT_MS } from "./_shared.js";
 
 const TOOL_NAME = "zfs_status";
 

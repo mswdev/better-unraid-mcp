@@ -6,7 +6,7 @@ import {
   rejectingExecutor,
   throwingExecutor,
 } from "../_shared/test-support.js";
-import { DESIRED_STATE, createArrayActionHandler } from "./array-action.js";
+import { createArrayActionHandler, DESIRED_STATE } from "./array-action.js";
 
 /** Pre-mutation snapshot: a start issued against a stopped array (finding 1). */
 const setStateResult = {

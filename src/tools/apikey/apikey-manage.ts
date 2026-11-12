@@ -10,7 +10,7 @@ import {
   type Role,
 } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "apikey_manage";

@@ -7,7 +7,7 @@ import {
   type DockerContainerLogsQuery,
 } from "../../../types/unraid/graphql.js";
 import { quoteForShell } from "../../_shared/quote-shell.js";
-import { type ResponseFormat, formatResponse, toolError, toolText } from "../../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError, toolText } from "../../_shared/respond.js";
 import { truncateOutput } from "../../_shared/truncate-output.js";
 
 const TOOL_NAME = "docker_container_logs";

@@ -1,11 +1,11 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import {
+  buildSchema,
   type DocumentNode,
   type GraphQLSchema,
   Kind,
   type OperationTypeNode,
-  buildSchema,
   parse,
   validate,
   visit,

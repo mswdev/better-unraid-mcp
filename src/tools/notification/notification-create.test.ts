@@ -59,7 +59,8 @@ describe("notification_create", () => {
       mode: "always",
       link: "/Dashboard",
     });
-    expect((calls[0]?.variables as { input: { link?: string } }).input.link).toBe("/Dashboard");
+    const variables = calls[0]?.variables as { input: { link?: string } } | undefined;
+    expect(variables?.input.link).toBe("/Dashboard");
   });
 
   it("if_unique creates when no duplicate exists", async () => {

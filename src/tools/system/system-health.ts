@@ -7,7 +7,7 @@ import {
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
+import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_health";
 

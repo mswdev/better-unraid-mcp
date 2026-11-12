@@ -3,10 +3,10 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import type { Logger } from "pino";
 import { describe, expect, it } from "vitest";
 import {
+  isInitializeRequest,
   SESSION_IDLE_EXPIRY_MS,
   SessionStore,
   type TransportLike,
-  isInitializeRequest,
 } from "./http-sessions.js";
 
 const noopLogger = { error() {}, info() {}, warn() {} } as unknown as Logger;

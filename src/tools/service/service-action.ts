@@ -2,19 +2,19 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import {
   PROBE_TIMEOUT_MS,
-  SERVICES,
-  SERVICE_TIMEOUT_MS,
-  type ServiceName,
-  type ServiceState,
   parseStatusOutput,
   rcCommand,
   rcScript,
+  SERVICE_TIMEOUT_MS,
+  SERVICES,
+  type ServiceName,
+  type ServiceState,
 } from "./_shared.js";
 
 const TOOL_NAME = "service_action";

@@ -53,7 +53,7 @@ function confirmationSchema(requireRisk: boolean) {
 
 /** True when the accepted form answered every requested boolean with true. */
 function allConfirmed(content: Record<string, unknown> | undefined, requireRisk: boolean): boolean {
-  if (!content || content.confirm !== true) {
+  if (content?.confirm !== true) {
     return false;
   }
   return !requireRisk || content.acknowledge_risk === true;

@@ -11,7 +11,7 @@ import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
  */
 export function firstText(result: CallToolResult): string {
   const block = result.content[0];
-  if (!block || block.type !== "text") {
+  if (block?.type !== "text") {
     throw new Error("Expected a text content block");
   }
   return block.text;

@@ -3,14 +3,14 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import {
   DISKS_INI,
   LIST_TIMEOUT_MS,
   LSBLK_COMMAND,
-  type UnassignedDisk,
   parseAssignedDevices,
   selectUnassigned,
+  type UnassignedDisk,
 } from "./_shared.js";
 
 const TOOL_NAME = "unassigned_list";
