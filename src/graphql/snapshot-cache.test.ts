@@ -2,7 +2,7 @@ import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { parse } from "graphql";
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "./client.js";
-import { CachingExecutor, SNAPSHOT_TTL_MS, cacheAgeMs } from "./snapshot-cache.js";
+import { CachingExecutor, cacheAgeMs, SNAPSHOT_TTL_MS } from "./snapshot-cache.js";
 
 const HotDoc = parse("query Hot { a }") as unknown as TypedDocumentNode<
   { a: number },

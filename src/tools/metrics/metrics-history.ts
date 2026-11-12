@@ -6,7 +6,7 @@ import {
   type HistoryPoint,
   type MetricsHistoryRecorder,
 } from "../../graphql/metrics-history.js";
-import { type ResponseFormat, formatResponse, toolText } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "metrics_history";
 

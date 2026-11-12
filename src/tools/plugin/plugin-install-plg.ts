@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginInstallPlgDocument } from "../../types/unraid/graphql.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "plugin_install_plg";

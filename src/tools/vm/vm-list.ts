@@ -2,7 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { VmListDocument, type VmListQuery } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "vm_list";
 
@@ -45,7 +45,10 @@ export function createVmListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
     name,
-  }: { response_format: ResponseFormat; name?: string }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+    name?: string;
+  }): Promise<CallToolResult> => {
     try {
       const { vms } = await client.execute(VmListDocument);
       const domains = filterByName(vms.domains ?? [], name);

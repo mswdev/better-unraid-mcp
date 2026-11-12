@@ -2,18 +2,18 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 import {
   DISKS_INI,
   MOUNT_TIMEOUT_MS,
   PARTITION_PATTERN,
   PROBE_TIMEOUT_MS,
-  UD_SCRIPT,
   parentDiskOf,
   parseAssignedDevices,
+  UD_SCRIPT,
 } from "./_shared.js";
 
 const TOOL_NAME = "unassigned_action";

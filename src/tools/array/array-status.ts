@@ -4,7 +4,7 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
 import { ArrayStatusDocument, type ArrayStatusQuery } from "../../types/unraid/graphql.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatStructuredResponse, toolError } from "../_shared/respond.js";
+import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "array_status";
 const PERCENT = 100;
@@ -63,7 +63,9 @@ function summarize(data: ArrayStatusQuery): string {
 export function createArrayStatusHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(ArrayStatusDocument);
       const detailed = { ...data.array, data_age_ms: cacheAgeMs(data) ?? 0 };

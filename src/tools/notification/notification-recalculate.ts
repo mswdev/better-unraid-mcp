@@ -2,7 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { RecalculateOverviewDocument } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "notification_recalculate";
 
@@ -19,7 +19,9 @@ const inputSchema = z.object({
 export function createNotificationRecalculateHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const { recalculateOverview } = await client.execute(RecalculateOverviewDocument);
       const concise = `Overview re-synced from disk: ${recalculateOverview.unread.total} unread / ${recalculateOverview.archive.total} archived.`;

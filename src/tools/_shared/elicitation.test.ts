@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
-import { ELICITATION_TIMEOUT_MS, createElicitationChannel } from "./elicitation.js";
+import { createElicitationChannel, ELICITATION_TIMEOUT_MS } from "./elicitation.js";
 
 interface RecordedElicit {
   params: {

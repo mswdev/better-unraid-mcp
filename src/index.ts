@@ -13,8 +13,8 @@ import { type ShellExecutor, SshShellExecutor } from "./shell/executor.js";
 import { registerSecretValues } from "./tools/_shared/redact.js";
 import type { RegistryOptions } from "./tools/registry.js";
 import { runConnectionDoctor } from "./tools/system/connection-doctor.js";
-import { SessionStore } from "./transport/http-sessions.js";
 import { startHttp } from "./transport/http.js";
+import { SessionStore } from "./transport/http-sessions.js";
 import { startStdio } from "./transport/stdio.js";
 
 /** Logs late/unexpected failures so a single bad event cannot silently crash the server. */

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { NotificationType } from "../../types/unraid/graphql.js";
 import {
-  IMPORTANCE_TO_API,
-  TYPE_TO_API,
   formatCounts,
+  IMPORTANCE_TO_API,
   summarizeLine,
   summarizeOverview,
+  TYPE_TO_API,
 } from "./_shared.js";
 
 describe("formatCounts", () => {

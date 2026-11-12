@@ -2,15 +2,15 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
-import { type ElicitationChannel, createElicitationChannel } from "../_shared/elicitation.js";
+import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
 import {
   DATASET_PATTERN,
+  probeZfs,
   SNAPSHOT_NAME_PATTERN,
   ZFS_COMMAND_TIMEOUT_MS,
-  probeZfs,
 } from "./_shared.js";
 
 const TOOL_NAME = "zfs_snapshot_action";

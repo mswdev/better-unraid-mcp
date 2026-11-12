@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  NAMES_SPEC,
   buildInvalidNameError,
   buildRestartReport,
   firstInvalidName,
+  NAMES_SPEC,
 } from "./_shared.js";
 
 describe("NAMES_SPEC / firstInvalidName", () => {

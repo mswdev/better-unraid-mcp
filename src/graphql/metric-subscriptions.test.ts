@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { METRIC_SUBSCRIPTIONS, extractSeries } from "./metric-subscriptions.js";
+import { extractSeries, METRIC_SUBSCRIPTIONS } from "./metric-subscriptions.js";
 
 describe("METRIC_SUBSCRIPTIONS", () => {
   it("names the three system-metric feed topics", () => {

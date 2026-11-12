@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { DiskListDocument, type DiskListQuery } from "../../types/unraid/graphql.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "disk_list";
 
@@ -75,7 +75,9 @@ function summarize(disks: Disks): string {
 export function createDiskListHandler(client: GraphQLExecutor) {
   return async ({
     response_format,
-  }: { response_format: ResponseFormat }): Promise<CallToolResult> => {
+  }: {
+    response_format: ResponseFormat;
+  }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DiskListDocument);
       const disks = withOwnPartitions(data.disks);

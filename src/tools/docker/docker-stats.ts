@@ -8,7 +8,7 @@ import {
 } from "../../graphql/live-store.js";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_stats";
 /**

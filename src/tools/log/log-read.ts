@@ -7,7 +7,7 @@ import {
   LogReadContentDocument,
   type LogReadContentQuery,
 } from "../../types/unraid/graphql.js";
-import { type ResponseFormat, formatResponse, toolError } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
 
 const TOOL_NAME = "log_read";
 const DEFAULT_LINES = 100;

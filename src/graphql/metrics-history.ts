@@ -1,4 +1,4 @@
-import { METRIC_SUBSCRIPTIONS, type MetricTopic, extractSeries } from "./metric-subscriptions.js";
+import { extractSeries, METRIC_SUBSCRIPTIONS, type MetricTopic } from "./metric-subscriptions.js";
 import type { SubscriptionFeed } from "./subscription-feed.js";
 
 /** One point per 30 seconds… */
