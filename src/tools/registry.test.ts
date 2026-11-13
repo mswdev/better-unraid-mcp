@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import { registerAllTools, TOOL_REGISTRATIONS } from "./registry.js";
 
@@ -8,6 +9,20 @@ interface Registration {
   hasHandler: boolean;
   annotations: unknown;
   hasOutputSchema: boolean;
+  inputSchema: unknown;
+}
+
+/** One property of a tool's input schema as an MCP client sees it. */
+interface JsonSchemaProperty {
+  description?: string;
+}
+
+/** Converts a tool's zod input schema to the JSON Schema properties clients receive. */
+function inputProperties(inputSchema: unknown): Record<string, JsonSchemaProperty> {
+  const jsonSchema = z.toJSONSchema(inputSchema as z.ZodType, { io: "input" }) as {
+    properties?: Record<string, JsonSchemaProperty>;
+  };
+  return jsonSchema.properties ?? {};
 }
 
 function fakeServer() {
@@ -17,7 +32,7 @@ function fakeServer() {
     server: {
       registerTool: (
         name: string,
-        config: { annotations?: unknown; outputSchema?: unknown },
+        config: { annotations?: unknown; outputSchema?: unknown; inputSchema?: unknown },
         handler: unknown,
       ) => {
         registrations.push({
@@ -26,6 +41,7 @@ function fakeServer() {
           hasHandler: typeof handler === "function",
           annotations: config?.annotations,
           hasOutputSchema: config?.outputSchema !== undefined,
+          inputSchema: config?.inputSchema,
         });
       },
     },
@@ -314,6 +330,21 @@ describe("annotation audit", () => {
         );
       }
     }
+  });
+});
+
+describe("input schema audit", () => {
+  it("every tool parameter has a description", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    const undescribed = registrations.flatMap((registration) =>
+      Object.entries(inputProperties(registration.inputSchema))
+        .filter(([, property]) => !property.description?.trim())
+        .map(([parameter]) => `${registration.name}.${parameter}`),
+    );
+    expect(undescribed).toEqual([]);
   });
 });
 

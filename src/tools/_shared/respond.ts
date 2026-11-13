@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
+import { z } from "zod";
 import { redactSecrets } from "./redact.js";
 import { truncateJsonPayload } from "./truncate-output.js";
 
@@ -7,6 +8,21 @@ const JSON_INDENT_SPACES = 2;
 
 /** How verbose a tool response should be. */
 export type ResponseFormat = "concise" | "detailed";
+
+/**
+ * The `response_format` input field shared by every tool that offers both
+ * output modes. Defining it once keeps the wording an MCP client sees for this
+ * parameter identical across the whole tool list.
+ *
+ * @example
+ * const inputSchema = z.object({ response_format: responseFormatSchema });
+ */
+export const responseFormatSchema = z
+  .enum(["concise", "detailed"])
+  .default("concise")
+  .describe(
+    "Output verbosity: `concise` (default) returns a short text summary, `detailed` returns the full data as JSON.",
+  );
 
 /**
  * Wraps plain text as a successful tool result. Secrets (configured values,
