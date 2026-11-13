@@ -6,13 +6,18 @@ import {
   type DockerPortConflictsQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_port_conflicts";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 type Conflicts = DockerPortConflictsQuery["docker"]["portConflicts"];
@@ -88,7 +93,8 @@ export function registerDockerPortConflicts(server: McpServer, client: GraphQLEx
     TOOL_NAME,
     {
       title: "List Docker Port Conflicts",
-      description: "Read-only. Reports Docker container/LAN port conflicts.",
+      description:
+        "Read-only. Reports ports claimed by more than one Docker container, in two groups: LAN/host port conflicts (real collisions) and containers sharing the same internal port (often harmless when they sit on different Docker networks). Use it to diagnose a port clash; it lists existing conflicts only, not every port in use.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

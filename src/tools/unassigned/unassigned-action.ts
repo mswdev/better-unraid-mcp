@@ -1,12 +1,17 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import {
   DISKS_INI,
   MOUNT_TIMEOUT_MS,
@@ -25,11 +30,23 @@ type MountAction = "mount" | "unmount";
 const UD_VERBS: Record<MountAction, string> = { mount: "mount", unmount: "umount" };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["mount", "unmount"]),
-  device: z.string().min(1),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["mount", "unmount"])
+    .describe(
+      "`mount` mounts the partition under /mnt/disks; `unmount` detaches it, so anything still writing to it fails.",
+    ),
+  device: z
+    .string()
+    .min(1)
+    .describe(
+      "Partition path from unassigned_list, e.g. /dev/sdz1 or /dev/nvme1n1p1 (a partition, not a whole disk).",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe("Must be `true` together with `confirm` for both `mount` and `unmount`."),
 });
 
 /** The validated handler input. */
@@ -166,7 +183,7 @@ export function registerUnassignedAction(server: McpServer, shell: ShellExecutor
     {
       title: "Mount / Unmount an Unassigned Partition",
       description:
-        "⚠ Mounts or unmounts an unassigned partition (e.g. /dev/sdz1 from unassigned_list) through the Unassigned Devices plugin's `rc.unassigned mount|umount` over SSH, then verifies the mount point with lsblk. Refuses partitions of array/pool/flash disks, and refuses entirely when the plugin is not installed (no raw mount fallback). Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH.",
+        "⚠ Mounts or unmounts an unassigned partition (e.g. /dev/sdz1 from unassigned_list) through the Unassigned Devices plugin's `rc.unassigned mount|umount` over SSH, then verifies the mount point with lsblk. Mounting may run the plugin's device script and share the partition over SMB per the plugin's settings. Refuses partitions of array/pool/flash disks, and refuses entirely when the plugin is not installed (no raw mount fallback). Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

@@ -8,10 +8,15 @@ import {
   ArrayDiskUnmountDocument,
   ArrayStateProbeDocument,
 } from "../../types/unraid/graphql.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "array_disk_action";
 
@@ -37,12 +42,28 @@ const RETIRED_REMOVE_MESSAGE =
   'Action "remove" was retired by the Unraid API (4.37+): remove a disk from the array in the web UI (Main → array devices, with the array stopped). No changes were made.';
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["add", "mount", "unmount", "clear_statistics"]),
-  id: z.string().min(1),
-  slot: z.number().int().optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["add", "mount", "unmount", "clear_statistics"])
+    .describe(
+      "`add` puts a disk in the array (array must be STOPPED); `mount`, `unmount`, and `clear_statistics` need a STARTED array.",
+    ),
+  id: z
+    .string()
+    .min(1)
+    .describe(
+      "Unraid API id of the disk to act on (the `id` field of a disk in the GraphQL API), sent to the mutation unchanged.",
+    ),
+  slot: z
+    .number()
+    .int()
+    .optional()
+    .describe("Array slot number to put the disk in; optional, and only accepted with `add`."),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe("Must be `true` together with `confirm` for every action of this tool."),
 });
 
 /** The validated handler arguments. */
@@ -161,7 +182,7 @@ export function registerArrayDiskAction(server: McpServer, client: GraphQLExecut
     {
       title: "Array Disk Operations",
       description:
-        "⚠ Array disk operations: add a disk to the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). Removing a disk is no longer offered by the Unraid API (4.37+) — use the web UI. A wrong disk id on add risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. Get disk ids from disk_list. Results are requested, not confirmed — verify with array_status/disk_list.",
+        "⚠ Array disk operations: add a disk to the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). Removing a disk is no longer offered by the Unraid API (4.37+) — use the web UI. A wrong disk id on add risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. `id` is the disk's GraphQL `id`, which disk_list and array_status do not return — read it with graphql_query. Results are requested, not confirmed — verify with array_status/disk_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

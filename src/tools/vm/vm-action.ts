@@ -13,12 +13,18 @@ import {
   VmStopDocument,
 } from "../../types/unraid/graphql.js";
 import {
+  confirmSchema,
   requireConfirmationInteractive,
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 /** The number of colon-separated parts a prefixed `PrefixedID` (`serverId:rawId`) has. */
 const PREFIXED_ID_PARTS = 2;
@@ -59,11 +65,22 @@ const PAST_TENSE: Record<VmAction, string> = {
 type VmDomain = NonNullable<VmResolveQuery["vms"]["domains"]>[number];
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  vm: z.string(),
-  action: z.enum(["start", "stop", "pause", "resume", "forceStop", "reboot", "reset"]),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  vm: z
+    .string()
+    .describe(
+      "VM name (exact, case-insensitive) or id from vm_list; pass the id when several VMs share a name.",
+    ),
+  action: z
+    .enum(["start", "stop", "pause", "resume", "forceStop", "reboot", "reset"])
+    .describe("Run-state change to apply; `forceStop` and `reset` are the ungraceful ones."),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must also be `true` for `forceStop` and `reset`, which can corrupt the guest filesystem; ignored for other actions.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -215,7 +232,7 @@ export function registerVmAction(server: McpServer, client: GraphQLExecutor): vo
     {
       title: "Control a Virtual Machine",
       description:
-        "Changes a VM's run state. `action`: start/resume (bring up / un-pause), stop (graceful ACPI shutdown — waits ~10s then force-kills if the guest doesn't respond), reboot (graceful — fails if the guest ignores ACPI within ~10s; use forceStop then start), pause (freeze in memory), or forceStop/reset (⚠ ungraceful hard kill / hard kill-and-cold-boot that can corrupt the guest filesystem). `vm` accepts a VM name or id. Requires `confirm: true`; forceStop and reset additionally require `acknowledge_risk: true`. The configured Unraid API key must have VM permission.",
+        "Changes a VM's run state. `action`: start/resume (bring up / un-pause), stop (graceful ACPI shutdown — waits ~10s then force-kills if the guest doesn't respond), reboot (graceful — fails if the guest ignores ACPI within ~10s; use forceStop then start), pause (freeze in memory), or forceStop/reset (⚠ ungraceful hard kill / hard kill-and-cold-boot that can corrupt the guest filesystem). `vm` accepts a VM name or id from vm_list. Requires `confirm: true`; forceStop and reset additionally require `acknowledge_risk: true`. The configured Unraid API key must have VM permission.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

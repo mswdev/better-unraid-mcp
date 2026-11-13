@@ -3,12 +3,18 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ArraySetStateDocument, type ArrayStateInputState } from "../../types/unraid/graphql.js";
 import {
+  confirmSchema,
   requireConfirmationInteractive,
   requireRiskAcknowledgementInteractive,
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "array_action";
 
@@ -57,10 +63,19 @@ const NO_OP_SUMMARY: Record<ArrayAction, string> = {
 };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["start", "stop"]),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["start", "stop"])
+    .describe(
+      "`start` brings the array online; `stop` takes every share, Docker container, and VM offline until it is started again.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must be `true` together with `confirm` for `stop`, acknowledging the outage; `start` needs only `confirm`.",
+    ),
 });
 
 /** The validated handler arguments. */

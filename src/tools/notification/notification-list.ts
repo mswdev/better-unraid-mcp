@@ -6,7 +6,12 @@ import {
   type NotificationListQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import {
   IMPORTANCE_TO_API,
   type ImportanceInput,
@@ -20,11 +25,26 @@ const DEFAULT_OFFSET = 0;
 const DEFAULT_LIMIT = 25;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  type: z.enum(["unread", "archive"]),
-  importance: z.enum(["alert", "warning", "info"]).optional(),
-  offset: z.number().int().nonnegative().default(DEFAULT_OFFSET),
-  limit: z.number().int().positive().default(DEFAULT_LIMIT),
+  response_format: responseFormatSchema,
+  type: z
+    .enum(["unread", "archive"])
+    .describe("Which bucket to list: unread notifications or archived ones."),
+  importance: z
+    .enum(["alert", "warning", "info"])
+    .optional()
+    .describe("Only return notifications of this importance; omit for all levels."),
+  offset: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(DEFAULT_OFFSET)
+    .describe("Number of notifications to skip, for paging."),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_LIMIT)
+    .describe("Maximum number of notifications to return per page."),
 });
 
 // `offset`/`limit` are optional here even though the Zod schema defaults them: a unit
@@ -94,7 +114,7 @@ export function registerNotificationList(server: McpServer, client: GraphQLExecu
     {
       title: "List Notifications",
       description:
-        "Read-only. Lists notifications of one `type` (`unread` or `archive`), newest first. Optional `importance` filter (alert/warning/info); paginate with `offset` (default 0) and `limit` (default 25). The source of truth for which notifications exist and their ids.",
+        "Read-only. Lists notifications of one `type` (`unread` or `archive`), newest first. Optional `importance` filter (alert/warning/info); paginate with `offset` (default 0) and `limit` (default 25). The source of truth for which notifications exist and for the ids that notification_archive, notification_unread and notification_delete take; ids appear only with `response_format: detailed`. For just the unread warnings and alerts use notification_alerts; for counts only use notification_overview.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

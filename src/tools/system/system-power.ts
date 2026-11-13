@@ -1,11 +1,11 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { toolError, toolText } from "../_shared/respond.js";
+import { responseFormatSchema, toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_power";
 
@@ -25,10 +25,19 @@ const POWER_COMMANDS: Record<PowerAction, string> = {
 const COMMAND_TIMEOUT_MS = 15_000;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["reboot", "shutdown"]),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["reboot", "shutdown"])
+    .describe(
+      "`reboot` restarts the server; `shutdown` powers it off until it is turned on physically or by wake-on-LAN.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must be `true` together with `confirm` for both actions; acknowledges every share, container, and VM going offline.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -123,7 +132,7 @@ export function registerSystemPower(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Reboot or Shut Down the Server",
       description:
-        "⚠ Reboots (`/sbin/reboot`) or shuts down (`/sbin/poweroff`) the entire Unraid server over SSH. Unraid performs a clean array stop on the way down. Every share, Docker container, and VM goes offline; shutdown requires physical/WoL access to power back on. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_* variables). The SSH connection dropping after the command is expected.",
+        "⚠ Reboots (`/sbin/reboot`) or shuts down (`/sbin/poweroff`) the entire Unraid server over SSH. Unraid performs a clean array stop on the way down. Every share, Docker container, and VM goes offline; shutdown requires physical/WoL access to power back on. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_* variables). The SSH connection dropping after the command is expected. To take only the array offline, use array_action instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

@@ -7,10 +7,15 @@ import {
   type DockerAutostartStateQuery,
   DockerSetAutostartDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_autostart_set";
@@ -19,9 +24,14 @@ type Containers = DockerAutostartStateQuery["docker"]["containers"];
 type Container = Containers[number];
 
 const changeSchema = z.object({
-  id: z.string(),
-  auto_start: z.boolean(),
-  wait: z.number().int().nonnegative().optional(),
+  id: z.string().describe("Container id from docker_container_list; names are rejected."),
+  auto_start: z.boolean().describe("Whether the container starts at boot."),
+  wait: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Seconds to wait after starting this container; omit to keep its current wait."),
 });
 
 type Change = z.infer<typeof changeSchema>;
@@ -35,10 +45,18 @@ interface MergedEntry {
 }
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  changes: z.array(changeSchema).nonempty(),
-  persist: z.boolean().default(false),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  changes: z
+    .array(changeSchema)
+    .nonempty()
+    .describe("Containers whose autostart setting to change; unlisted containers keep theirs."),
+  persist: z
+    .boolean()
+    .default(false)
+    .describe(
+      "`true` also writes the WebGUI's saved prefs, which reorders the Docker-page container list.",
+    ),
+  confirm: confirmSchema,
 });
 
 /** Rejects duplicate ids and ids absent from the live container set. */
@@ -204,7 +222,7 @@ export function registerDockerAutostartSet(server: McpServer, client: GraphQLExe
     {
       title: "Set Docker Container Autostart",
       description:
-        "Sets which containers auto-start on boot. Merge-safe: reads the current autostart config, applies your changes, and resubmits the complete set (sorted to preserve boot order) so unlisted containers are untouched. Boot-time only — does not start/stop running containers now; takes effect on the next array/Docker start. `persist: true` also writes the WebGUI's saved prefs but ⚠ reorders the Docker-page container list irreversibly — leave it false unless you want that. Requires `confirm: true`. Needs Unraid OS 7.3+ (ENABLE_NEXT_DOCKER_RELEASE).",
+        "Sets which containers auto-start on boot. Merge-safe: reads the current autostart config, applies your changes, and resubmits the complete set (sorted to preserve boot order) so unlisted containers are untouched. Boot-time only — does not start/stop running containers now (use docker_container_action for that); takes effect on the next array/Docker start. `persist: true` also writes the WebGUI's saved prefs but ⚠ reorders the Docker-page container list irreversibly — leave it false unless you want that. Requires `confirm: true`. Needs Unraid OS 7.3+ (ENABLE_NEXT_DOCKER_RELEASE).",
       inputSchema,
       annotations: {
         readOnlyHint: false,

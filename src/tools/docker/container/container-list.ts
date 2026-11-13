@@ -7,14 +7,22 @@ import {
   type DockerContainerListQuery,
 } from "../../../types/unraid/graphql.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
-import { formatStructuredResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
+import {
+  formatStructuredResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  name: z.string().optional(),
+  response_format: responseFormatSchema,
+  name: z
+    .string()
+    .optional()
+    .describe("Case-insensitive substring of the container name; omit to list every container."),
 });
 
 /** Shape of the structuredContent payload. */
@@ -88,7 +96,7 @@ export function registerDockerContainerList(server: McpServer, client: GraphQLEx
     {
       title: "List Docker Containers",
       description:
-        "Read-only. Lists Docker containers with state, image, and whether an update is available. Use `name` to filter by a container-name substring.",
+        "Read-only. Lists Docker containers with state, image, and whether an update is available. Use `name` to filter by a container-name substring. The concise summary omits container ids; use `detailed` (or structuredContent) to get the `id` the other docker_container_* tools and docker_autostart_set take. For live CPU/memory use docker_stats; for a container's output use docker_container_logs.",
       inputSchema,
       outputSchema,
       annotations: {

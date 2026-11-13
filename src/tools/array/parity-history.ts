@@ -3,15 +3,26 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ParityHistoryDocument, type ParityHistoryQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_history";
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 50;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  limit: z.number().int().positive().max(MAX_LIMIT).default(DEFAULT_LIMIT),
+  response_format: responseFormatSchema,
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_LIMIT)
+    .default(DEFAULT_LIMIT)
+    .describe("How many of the most recent checks to return."),
 });
 
 type Checks = ParityHistoryQuery["parityHistory"];
@@ -84,7 +95,7 @@ export function registerParityHistory(server: McpServer, client: GraphQLExecutor
     {
       title: "Get Unraid Parity Check History",
       description:
-        "Read-only. Returns the most recent parity checks (date, status, errors, speed). Use `limit` to control how many are returned.",
+        "Read-only. Returns past parity checks, newest first (date, status, error count, speed; `response_format: detailed` adds duration and whether the check was correcting). Use array_status for a check that is running now and parity_check to start or control one.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

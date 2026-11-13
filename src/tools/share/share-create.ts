@@ -1,29 +1,60 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError } from "../_shared/respond.js";
-import { type ShareSettings, validateShareName } from "./_shared.js";
+import { MAX_SHARE_NAME_LENGTH, type ShareSettings, validateShareName } from "./_shared.js";
 import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from "./write-flow.js";
 
 const TOOL_NAME = "share_create";
 
 /** Shared by create and edit: the settings subset plus the gate flags. */
 export const shareSettingsSchema = {
-  comment: z.string().max(200).optional(),
-  allocator: z.enum(["highwater", "fillup", "mostfree"]).optional(),
-  useCache: z.enum(["no", "yes", "only", "prefer"]).optional(),
-  cachePool: z.string().min(1).optional(),
-  smbExport: z.enum(["-", "e", "eh"]).optional(),
-  smbSecurity: z.enum(["public", "secure", "private"]).optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  comment: z
+    .string()
+    .max(200)
+    .optional()
+    .describe("Free-text comment stored on the share (Unraid's `shareComment` setting)."),
+  allocator: z
+    .enum(["highwater", "fillup", "mostfree"])
+    .optional()
+    .describe("Allocation method that decides where new files land (`shareAllocator`)."),
+  useCache: z
+    .enum(["no", "yes", "only", "prefer"])
+    .optional()
+    .describe("Cache mode, Unraid's primary/secondary storage setting (`shareUseCache`)."),
+  cachePool: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Name of an existing cache pool; an unknown name is refused with the valid pools."),
+  smbExport: z
+    .enum(["-", "e", "eh"])
+    .optional()
+    .describe("SMB export: `-` = not exported, `e` = exported, `eh` = exported but hidden."),
+  smbSecurity: z
+    .enum(["public", "secure", "private"])
+    .optional()
+    .describe("SMB security mode controlling who can reach the share (`shareSecurity`)."),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe("Second gate flag: must be `true` together with `confirm` on every call."),
 };
 
-const inputSchema = z.object({ name: z.string().min(1), ...shareSettingsSchema });
+const inputSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .describe(
+      `Name for the new share: letters, digits, dot, underscore, hyphen; at most ${MAX_SHARE_NAME_LENGTH} characters; no leading dot.`,
+    ),
+  ...shareSettingsSchema,
+});
 
 /** The validated handler input. */
 export interface ShareWriteArgs extends ShareSettings {
@@ -107,7 +138,7 @@ export function registerShareCreate(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Create User Share",
       description:
-        "⚠ Creates a user share through emhttpd (the same form the web UI submits, via emcmd over SSH) and verifies it by re-reading /boot/config/shares/<name>.cfg. Optional settings: comment, allocator (highwater|fillup|mostfree), useCache (no|yes|only|prefer — Unraid's primary/secondary storage modes), cachePool (must exist), smbExport (-|e|eh = no|yes|yes-hidden), smbSecurity (public|secure|private). Refuses reserved, disk, and pool names. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH. The GraphQL API has no share mutations.",
+        "⚠ Creates a user share (and its /mnt/user/<name> directory) through emhttpd (the same form the web UI submits, via emcmd over SSH) and verifies it by re-reading /boot/config/shares/<name>.cfg. Refuses a name that already exists (use share_edit to change an existing share) and reserved, disk, and pool names. Omitted settings default to highwater allocation and useCache `no`; SMB settings are submitted only when smbExport or smbSecurity is passed. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH. The GraphQL API has no share mutations.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

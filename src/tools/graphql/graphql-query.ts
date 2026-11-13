@@ -14,9 +14,17 @@ import {
 const TOOL_NAME = "graphql_query";
 
 const inputSchema = z.object({
-  query: z.string().min(1),
-  variables: z.record(z.string(), z.unknown()).optional(),
-  dry_run: z.boolean().optional(),
+  query: z.string().min(1).describe("GraphQL document containing exactly one `query` operation."),
+  variables: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("Values for the variables the document declares, keyed by name without the `$`."),
+  dry_run: z
+    .boolean()
+    .optional()
+    .describe(
+      "`true` validates the document against the vendored schema and returns without sending it.",
+    ),
 });
 
 interface GraphqlQueryInput {

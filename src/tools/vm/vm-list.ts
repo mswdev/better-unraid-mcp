@@ -3,13 +3,21 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { VmListDocument, type VmListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "vm_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  name: z.string().optional(),
+  response_format: responseFormatSchema,
+  name: z
+    .string()
+    .optional()
+    .describe("Case-insensitive substring of the VM name; omit to list every VM."),
 });
 
 /** Non-null element list of the `vms.domains` selection. */
@@ -73,7 +81,7 @@ export function registerVmList(server: McpServer, client: GraphQLExecutor): void
     {
       title: "List Virtual Machines",
       description:
-        "Read-only. Lists virtual machines with their run state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substring.",
+        "Read-only. Lists virtual machines with their run state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substring. Call it before vm_action to get a VM's name and state; `detailed` adds each VM's id. For a VM's snapshots use vm_snapshot_list.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

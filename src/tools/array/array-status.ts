@@ -5,7 +5,12 @@ import { cacheAgeMs } from "../../graphql/snapshot-cache.js";
 import { ArrayStatusDocument, type ArrayStatusQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatStructuredResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "array_status";
 const PERCENT = 100;
@@ -30,7 +35,7 @@ function describeParity(parity: ArrayStatusQuery["array"]["parityCheckStatus"]):
 }
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Shape of the structuredContent payload (deep disk typing adds no safety). */
@@ -90,7 +95,7 @@ export function registerArrayStatus(server: McpServer, client: GraphQLExecutor):
     {
       title: "Get Unraid Array Status",
       description:
-        "Read-only. Returns the array state, capacity, current parity-check status, and a per-disk health summary (data, parity, and cache disks).",
+        "Read-only. Returns the array state, capacity, current parity-check status and progress, and disk counts; `response_format: detailed` adds a row per data, parity, and cache disk (status and temperature, plus usage and error counts where the API reports them). Parity error counts come from parity_history, not this tool. Use disk_list for hardware details (model, SMART, partitions) and system_health for one scored verdict.",
       inputSchema,
       outputSchema,
       annotations: {

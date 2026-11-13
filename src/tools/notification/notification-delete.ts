@@ -5,10 +5,15 @@ import {
   DeleteArchivedNotificationsDocument,
   DeleteNotificationDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { type Overview, TYPE_TO_API, type TypeInput } from "./_shared.js";
 
 const TOOL_NAME = "notification_delete";
@@ -16,11 +21,25 @@ const TOOL_NAME = "notification_delete";
 type Scope = "one" | "all_archived";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  scope: z.enum(["one", "all_archived"]),
-  id: z.string().optional(),
-  type: z.enum(["unread", "archive"]).optional(),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  scope: z
+    .enum(["one", "all_archived"])
+    .describe(
+      "`one` deletes a single notification (needs `id` and `type`); `all_archived` deletes every archived notification.",
+    ),
+  id: z
+    .string()
+    .optional()
+    .describe(
+      "Notification id from notification_list. Required for `scope: one`; rejected with `all_archived`.",
+    ),
+  type: z
+    .enum(["unread", "archive"])
+    .optional()
+    .describe(
+      "Bucket the notification was listed under. Required for `scope: one`; rejected with `all_archived`.",
+    ),
+  confirm: confirmSchema,
 });
 
 interface DeleteArgs {
@@ -105,7 +124,7 @@ export function registerNotificationDelete(server: McpServer, client: GraphQLExe
     {
       title: "Delete Notifications",
       description:
-        "⚠ Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived` (every archived notification). Requires `confirm: true`. Reports the resulting counts.",
+        "⚠ Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived` (every archived notification). Requires `confirm: true`. Reports the resulting counts. To hide notifications without losing them use notification_archive instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

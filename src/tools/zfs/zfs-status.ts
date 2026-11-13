@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { PROBE_TIMEOUT_MS, probeZfs, ZFS_COMMAND_TIMEOUT_MS } from "./_shared.js";
 
 const TOOL_NAME = "zfs_status";
@@ -18,7 +23,7 @@ const BYTES_PER_GIB = 1024 ** 3;
 const PERCENT = 100;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** One imported pool's health line. */
@@ -121,7 +126,7 @@ export function registerZfsStatus(server: McpServer, shell: ShellExecutor | null
     {
       title: "ZFS Pool Status",
       description:
-        "Read-only. ZFS pool health and capacity (zpool list) plus ARC memory usage from /proc/spl/kstat/zfs/arcstats, over SSH. Reports clearly when ZFS is not available. ZFS ships with Unraid 6.12+.",
+        "Read-only. ZFS pool health and capacity (zpool list) plus ARC memory usage from /proc/spl/kstat/zfs/arcstats, over SSH. Start here for ZFS, then use zfs_dataset_list for per-dataset usage and zfs_snapshot_list for snapshots. Per-device errors and scrub progress are not included (run `zpool status` through shell_exec for those). Reports clearly when ZFS is not available. ZFS ships with Unraid 6.12+.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

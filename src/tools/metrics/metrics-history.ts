@@ -6,7 +6,12 @@ import {
   type HistoryPoint,
   type MetricsHistoryRecorder,
 } from "../../graphql/metrics-history.js";
-import { formatResponse, type ResponseFormat, toolText } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolText,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "metrics_history";
 
@@ -23,14 +28,19 @@ export const HISTORY_OFF_TEXT =
   "Metric history is off. Start the server with MCP_METRICS_HISTORY=true to record CPU, memory, and network at 30-second resolution for 24 hours (in memory only; cleared on restart).";
 
 const inputSchema = z.object({
-  topic: z.enum(["cpu", "memory", "network"]),
+  topic: z
+    .enum(["cpu", "memory", "network"])
+    .describe(
+      "Series to return: cpu (percent), memory (percent, usedBytes), or network (rx/tx bytes per second summed over interfaces).",
+    ),
   window_minutes: z
     .number()
     .int()
     .positive()
     .max(MAX_WINDOW_MINUTES)
-    .default(DEFAULT_WINDOW_MINUTES),
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+    .default(DEFAULT_WINDOW_MINUTES)
+    .describe("How far back to look, in minutes; the maximum is the recorder's 24-hour retention."),
+  response_format: responseFormatSchema,
 });
 
 /** The validated handler input. */
@@ -137,7 +147,7 @@ export function registerMetricsHistory(
     {
       title: "Metric History",
       description:
-        "Read-only. Recent CPU / memory / network history from this server's in-memory recorder (opt-in: MCP_METRICS_HISTORY=true): 30-second buckets with min/avg/max for up to 24 hours, honest about gaps. `topic` = cpu (percent), memory (percent, usedBytes), network (rx/tx bytes per second summed over interfaces); `window_minutes` defaults to 60, max 1440. Nothing is persisted to disk — history starts when the server starts. When recording is off the tool says how to enable it.",
+        "Read-only. Recent CPU / memory / network history from this server's in-memory recorder (opt-in: MCP_METRICS_HISTORY=true): 30-second buckets with min/avg/max for up to 24 hours, honest about gaps; concise output folds the window into at most 24 rows. Nothing is persisted to disk — history starts when the server starts. When recording is off the tool says how to enable it. For current values rather than a trend, use system_metrics.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

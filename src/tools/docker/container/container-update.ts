@@ -5,11 +5,16 @@ import {
   DockerUpdateAllDocument,
   DockerUpdateContainersDocument,
 } from "../../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../../_shared/elicitation.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
 import { progressContextFrom, sendProgress } from "../../_shared/progress.js";
-import { formatResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_update";
@@ -23,10 +28,19 @@ interface UpdatedContainer {
 type Target = { error: string } | { mode: "all" } | { mode: "ids"; ids: string[] };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  ids: z.array(z.string()).nonempty().optional(),
-  all: z.boolean().optional(),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  ids: z
+    .array(z.string())
+    .nonempty()
+    .optional()
+    .describe("Container ids from docker_container_list to update; cannot be combined with `all`."),
+  all: z
+    .boolean()
+    .optional()
+    .describe(
+      "`true` updates every container with a known available update; cannot be combined with `ids`.",
+    ),
+  confirm: confirmSchema,
 });
 
 /**
@@ -137,7 +151,7 @@ export function registerDockerContainerUpdate(server: McpServer, client: GraphQL
     {
       title: "Update Docker Container(s)",
       description:
-        "Pulls the latest image(s) and recreates container(s). `ids` updates those containers (force-pull regardless of update-available); `all` updates every container with a known-available update (returns none if the cache is cold — not an error). Updating an orphaned container with no template is a silent no-op. Requires `confirm: true`. Needs Unraid OS 7.3+.",
+        "Pulls the latest image(s) and recreates container(s). `ids` updates those containers (force-pull regardless of update-available); `all` updates every container with a known-available update (returns none if the cache is cold — not an error). Updating an orphaned container with no template is a silent no-op. Requires `confirm: true`. Needs Unraid OS 7.3+. docker_container_list shows which containers have an update available.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

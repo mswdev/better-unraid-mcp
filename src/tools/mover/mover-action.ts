@@ -1,11 +1,16 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "mover_action";
 
@@ -28,9 +33,13 @@ const SUCCESS_SUMMARY: Record<MoverAction, string> = {
 };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["start", "stop"]),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["start", "stop"])
+    .describe(
+      "`start` runs the mover now; `stop` interrupts in-flight transfers and can leave partial files on the destination.",
+    ),
+  confirm: confirmSchema,
 });
 
 /** The validated handler arguments. */

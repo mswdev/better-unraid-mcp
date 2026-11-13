@@ -8,7 +8,13 @@ import {
 } from "../../../types/unraid/graphql.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
 import { quoteForShell } from "../../_shared/quote-shell.js";
-import { formatResponse, type ResponseFormat, toolError, toolText } from "../../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+  toolText,
+} from "../../_shared/respond.js";
 import { truncateOutput } from "../../_shared/truncate-output.js";
 
 const TOOL_NAME = "docker_container_logs";
@@ -22,13 +28,25 @@ const FALLBACK_TIMEOUT_MS = 30_000;
  * scalar and a re-passed `cursor` (which may carry a timezone offset), rejecting
  * free-text up front. Exported so the paging round-trip can be unit-tested.
  */
-export const sinceSchema = z.string().datetime({ offset: true }).optional();
+export const sinceSchema = z
+  .string()
+  .datetime({ offset: true })
+  .optional()
+  .describe(
+    "Inclusive lower bound as an ISO-8601 timestamp; pass a previous response's `cursor` to page forward.",
+  );
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  id: z.string(),
+  response_format: responseFormatSchema,
+  id: z.string().describe("Container id from docker_container_list."),
   since: sinceSchema,
-  tail: z.number().int().positive().max(MAX_TAIL).default(DEFAULT_TAIL),
+  tail: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_TAIL)
+    .default(DEFAULT_TAIL)
+    .describe("Number of most recent log lines to return."),
 });
 
 type Logs = DockerContainerLogsQuery["docker"]["logs"];
@@ -143,7 +161,7 @@ export function registerDockerContainerLogs(
     {
       title: "Get Docker Container Logs",
       description:
-        "Read-only. Returns recent log lines for a container. `id` is the container id from docker_container_list. `tail` = trailing lines (default 200, max 2000). `since` = inclusive ISO-8601 lower bound; re-pass the returned `cursor` as `since` to page (the boundary line repeats — de-dupe). The API can miss containers that log only to stderr; when SSH is configured, this tool automatically falls back to `docker logs` for those.",
+        "Read-only. Returns recent log lines for a container. `id` is the container id from docker_container_list. `tail` = trailing lines (default 200, max 2000). `since` = inclusive ISO-8601 lower bound; re-pass the returned `cursor` as `since` to page (the boundary line repeats — de-dupe). The API can miss containers that log only to stderr; when SSH is configured, this tool automatically falls back to `docker logs` for those. For the Unraid server's own log files use log_read instead.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

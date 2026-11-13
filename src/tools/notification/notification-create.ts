@@ -7,7 +7,12 @@ import {
   NotifyIfUniqueDocument,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
 const TOOL_NAME = "notification_create";
@@ -15,13 +20,33 @@ const TOOL_NAME = "notification_create";
 type Mode = "always" | "if_unique";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  mode: z.enum(["always", "if_unique"]),
-  title: z.string().min(1),
-  subject: z.string().min(1),
-  description: z.string().min(1),
-  importance: z.enum(["alert", "warning", "info"]),
-  link: z.string().optional(),
+  response_format: responseFormatSchema,
+  mode: z
+    .enum(["always", "if_unique"])
+    .describe(
+      "`always` creates unconditionally; `if_unique` creates only when no equivalent unread notification exists.",
+    ),
+  title: z
+    .string()
+    .min(1)
+    .describe("Short title naming the event (Unraid's 'event' field), e.g. `Backup done`."),
+  subject: z
+    .string()
+    .min(1)
+    .describe(
+      "One-line subject shown next to the title in listings, e.g. what the event concerns.",
+    ),
+  description: z
+    .string()
+    .min(1)
+    .describe("Message body with the details; reads return it only in `detailed` format."),
+  importance: z
+    .enum(["alert", "warning", "info"])
+    .describe("Severity; `warning` and `alert` also surface in notification_alerts while unread."),
+  link: z
+    .string()
+    .optional()
+    .describe("Optional link attached to the notification, e.g. the web UI path `/Dashboard`."),
 });
 
 interface CreateArgs {
@@ -98,7 +123,7 @@ export function registerNotificationCreate(server: McpServer, client: GraphQLExe
     {
       title: "Create Notification",
       description:
-        "Creates a notification in Unraid's notification center. `mode: always` always creates; `mode: if_unique` skips creation when an equivalent unread one already exists. `importance`: alert/warning/info.",
+        "Creates a notification in Unraid's notification center, e.g. to record the outcome of a task for whoever runs the server. `mode: always` always creates; `mode: if_unique` skips creation when an equivalent unread one already exists, so repeated checks do not pile up duplicates. `importance`: alert/warning/info. Reports the created title and importance, or that creation was skipped; get the new notification's id from notification_list. To hide or remove existing notifications use notification_archive or notification_delete.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

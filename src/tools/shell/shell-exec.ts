@@ -1,13 +1,18 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
+import { MAX_OUTPUT_CHARS, truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "shell_exec";
 const DEFAULT_TIMEOUT_SECONDS = 30;
@@ -15,15 +20,23 @@ const MAX_TIMEOUT_SECONDS = 120;
 const MS_PER_SECOND = 1000;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  command: z.string().min(1),
+  response_format: responseFormatSchema,
+  command: z
+    .string()
+    .min(1)
+    .describe(
+      "Command line run by the host's shell as the SSH user; pipes work, e.g. `dmesg | tail -n 50`.",
+    ),
   timeout_seconds: z
     .number()
     .int()
     .positive()
     .max(MAX_TIMEOUT_SECONDS)
-    .default(DEFAULT_TIMEOUT_SECONDS),
-  confirm: z.boolean().optional(),
+    .default(DEFAULT_TIMEOUT_SECONDS)
+    .describe(
+      "Seconds to wait for the command; on timeout the call fails but the remote process may keep running.",
+    ),
+  confirm: confirmSchema,
 });
 
 /** The validated handler input (timeout always present via the zod default). */
@@ -108,8 +121,7 @@ export function registerShellExec(server: McpServer, shell: ShellExecutor | null
     TOOL_NAME,
     {
       title: "Run Shell Command",
-      description:
-        "⚠ Runs an arbitrary shell command on the Unraid host over SSH as the SSH user (typically root, i.e. full control of the server). Requires `confirm: true` on every call; without it the tool refuses and nothing runs. Use file_read for plain file reads (it is ungated). Non-zero exit codes are reported as results, not errors. `timeout_seconds` defaults to 30 (max 120). Requires SSH to be configured (UNRAID_SSH_* environment variables).",
+      description: `⚠ Runs an arbitrary shell command on the Unraid host over SSH as the SSH user (typically root, i.e. full control of the server). Requires \`confirm: true\` on every call; without it the tool refuses and nothing runs. Prefer a dedicated tool when one covers the task, and use file_read for plain file reads (it is ungated). Non-zero exit codes are reported as results, not errors; stdout and stderr each keep at most their last ${MAX_OUTPUT_CHARS} characters. \`timeout_seconds\` defaults to 30 (max 120). Requires SSH to be configured (UNRAID_SSH_* environment variables).`,
       inputSchema,
       annotations: {
         readOnlyHint: false,

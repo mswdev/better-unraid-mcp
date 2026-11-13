@@ -6,12 +6,17 @@ import {
   type DockerNetworkListQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_network_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 type Networks = DockerNetworkListQuery["docker"]["networks"];
@@ -70,7 +75,8 @@ export function registerDockerNetworkList(server: McpServer, client: GraphQLExec
     TOOL_NAME,
     {
       title: "List Docker Networks",
-      description: "Read-only. Lists Docker networks (driver, scope, IPv6/internal/attachable).",
+      description:
+        "Read-only. Lists the Docker networks defined on the server: name, driver, scope, and IPv6/internal flags (`detailed` adds id and attachable). It does not show which containers are attached to each network; for port clashes between containers use docker_port_conflicts.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
