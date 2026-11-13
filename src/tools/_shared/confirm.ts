@@ -18,7 +18,7 @@ export const confirmSchema = z
   .boolean()
   .optional()
   .describe(
-    "Must be `true` for the change to run; otherwise the tool refuses and changes nothing.",
+    "Must be `true` for the change to run. Without it the tool refuses and changes nothing, or asks the user to confirm on clients that support prompts.",
   );
 
 /**

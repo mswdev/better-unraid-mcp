@@ -161,7 +161,7 @@ export function registerDockerContainerLogs(
     {
       title: "Get Docker Container Logs",
       description:
-        "Read-only. Returns recent log lines for a container. `id` is the container id from docker_container_list. `tail` = trailing lines (default 200, max 2000). `since` = inclusive ISO-8601 lower bound; re-pass the returned `cursor` as `since` to page (the boundary line repeats — de-dupe). The API can miss containers that log only to stderr; when SSH is configured, this tool automatically falls back to `docker logs` for those. For the Unraid server's own log files use log_read instead.",
+        "Read-only. Returns recent log lines for a container. `id` is the container id from docker_container_list. `tail` = trailing lines (default 200, max 2000). `since` = inclusive ISO-8601 lower bound; re-pass the returned `cursor` as `since` to page (the boundary line repeats — de-dupe). The API can miss containers that log only to stderr; when SSH is configured, this tool automatically falls back to `docker logs` for those (plain text in both formats). For the Unraid server's own log files use log_read instead.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

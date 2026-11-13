@@ -137,7 +137,7 @@ export function registerFileRead(server: McpServer, shell: ShellExecutor | null)
     TOOL_NAME,
     {
       title: "Read Host File",
-      description: `Read-only. Returns the last \`lines\` lines (default 200, max 2000) of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional \`pattern\` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Prefer log_read for any log that log_list returns: it needs no SSH and pages from any line. file_read only tails, capped at the last ${MAX_OUTPUT_CHARS} characters. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).`,
+      description: `Read-only. Returns the last \`lines\` lines (default 200, max 2000) of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional \`pattern\` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Prefer log_read for any log that log_list returns: it needs no SSH and pages from any line. file_read only tails, and output beyond ${MAX_OUTPUT_CHARS} characters is truncated. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).`,
       inputSchema,
       annotations: {
         readOnlyHint: true,

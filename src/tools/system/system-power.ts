@@ -5,7 +5,7 @@ import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { responseFormatSchema, toolError, toolText } from "../_shared/respond.js";
+import { toolError, toolText } from "../_shared/respond.js";
 
 const TOOL_NAME = "system_power";
 
@@ -25,7 +25,12 @@ const POWER_COMMANDS: Record<PowerAction, string> = {
 const COMMAND_TIMEOUT_MS = 15_000;
 
 const inputSchema = z.object({
-  response_format: responseFormatSchema,
+  response_format: z
+    .enum(["concise", "detailed"])
+    .default("concise")
+    .describe(
+      "Accepted for consistency with other tools; the result is always a short text message.",
+    ),
   action: z
     .enum(["reboot", "shutdown"])
     .describe(

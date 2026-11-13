@@ -123,7 +123,7 @@ export function registerNotificationCreate(server: McpServer, client: GraphQLExe
     {
       title: "Create Notification",
       description:
-        "Creates a notification in Unraid's notification center, e.g. to record the outcome of a task for whoever runs the server. `mode: always` always creates; `mode: if_unique` skips creation when an equivalent unread one already exists, so repeated checks do not pile up duplicates. `importance`: alert/warning/info. Reports the created title and importance, or that creation was skipped; get the new notification's id from notification_list. To hide or remove existing notifications use notification_archive or notification_delete.",
+        "Creates a notification in Unraid's notification center, e.g. to record the outcome of a task for whoever runs the server. `mode: always` always creates; `mode: if_unique` skips creation when an equivalent unread one already exists, so repeated checks do not pile up duplicates. `importance`: alert/warning/info. Reports the created title and importance, or that creation was skipped; `response_format: detailed` returns the created notification with its id. To hide or remove existing notifications use notification_archive or notification_delete.",
       inputSchema,
       annotations: {
         readOnlyHint: false,
