@@ -8,7 +8,6 @@ import type { ResponseFormat } from "../_shared/respond.js";
  * installs to named registry packages. The no-version rule also keeps
  * `plugin_list` ↔ `plugin_remove` composable: `removePlugin` exact-matches the
  * stored config string while `plugin_list` reports the parsed package name.
- * @see docs/plans/2026-06-15-plugin-tools-design.md
  */
 export const NAMES_SPEC = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 
