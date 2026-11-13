@@ -8,10 +8,16 @@ import {
   DockerStopDocument,
   DockerUnpauseDocument,
 } from "../../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../../_shared/elicitation.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError, toolText } from "../../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+  toolText,
+} from "../../_shared/respond.js";
 import { stripLeadingSlash } from "../_shared.js";
 
 const TOOL_NAME = "docker_container_action";
@@ -35,10 +41,12 @@ const PAST_TENSE: Record<ContainerAction, string> = {
 };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  id: z.string(),
-  action: z.enum(["start", "stop", "pause", "unpause", "restart"]),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  id: z.string().describe("Container id from docker_container_list (preferred over a name)."),
+  action: z
+    .enum(["start", "stop", "pause", "unpause", "restart"])
+    .describe("Run-state change to apply; `unpause` resumes a paused container."),
+  confirm: confirmSchema,
 });
 
 /** The API quirk fragment: the action ran but the read-back failed. */
@@ -125,7 +133,7 @@ export function registerDockerContainerAction(server: McpServer, client: GraphQL
     {
       title: "Start/Stop/Pause Docker Container",
       description:
-        "Changes a container's run state (start | stop | pause | unpause | restart). restart uses the API's native restart mutation (API 4.37+). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause/restart disrupt a running container; start/unpause are restorative but still gated for consistency.",
+        "Changes a container's run state (start | stop | pause | unpause | restart). restart uses the API's native restart mutation (API 4.37+). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause/restart disrupt a running container; start/unpause are restorative but still gated for consistency. To delete a container use docker_container_remove; to change what starts at boot use docker_autostart_set.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

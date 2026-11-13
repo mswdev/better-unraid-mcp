@@ -2,7 +2,7 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginInstallPlgDocument } from "../../types/unraid/graphql.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
@@ -13,11 +13,25 @@ const TOOL_NAME = "plugin_install_plg";
 const PLG_SUFFIX = ".plg";
 
 const inputSchema = z.object({
-  url: z.string().url(),
-  name: z.string().min(1).optional(),
-  forced: z.boolean().optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  url: z.string().url().describe("URL of the plugin's `.plg` file; must end in `.plg`."),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional human-readable plugin name, used by the Unraid API for logging."),
+  forced: z
+    .boolean()
+    .optional()
+    .describe(
+      "Force installation even when the plugin is already present; when omitted the Unraid API defaults to forcing.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must also be `true` on every call: acknowledges that the `.plg` installer runs arbitrary code as root.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -86,7 +100,7 @@ export function registerPluginInstallPlg(server: McpServer, client: GraphQLExecu
     {
       title: "Install Native Unraid Plugin (.plg)",
       description:
-        "⚠ Installs a native Unraid OS plugin from a .plg URL (the Community Applications format) via the Unraid API. A .plg installer runs arbitrary code as root — only install from trusted sources. Requires `confirm: true` AND `acknowledge_risk: true`. Returns a queued/running operation; verify with plugin_list and the syslog. For npm-based API plugins use plugin_add instead.",
+        "⚠ Installs a native Unraid OS plugin from a .plg URL (the Community Applications format) via the Unraid API. A .plg installer runs arbitrary code as root — only install from trusted sources. Requires `confirm: true` AND `acknowledge_risk: true`. Returns a queued/running operation without waiting for the install to finish; verify with plugin_list and the syslog (log_read). For npm-based API plugins use plugin_add instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

@@ -1,12 +1,17 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import {
   PROBE_TIMEOUT_MS,
   parseStatusOutput,
@@ -33,12 +38,30 @@ const EXPECTED_STATE: Record<ServiceVerb, ServiceState> = {
 };
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  service: z.enum(["samba", "nfs", "sshd", "docker", "libvirt", "tailscale"]),
-  action: z.enum(["restart", "start", "stop"]),
-  allow_stop: z.boolean().optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  service: z
+    .enum(["samba", "nfs", "sshd", "docker", "libvirt", "tailscale"])
+    .describe(
+      "Host service to control (samba = SMB shares, libvirt = VMs); current state comes from service_list.",
+    ),
+  action: z
+    .enum(["restart", "start", "stop"])
+    .describe(
+      "rc.d verb to run. `stop` also needs `allow_stop: true` and is always refused for docker and libvirt.",
+    ),
+  allow_stop: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must be `true` when `action` is `stop`: accepts that every client of the service is cut off.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must also be `true` for every action (restart, start, stop): acknowledges the service is interrupted for its clients.",
+    ),
 });
 
 /** The validated handler input. */
@@ -175,7 +198,7 @@ export function registerServiceAction(server: McpServer, shell: ShellExecutor | 
     {
       title: "Restart / Start / Stop a Host Service",
       description:
-        "⚠ Runs `/etc/rc.d/rc.<service> restart|start|stop` over SSH for samba, nfs, sshd, docker, libvirt, or tailscale, then reads the status back and reports it (never assumes success). `restart` is the normal use. `stop` additionally requires `allow_stop: true` because stopping samba/nfs cuts every client off their shares (and stopping sshd cuts off this very tool); stopping docker or libvirt is refused outright — use array_action or the web UI. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH.",
+        "⚠ Runs `/etc/rc.d/rc.<service> restart|start|stop` over SSH for samba, nfs, sshd, docker, libvirt, or tailscale, then reads the status back and reports it (never assumes success). `restart` is the normal use. `stop` additionally requires `allow_stop: true` because stopping samba/nfs cuts every client off their shares (and stopping sshd cuts off this very tool); stopping docker or libvirt is refused outright — use array_action or the web UI. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH. Check current state with service_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

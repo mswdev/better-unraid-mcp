@@ -9,7 +9,7 @@ import {
   ApiKeyUpdateDocument,
   type Role,
 } from "../../types/unraid/graphql.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { toolError, toolText } from "../_shared/respond.js";
@@ -21,14 +21,44 @@ const ROLES = ["ADMIN", "CONNECT", "GUEST", "VIEWER"] as const;
 type ManageAction = "create" | "update" | "add_role" | "remove_role" | "delete";
 
 const inputSchema = z.object({
-  action: z.enum(["create", "update", "add_role", "remove_role", "delete"]),
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  roles: z.array(z.enum(ROLES)).optional(),
-  id: z.string().min(1).optional(),
-  ids: z.array(z.string().min(1)).optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  action: z
+    .enum(["create", "update", "add_role", "remove_role", "delete"])
+    .describe(
+      "`create` a key, `update` its name/description/roles, `add_role`/`remove_role` one role on a key, or `delete` keys.",
+    ),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Key name. Required for `create`; optional new name for `update`."),
+  description: z
+    .string()
+    .optional()
+    .describe("Free-text note stored with the key; used by `create` and `update`."),
+  roles: z
+    .array(z.enum(ROLES))
+    .optional()
+    .describe(
+      "ADMIN = full access, VIEWER = read-only, GUEST = own profile only, CONNECT = Unraid Connect internal. Exactly one for add_role/remove_role.",
+    ),
+  id: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Key id from apikey_list. Required for `update`, `add_role` and `remove_role`."),
+  ids: z
+    .array(z.string().min(1))
+    .optional()
+    .describe(
+      "Ids of the keys to delete, from apikey_list. Required for `delete`; unused otherwise.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must also be `true` for every action: acknowledges this changes the credentials that control server access.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -179,7 +209,7 @@ export function registerApiKeyManage(server: McpServer, client: GraphQLExecutor)
     {
       title: "Manage API Keys",
       description:
-        "⚠ Credential management: create, update, add_role, remove_role, or delete Unraid API keys. This is the model managing the very credentials that control server access — the key VALUE is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. Requires `confirm: true` AND `acknowledge_risk: true`. Roles: ADMIN, CONNECT, GUEST, VIEWER. Use apikey_list for ids.",
+        "⚠ Credential management: create, update, add_role, remove_role, or delete Unraid API keys. This is the model managing the very credentials that control server access — the key VALUE is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. Per `action`: create needs `name`; update needs `id` and changes whichever of `name`, `description`, `roles` are given; add_role/remove_role need `id` and exactly one role in `roles`; delete needs `ids`. Requires `confirm: true` AND `acknowledge_risk: true`. Use apikey_list (read-only) for ids and to inspect keys.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

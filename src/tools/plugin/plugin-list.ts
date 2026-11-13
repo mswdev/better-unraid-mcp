@@ -3,12 +3,17 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { PluginListDocument, type PluginListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "plugin_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Validated handler input. */
@@ -73,7 +78,7 @@ export function registerPluginList(server: McpServer, client: GraphQLExecutor): 
     {
       title: "List Plugins",
       description:
-        "Read-only. Lists installed plugins. `plugins` are the API's active/loaded set (config-declared, installed, and schema-valid) captured as a boot snapshot that changes only after an API restart; `installedUnraidPlugins` are the live OS `.plg` filenames. An empty list is NOT a definitive zero — it can also mean safe mode (api plugins) or an unreadable plugin directory (OS `.plg`). Requires CONFIG read permission (any viewer-level key).",
+        "Read-only. Lists installed plugins of both kinds: API (npm) plugins and native OS `.plg` plugins. Use it to check the result of plugin_add, plugin_remove or plugin_install_plg. `plugins` are the API's active/loaded set (config-declared, installed, and schema-valid) captured as a boot snapshot that changes only after an API restart; `installedUnraidPlugins` are the live OS `.plg` filenames. An empty list is NOT a definitive zero — it can also mean safe mode (api plugins) or an unreadable plugin directory (OS `.plg`). Requires CONFIG read permission (any viewer-level key).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

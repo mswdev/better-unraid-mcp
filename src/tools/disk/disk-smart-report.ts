@@ -15,7 +15,12 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const DEVICE_PATTERN = /^\/dev\/(sd[a-z]+|nvme[0-9]+n[0-9]+)$/;
 
 const inputSchema = z.object({
-  device: z.string().min(1),
+  device: z
+    .string()
+    .min(1)
+    .describe(
+      "Block device path, /dev/sdX or /dev/nvmeXnY: the `device` field of disk_list's detailed output.",
+    ),
 });
 
 /**
@@ -67,7 +72,7 @@ export function registerDiskSmartReport(server: McpServer, shell: ShellExecutor 
     {
       title: "Deep SMART Report",
       description:
-        "Read-only. Full smartctl attribute report for one disk (`device`: /dev/sdX or /dev/nvmeXnY) over SSH — the deep view behind disk_list's summary SMART status. smartctl's informational exit flags are tolerated; the report is returned whenever produced. Get device paths from disk_list.",
+        "Read-only. Full smartctl attribute report for one disk (`device`: /dev/sdX or /dev/nvmeXnY) over SSH, returned as raw text — the deep view behind disk_list's summary SMART status. smartctl's informational exit flags are tolerated; the report is returned whenever produced, keeping only the last 30,000 characters if longer. Get device paths from disk_list (`response_format: detailed`). Requires SSH (UNRAID_SSH_*).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

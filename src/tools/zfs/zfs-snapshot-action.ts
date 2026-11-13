@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
@@ -19,11 +19,28 @@ const TOOL_NAME = "zfs_snapshot_action";
 type SnapshotAction = "create" | "destroy" | "rollback";
 
 const inputSchema = z.object({
-  action: z.enum(["create", "destroy", "rollback"]),
-  dataset: z.string().min(1),
-  snapshot: z.string().min(1),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  action: z
+    .enum(["create", "destroy", "rollback"])
+    .describe(
+      "`create` takes a new snapshot, `destroy` deletes one permanently, `rollback` discards every dataset change made after it.",
+    ),
+  dataset: z
+    .string()
+    .min(1)
+    .describe(
+      "Dataset the snapshot belongs to, as pool or pool/dataset from zfs_dataset_list (no `@`).",
+    ),
+  snapshot: z
+    .string()
+    .min(1)
+    .describe(
+      "Snapshot short name, the part after `@` (existing ones: zfs_snapshot_list); letters, digits, and . _ : - only.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe("Must be `true` together with `confirm` for every action, including `create`."),
 });
 
 /** The validated handler arguments. */
@@ -123,7 +140,7 @@ export function registerZfsSnapshotAction(server: McpServer, shell: ShellExecuto
     {
       title: "ZFS Snapshot Actions",
       description:
-        "⚠ Creates, destroys, or rolls back a ZFS snapshot (`dataset` + `snapshot` name) over SSH. destroy permanently deletes the rollback point; rollback DISCARDS all changes made after the snapshot and only works against the most recent snapshot (older ones fail with zfs's own error — deliberate: no -r). Requires `confirm: true` AND `acknowledge_risk: true`.",
+        "⚠ Creates, destroys, or rolls back a ZFS snapshot (`dataset` + `snapshot` name) over SSH; never recursive, so child datasets are untouched. destroy permanently deletes the rollback point; rollback DISCARDS all changes made after the snapshot and only works against the most recent snapshot (older ones fail with zfs's own error — deliberate: no -r). Every action, including create, requires `confirm: true` AND `acknowledge_risk: true`. Check existing snapshots with zfs_snapshot_list first; for VM disk snapshots use vm_snapshot_create instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
@@ -17,10 +17,18 @@ const COMMAND_TIMEOUT_MS = 120_000;
 const SNAPSHOT_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 const inputSchema = z.object({
-  vm: z.string().min(1),
-  name: z.string().min(1),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  vm: z.string().min(1).describe("VM name, passed to `virsh` as the libvirt domain."),
+  name: z
+    .string()
+    .min(1)
+    .describe("Name for the new snapshot; letters, digits, `.`, `_` and `-` only."),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must also be `true` on every call: the overlay files stay in the VM's disk chain until merged in the Unraid UI.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -100,7 +108,7 @@ export function registerVmSnapshotCreate(server: McpServer, shell: ShellExecutor
     {
       title: "Create VM Snapshot",
       description:
-        "⚠ Creates an EXTERNAL disk snapshot of a VM via `virsh snapshot-create-as --atomic --disk-only` over SSH — the same external-snapshot flow Unraid 7 uses (internal snapshots fail on raw disks and OVMF VMs). Adds overlay files to the VM's storage chain. Requires `confirm: true` AND `acknowledge_risk: true`. Revert/delete are deliberately not offered (chain-corruption risk); use the Unraid VM UI for those.",
+        "⚠ Creates an EXTERNAL disk snapshot of a VM via `virsh snapshot-create-as --atomic --disk-only` over SSH — the same external-snapshot flow Unraid 7 uses (internal snapshots fail on raw disks and OVMF VMs). Adds overlay files to the VM's storage chain. Requires `confirm: true` AND `acknowledge_risk: true`. Revert/delete are deliberately not offered (chain-corruption risk); use the Unraid VM UI for those. Requires SSH (UNRAID_SSH_*) and the VM service enabled; check the result with vm_snapshot_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

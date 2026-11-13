@@ -72,7 +72,7 @@ export function registerPluginAdd(server: McpServer, client: GraphQLExecutor): v
     {
       title: "Add API Plugins",
       description:
-        "⚠ Installs one or more Unraid API plugins by npm package name (`names`). This runs `npm install`, which executes the package's lifecycle scripts on the server (supply-chain / code-execution risk), then RESTARTS the Unraid API to load them — your connection will drop briefly. `names` must be bare or scoped package names (no URLs, git refs, paths, or version suffixes). Requires `confirm: true` and a key with CONFIG write permission (UPDATE_ANY). Reports submission; verify with plugin_list after the API reconnects.",
+        "⚠ Installs one or more Unraid API plugins by npm package name (`names`). This runs `npm install`, which executes the package's lifecycle scripts on the server (supply-chain / code-execution risk), then RESTARTS the Unraid API to load them — your connection will drop briefly. `names` must be bare or scoped package names (no URLs, git refs, paths, or version suffixes). Requires `confirm: true` and a key with CONFIG write permission (UPDATE_ANY). Reports submission; verify with plugin_list after the API reconnects. For native OS plugins (.plg files) use plugin_install_plg instead.",
       inputSchema: pluginNamesSchema,
       annotations: {
         readOnlyHint: false,

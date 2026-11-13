@@ -8,7 +8,12 @@ import {
   UnarchiveNotificationsDocument,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { IMPORTANCE_TO_API, type ImportanceInput } from "./_shared.js";
 
 const TOOL_NAME = "notification_archive";
@@ -16,11 +21,29 @@ const TOOL_NAME = "notification_archive";
 type Direction = "archive" | "unarchive";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  direction: z.enum(["archive", "unarchive"]),
-  ids: z.array(z.string()).nonempty().optional(),
-  all: z.boolean().optional(),
-  importance: z.enum(["alert", "warning", "info"]).optional(),
+  response_format: responseFormatSchema,
+  direction: z
+    .enum(["archive", "unarchive"])
+    .describe(
+      "`archive` moves unread notifications into the archive; `unarchive` moves archived ones back to unread.",
+    ),
+  ids: z
+    .array(z.string())
+    .nonempty()
+    .optional()
+    .describe(
+      "Notification ids from notification_list, taken from the bucket being moved out of. Use instead of `all`, never with it.",
+    ),
+  all: z
+    .boolean()
+    .optional()
+    .describe(
+      "`true` moves every notification in the source bucket. Use instead of `ids`, never with it.",
+    ),
+  importance: z
+    .enum(["alert", "warning", "info"])
+    .optional()
+    .describe("Limits an `all: true` move to one importance level; rejected alongside `ids`."),
 });
 
 interface ArchiveArgs {
@@ -122,7 +145,7 @@ export function registerNotificationArchive(server: McpServer, client: GraphQLEx
     {
       title: "Archive or Unarchive Notifications",
       description:
-        "Archive (hide) or unarchive (restore to unread) notifications — reversible. Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action only: the API swallows per-id failures, so an unknown or wrong-bucket id silently succeeds — verify with notification_list.",
+        "Archive (hide) or unarchive (restore to unread) notifications — reversible; nothing is deleted (to remove notifications permanently use notification_delete). Target specific `ids` (from notification_list — archive expects currently-unread ids, unarchive expects archived ids) or `all: true` (optionally one `importance`). Reports the action only: the API swallows per-id failures, so an unknown or wrong-bucket id silently succeeds — verify with notification_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

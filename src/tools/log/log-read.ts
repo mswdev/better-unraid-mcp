@@ -8,7 +8,12 @@ import {
   type LogReadContentQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "log_read";
 const DEFAULT_LINES = 100;
@@ -22,18 +27,34 @@ const TRAILING_NEWLINE = /\n$/;
  * Validator for `lines`: positive, capped, defaulted. The server applies NO
  * upper bound, so this client-side cap is load-bearing. Exported for tests.
  */
-export const linesSchema = z.number().int().positive().max(MAX_LINES).default(DEFAULT_LINES);
+export const linesSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(MAX_LINES)
+  .default(DEFAULT_LINES)
+  .describe("Maximum number of lines to return.");
 
 /**
  * Validator for `start_line`: 1-indexed when present. The server silently
  * returns empty content for non-positive values, so reject them up front.
  * Exported for tests.
  */
-export const startLineSchema = z.number().int().positive().optional();
+export const startLineSchema = z
+  .number()
+  .int()
+  .positive()
+  .optional()
+  .describe(
+    "1-indexed line to start reading from; omit to get the last `lines` lines of the file.",
+  );
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  path: z.string().min(1),
+  response_format: responseFormatSchema,
+  path: z
+    .string()
+    .min(1)
+    .describe("Full path or bare file name of a log, exactly as log_list returns it."),
   lines: linesSchema,
   start_line: startLineSchema,
 });
@@ -143,7 +164,7 @@ export function registerLogRead(server: McpServer, client: GraphQLExecutor): voi
     {
       title: "Read Log File",
       description:
-        "Read-only. Returns lines from a server log file. `path` is a path or name from log_list — validated against that list before reading (reads are limited to filenames the server lists in its log directory; symlinked entries are read as the server resolves them). Omitting `start_line` returns the last `lines` lines (default 100, max 2000); pass `start_line` (1-indexed) to window from there and re-call with the hinted values to page. Counts may drift slightly on rapidly-growing logs; the cap bounds line count, not bytes. Requires LOGS read permission (any viewer-level key).",
+        "Read-only. Returns lines from a server log file. `path` is a path or name from log_list — validated against that list before reading (reads are limited to filenames the server lists in its log directory; symlinked entries are read as the server resolves them). Omitting `start_line` returns the last `lines` lines (default 100, max 2000); pass `start_line` (1-indexed) to window from there and re-call with the hinted values to page. Counts may drift slightly on rapidly-growing logs; the cap bounds line count, not bytes. Requires LOGS read permission (any viewer-level key). For container logs use docker_container_logs; for host files log_list does not show, use file_read (SSH).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

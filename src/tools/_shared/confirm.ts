@@ -1,9 +1,25 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
+import { z } from "zod";
 import type { ElicitationChannel } from "./elicitation.js";
 import { toolError } from "./respond.js";
 
 /** Refusal returned when a human explicitly declines an elicitation prompt. */
 const DECLINED_MESSAGE = "The user declined the confirmation prompt. No changes were made.";
+
+/**
+ * The `confirm` input field shared by every gated tool, so an MCP client sees
+ * the same explanation of the confirmation gate on all of them.
+ *
+ * @example
+ * const inputSchema = z.object({ id: z.string(), confirm: confirmSchema });
+ * @see requireConfirmation
+ */
+export const confirmSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    "Must be `true` for the change to run. Without it the tool refuses and changes nothing, or asks the user to confirm on clients that support prompts.",
+  );
 
 /**
  * Gate for state-changing operations. Returns `null` when the caller explicitly

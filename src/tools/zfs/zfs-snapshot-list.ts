@@ -4,14 +4,24 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { DATASET_PATTERN, probeZfs, ZFS_COMMAND_TIMEOUT_MS } from "./_shared.js";
 
 const TOOL_NAME = "zfs_snapshot_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  dataset: z.string().optional(),
+  response_format: responseFormatSchema,
+  dataset: z
+    .string()
+    .optional()
+    .describe(
+      "Pool or pool/dataset path from zfs_dataset_list; lists its snapshots and its children's. Omit for all.",
+    ),
 });
 
 /** One snapshot row. */
@@ -93,7 +103,7 @@ export function registerZfsSnapshotList(server: McpServer, shell: ShellExecutor 
     {
       title: "List ZFS Snapshots",
       description:
-        "Read-only. Lists ZFS snapshots (name, space used, creation time) over SSH; optional `dataset` limits to one dataset (recursive). Reports clearly when ZFS is not available.",
+        "Read-only. Lists ZFS snapshots (full `dataset@snapshot` name, space used, creation time) over SSH; optional `dataset` limits to one dataset (recursive). Split a name at `@` to get the `dataset` and `snapshot` arguments for zfs_snapshot_action. For a VM's libvirt snapshots use vm_snapshot_list instead. Reports clearly when ZFS is not available.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

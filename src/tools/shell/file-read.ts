@@ -4,8 +4,13 @@ import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
+import { MAX_OUTPUT_CHARS, truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "file_read";
 const DEFAULT_LINES = 200;
@@ -18,10 +23,27 @@ const GREP_NO_MATCH_EXIT = 1;
 const TRAILING_NEWLINE = /\n$/;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  path: z.string().min(1),
-  lines: z.number().int().positive().max(MAX_LINES).default(DEFAULT_LINES),
-  pattern: z.string().min(1).optional(),
+  response_format: responseFormatSchema,
+  path: z
+    .string()
+    .min(1)
+    .describe("Absolute path of the file on the Unraid host (must start with `/`)."),
+  lines: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_LINES)
+    .default(DEFAULT_LINES)
+    .describe(
+      "Lines to return from the end of the file, or the last N matching lines when `pattern` is set.",
+    ),
+  pattern: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Extended regex (grep -E); only matching lines are returned, filtered on the host before the tail.",
+    ),
 });
 
 /** The validated handler input (lines is always present via the zod default). */
@@ -115,8 +137,7 @@ export function registerFileRead(server: McpServer, shell: ShellExecutor | null)
     TOOL_NAME,
     {
       title: "Read Host File",
-      description:
-        "Read-only. Returns the last `lines` lines (default 200, max 2000) of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional `pattern` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).",
+      description: `Read-only. Returns the last \`lines\` lines (default 200, max 2000) of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional \`pattern\` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Prefer log_read for any log that log_list returns: it needs no SSH and pages from any line. file_read only tails, and output beyond ${MAX_OUTPUT_CHARS} characters is truncated. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).`,
       inputSchema,
       annotations: {
         readOnlyHint: true,

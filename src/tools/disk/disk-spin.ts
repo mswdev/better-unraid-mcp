@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
@@ -29,10 +29,20 @@ const DEVICE_PATTERN = /^\/dev\/sd[a-z]+$/;
 type SpinAction = "up" | "down";
 
 const inputSchema = z.object({
-  action: z.enum(["up", "down"]),
-  disk: z.string().optional(),
-  device: z.string().optional(),
-  confirm: z.boolean().optional(),
+  action: z.enum(["up", "down"]).describe("Whether to spin the target disk up or down."),
+  disk: z
+    .string()
+    .optional()
+    .describe(
+      "Array slot name such as disk1, parity, parity2, or cache; use this instead of `device` for array disks.",
+    ),
+  device: z
+    .string()
+    .optional()
+    .describe(
+      "Path /dev/sdX of an unassigned device (see unassigned_list); use this instead of `disk`. NVMe paths are rejected.",
+    ),
+  confirm: confirmSchema,
 });
 
 /** The validated handler arguments. */
@@ -121,7 +131,7 @@ export function registerDiskSpin(server: McpServer, shell: ShellExecutor | null)
     {
       title: "Spin Disk Up/Down",
       description:
-        "Spins a disk up or down over SSH. Array/pool slots (`disk`: disk1, parity, cache, ...) go through emhttpd (`emcmd`) so Unraid's tracked spin state stays consistent; unassigned devices (`device`: /dev/sdX) use `sdspin` (an hdparm wrapper — ATA only, SAS needs the community plugin). Requires `confirm: true`. Spinning down interrupts nothing but adds spin-up latency on next access.",
+        "Spins a disk up or down over SSH. Pass exactly one target: array/pool slots (`disk`: disk1, parity, cache, ...) go through emhttpd (`emcmd`) so Unraid's tracked spin state stays consistent; unassigned devices (`device`: /dev/sdX) use `sdspin` (an hdparm wrapper — ATA only, SAS needs the community plugin). Requires `confirm: true` and SSH (UNRAID_SSH_*). Spinning down interrupts nothing but adds spin-up latency on next access. Verify the result with disk_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

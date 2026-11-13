@@ -3,13 +3,18 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationOverviewDocument } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { summarizeOverview } from "./_shared.js";
 
 const TOOL_NAME = "notification_overview";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /**
@@ -50,7 +55,7 @@ export function registerNotificationOverview(server: McpServer, client: GraphQLE
     {
       title: "Notification Overview",
       description:
-        "Read-only. Notification counts: unread and archived, each broken down by importance (alert / warning / info) plus total.",
+        "Read-only. Returns notification counts only, never the notifications themselves: unread and archived, each broken down by importance (alert / warning / info) plus total. Use it to check whether anything is waiting. To read the unread warnings and alerts use notification_alerts; to list notifications and get their ids use notification_list. The counts are a server-side cache; if they disagree with notification_list, run notification_recalculate.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

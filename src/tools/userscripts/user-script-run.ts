@@ -1,12 +1,17 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
 
@@ -23,16 +28,27 @@ const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9 ._-]+$/;
 const DOT_ONLY_PATTERN = /^\.+$/;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  name: z.string().min(1),
+  response_format: responseFormatSchema,
+  name: z
+    .string()
+    .min(1)
+    .describe("Script name exactly as returned by user_script_list (its folder name)."),
   timeout_seconds: z
     .number()
     .int()
     .positive()
     .max(MAX_TIMEOUT_SECONDS)
-    .default(DEFAULT_TIMEOUT_SECONDS),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+    .default(DEFAULT_TIMEOUT_SECONDS)
+    .describe(
+      "Seconds to wait for the script; on timeout the call fails but the script may keep running on the host.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must be `true` together with `confirm` on every call: the script is arbitrary code run as the SSH user.",
+    ),
 });
 
 /** The validated handler arguments. */
@@ -133,7 +149,7 @@ export function registerUserScriptRun(server: McpServer, shell: ShellExecutor | 
     {
       title: "Run a User Script",
       description:
-        "⚠ Runs one User Scripts plugin script by name over SSH — user scripts are arbitrary code executing as root, by design. Requires `confirm: true` AND `acknowledge_risk: true`. The flash drive is mounted non-executable, so the script is copied to a temp file (CRs stripped) and run via bash, exactly like the plugin's own runner. Get names from user_script_list; a non-zero exit is reported faithfully, not as a tool error.",
+        "⚠ Runs one User Scripts plugin script by name over SSH — user scripts are arbitrary code, executed here as the SSH user (typically root). Requires `confirm: true` AND `acknowledge_risk: true`. The flash drive is mounted non-executable, so the script is copied to a temp file (CRs stripped) and run via bash, exactly like the plugin's own runner. Get names from user_script_list; a non-zero exit is reported faithfully, not as a tool error. Waits for the script to finish and returns its exit code, stdout, and stderr. For a one-off command that is not a saved script use shell_exec instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

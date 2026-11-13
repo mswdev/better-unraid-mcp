@@ -2,18 +2,26 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import { DockerRemoveContainerDocument } from "../../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../../_shared/elicitation.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../../_shared/respond.js";
 
 const TOOL_NAME = "docker_container_remove";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  id: z.string(),
-  with_image: z.boolean().optional(),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  id: z.string().describe("Container id from docker_container_list."),
+  with_image: z
+    .boolean()
+    .optional()
+    .describe("`true` also attempts to delete the container's image (best-effort)."),
+  confirm: confirmSchema,
 });
 
 /** Builds the concise summary for a remove result. */
@@ -80,7 +88,7 @@ export function registerDockerContainerRemove(server: McpServer, client: GraphQL
     {
       title: "Remove Docker Container",
       description:
-        "Permanently deletes a container; force-kills it if running (no graceful stop); irreversible. `with_image` also attempts to delete the image (best-effort — may report success without deleting a shared/in-use image). Requires `confirm: true`. Needs Unraid OS 7.3+.",
+        "Permanently deletes a container; force-kills it if running (no graceful stop); irreversible. `with_image` also attempts to delete the image (best-effort — may report success without deleting a shared/in-use image). Requires `confirm: true`. Needs Unraid OS 7.3+. To stop a container and keep it, use docker_container_action instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

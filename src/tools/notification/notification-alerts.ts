@@ -3,13 +3,18 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { NotificationAlertsDocument } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { summarizeLine } from "./_shared.js";
 
 const TOOL_NAME = "notification_alerts";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /**
@@ -49,7 +54,7 @@ export function registerNotificationAlerts(server: McpServer, client: GraphQLExe
     {
       title: "Notification Alerts",
       description:
-        "Read-only. Deduplicated unread warnings and alerts, newest first — the 'needs attention now' view (up to 50).",
+        "Read-only. Lists the unread warning and alert notifications, deduplicated and newest first (up to 50) — the 'needs attention now' view. Takes no filters and never includes info or archived notifications; for those, or for an importance filter or paging, use notification_list. For counts only use notification_overview. Ids appear only with `response_format: detailed`.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

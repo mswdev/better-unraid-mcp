@@ -1,14 +1,19 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
 import { progressContextFrom, startProgressHeartbeat } from "../_shared/progress.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "flash_backup";
 
@@ -44,12 +49,32 @@ const SECRETS_WARNING =
 type BackupScope = "config" | "full";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  share: z.string().min(1),
-  full: z.boolean().optional(),
-  keep: z.number().int().positive().optional(),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  share: z
+    .string()
+    .min(1)
+    .describe(
+      "Existing user share to write the archive into: the plain name from share_list, not a path.",
+    ),
+  full: z
+    .boolean()
+    .optional()
+    .describe("`true` archives all of /boot; omitted or `false` archives /boot/config only."),
+  keep: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Newest archives to keep in the share's flash-backups folder, config and full combined; older ones are deleted. Omit to keep all.",
+    ),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Must be `true` together with `confirm` on every call: the archive holds the license key, API keys, and passwords.",
+    ),
 });
 
 /** The validated handler input. */
