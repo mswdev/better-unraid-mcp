@@ -52,7 +52,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Unraid API id, sent unchanged. For `mount`, `unmount` and `clear_statistics` it is the array disk's `id` (see the tool description for the query).",
+      "Unraid API id, sent unchanged. For `mount`, `unmount` and `clear_statistics`, use the disk's `id` from array_status (`response_format: detailed`). For `add`, confirm the exact disk with the user first.",
     ),
   slot: z
     .number()
@@ -184,7 +184,7 @@ export function registerArrayDiskAction(server: McpServer, client: GraphQLExecut
     {
       title: "Array Disk Operations",
       description:
-        "⚠ Array disk operations: add a disk to the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). Removing a disk is no longer offered by the Unraid API (4.37+) — use the web UI. A wrong disk id on add risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. For mount, unmount, and clear_statistics, `id` is the array disk's `id`, which array_status and disk_list do not return: read it with graphql_query (`array { disks { id name } }`; likewise `parities` and `caches`). The API does not document which id `add` expects, so confirm the exact disk with the user first. Results are requested, not confirmed — verify with array_status/disk_list.",
+        "⚠ Array disk operations: add a disk to the protected array (requires a STOPPED array — checked first), mount/unmount an array disk, or clear a disk's error statistics (require a STARTED array). Removing a disk is no longer offered by the Unraid API (4.37+) — use the web UI. A wrong disk id on add risks data loss. Requires `confirm: true` AND `acknowledge_risk: true`. For mount, unmount, and clear_statistics, `id` is the disk row's `id` from array_status with `response_format: detailed` (its `disks`, `parities`, and `caches` rows). The API does not document which id `add` expects, so confirm the exact disk with the user first. Results are requested, not confirmed — verify with array_status/disk_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

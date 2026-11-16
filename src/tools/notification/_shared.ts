@@ -1,4 +1,5 @@
 import type { NotificationImportance, NotificationType } from "../../types/unraid/graphql.js";
+import { formatIdTag } from "../_shared/respond.js";
 
 /** A notification importance count breakdown (shape of `NotificationCounts`). */
 export interface Counts {
@@ -55,6 +56,7 @@ export function summarizeOverview(overview: Overview): string {
 
 /** A notification line item — the fields both list-style reads render. */
 export interface NotificationLineItem {
+  id: string;
   importance: string;
   title: string;
   subject: string;
@@ -63,15 +65,18 @@ export interface NotificationLineItem {
 }
 
 /**
- * Renders one notification as `[IMPORTANCE] title — subject (when)`, where `when`
- * prefers the human `formattedTimestamp`, falls back to the raw `timestamp`, then a
- * placeholder (both are nullable in the SDL). Shared by notification_list and
- * notification_alerts so the line format has a single definition and test owner.
+ * Renders one notification as `[IMPORTANCE] title — subject (when) [id: …]`, where
+ * `when` prefers the human `formattedTimestamp`, falls back to the raw `timestamp`,
+ * then a placeholder (both are nullable in the SDL). The trailing id is what
+ * notification_archive, notification_unread and notification_delete take. Shared by
+ * notification_list and notification_alerts so the line format has a single
+ * definition and test owner.
  *
  * @param notification - The notification fields to render.
  * @returns The single-line summary.
  */
 export function summarizeLine(notification: NotificationLineItem): string {
   const when = notification.formattedTimestamp ?? notification.timestamp ?? "no timestamp";
-  return `[${notification.importance}] ${notification.title} — ${notification.subject} (${when})`;
+  const idTag = formatIdTag(notification.id);
+  return `[${notification.importance}] ${notification.title} — ${notification.subject} (${when}) ${idTag}`;
 }

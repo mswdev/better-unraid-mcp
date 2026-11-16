@@ -23,6 +23,20 @@ export const responseFormatSchema = z
   .describe("`detailed` returns full JSON instead of readable text.");
 
 /**
+ * Renders the id marker that ends a concise list line, so a model can pass the
+ * id straight to a follow-up tool without asking for `detailed` output. The id
+ * is printed in full: a shortened id would not be accepted by those tools.
+ *
+ * @param id - The Unraid API id (a PrefixedID such as `srv:abc`).
+ * @returns The marker text, `[id: <id>]`, with no surrounding whitespace.
+ * @example
+ * `${name} — ${state} ${formatIdTag(id)}` // "plex — RUNNING [id: srv:abc]"
+ */
+export function formatIdTag(id: string): string {
+  return `[id: ${id}]`;
+}
+
+/**
  * Wraps plain text as a successful tool result. Secrets (configured values,
  * credential-shaped key-values, JWTs) are redacted — this is the choke point
  * every tool's text output flows through.

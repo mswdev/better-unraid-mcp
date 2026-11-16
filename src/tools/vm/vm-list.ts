@@ -5,6 +5,7 @@ import { VmListDocument, type VmListQuery } from "../../types/unraid/graphql.js"
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { requireService, VMS_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import {
+  formatIdTag,
   formatResponse,
   type ResponseFormat,
   responseFormatSchema,
@@ -34,15 +35,24 @@ function filterByName(domains: VmDomains, name: string | undefined): VmDomains {
 }
 
 /**
- * One line per VM: `name — state`, falling back to `(id)` for a null name. An
- * empty result distinguishes "nothing matched the filter" from "no VMs at all",
- * so a filtered caller is not misled into thinking the host has no VMs.
+ * One VM's line: `name — state [id: …]`. A null name shows as `(unnamed)`; the
+ * trailing id still identifies the VM, and vm_action accepts it in place of a
+ * name (needed when several VMs share one).
+ */
+function summarizeVm(domain: VmDomains[number]): string {
+  return `${domain.name ?? "(unnamed)"} — ${domain.state} ${formatIdTag(domain.id)}`;
+}
+
+/**
+ * One line per VM. An empty result distinguishes "nothing matched the filter"
+ * from "no VMs at all", so a filtered caller is not misled into thinking the
+ * host has no VMs.
  */
 function summarize(domains: VmDomains, name: string | undefined): string {
   if (domains.length === 0) {
     return name ? `No VMs match '${name}'.` : "No VMs found.";
   }
-  return domains.map((domain) => `${domain.name ?? `(${domain.id})`} — ${domain.state}`).join("\n");
+  return domains.map(summarizeVm).join("\n");
 }
 
 /**
@@ -83,7 +93,7 @@ export function registerVmList(server: McpServer, client: GraphQLExecutor): void
     {
       title: "List Virtual Machines",
       description:
-        "Read-only. Lists virtual machines with their run state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substring. Call it before vm_action to get a VM's name and state; `detailed` adds each VM's id. For a VM's snapshots use vm_snapshot_list.",
+        "Read-only. Lists virtual machines with their run state (RUNNING, SHUTOFF, PAUSED, …). Use `name` to filter by a VM-name substring. Call it before vm_action to get a VM's name, state and id; each concise line ends with the VM's `[id: …]`, which vm_action takes when several VMs share a name. For a VM's snapshots use vm_snapshot_list.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

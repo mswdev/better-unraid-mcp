@@ -38,14 +38,29 @@ const inputSchema = z.object({
   response_format: responseFormatSchema,
 });
 
-/** Shape of the structuredContent payload (deep disk typing adds no safety). */
+/**
+ * One parity, data, or cache disk row. Only `id` and `name` are declared, so the
+ * schema advertises the id array_disk_action needs; the remaining fields (status,
+ * temperature, usage, errors) pass through untyped, since typing them deeply adds
+ * no safety.
+ */
+const diskRowSchema = z.looseObject({
+  id: z
+    .string()
+    .describe(
+      "Array disk id; pass it to array_disk_action for mount, unmount, or clear_statistics.",
+    ),
+  name: z.string().nullable(),
+});
+
+/** Shape of the structuredContent payload. */
 const outputSchema = z.object({
   state: z.string(),
   capacity: z.unknown(),
   parityCheckStatus: z.unknown(),
-  parities: z.unknown(),
-  disks: z.unknown(),
-  caches: z.unknown(),
+  parities: z.array(diskRowSchema),
+  disks: z.array(diskRowSchema),
+  caches: z.array(diskRowSchema),
   data_age_ms: z.number(),
 });
 
@@ -95,7 +110,7 @@ export function registerArrayStatus(server: McpServer, client: GraphQLExecutor):
     {
       title: "Get Unraid Array Status",
       description:
-        "Read-only. Returns the array state, capacity, current parity-check status and progress, and disk counts; `response_format: detailed` (or structuredContent) adds a row per data, parity, and cache disk (status and temperature, plus usage and error counts where the API reports them). Parity error counts come from parity_history, not this tool. Use disk_list for hardware details (model, SMART, partitions) and system_health for one scored verdict.",
+        "Read-only. Returns the array state, capacity, current parity-check status and progress, and disk counts; `response_format: detailed` (or structuredContent) adds a row per data, parity, and cache disk: its `id` (what array_disk_action takes), status and temperature, plus usage and error counts where the API reports them. Parity error counts come from parity_history, not this tool. Use disk_list for hardware details (model, SMART, partitions) and system_health for one scored verdict.",
       inputSchema,
       outputSchema,
       annotations: {
