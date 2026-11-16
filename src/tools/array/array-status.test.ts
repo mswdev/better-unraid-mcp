@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
+import type { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ArrayStatusQuery } from "../../types/unraid/graphql.js";
-import { firstText } from "../_shared/test-support.js";
-import { createArrayStatusHandler } from "./array-status.js";
+import { captureToolConfig, firstText } from "../_shared/test-support.js";
+import { createArrayStatusHandler, registerArrayStatus } from "./array-status.js";
+
+// Array disk ids as the API returns them: server prefix + the emhttp disk id.
+const PARITY_ID = "srv:WDC_WD80EFZZ-68BTXN0_WD-CA1PARITY";
+const DISK1_ID = "srv:WDC_WD40EFRX-68N32N0_WD-WCC7K0DISK1";
+const DISK2_ID = "srv:ST4000VN008-2DR166_ZDH0DISK2";
+const CACHE_ID = "srv:Samsung_SSD_970_EVO_Plus_1TB_S4EWNX0CACHE";
 
 const started = {
   array: {
@@ -16,9 +23,10 @@ const started = {
       paused: false,
       speed: "0",
     },
-    parities: [{ name: "parity", status: "DISK_OK", temp: 35, type: "PARITY" }],
+    parities: [{ id: PARITY_ID, name: "parity", status: "DISK_OK", temp: 35, type: "PARITY" }],
     disks: [
       {
+        id: DISK1_ID,
         name: "disk1",
         status: "DISK_OK",
         temp: 33,
@@ -30,6 +38,7 @@ const started = {
         type: "DATA",
       },
       {
+        id: DISK2_ID,
         name: "disk2",
         status: "DISK_DSBL",
         temp: null,
@@ -42,7 +51,15 @@ const started = {
       },
     ],
     caches: [
-      { name: "cache", status: "DISK_OK", temp: 40, fsFree: "1", fsUsed: "2", type: "CACHE" },
+      {
+        id: CACHE_ID,
+        name: "cache",
+        status: "DISK_OK",
+        temp: 40,
+        fsFree: "1",
+        fsUsed: "2",
+        type: "CACHE",
+      },
     ],
   },
 } satisfies ArrayStatusQuery;
@@ -62,6 +79,7 @@ const stopped = {
     parities: [],
     disks: [
       {
+        id: DISK1_ID,
         name: "disk1",
         status: null,
         temp: null,
@@ -187,5 +205,62 @@ describe("array_status handler", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toBe("Failed to fetch array status: socket hang up");
+  });
+});
+
+/** The ids of one kind of disk row, in order. */
+function rowIds(rows: Array<{ id: string }>): string[] {
+  return rows.map((row) => row.id);
+}
+
+/** The output schema array_status declares when it registers. */
+function declaredOutputSchema(): z.ZodType {
+  const config = captureToolConfig((server) => registerArrayStatus(server, fakeExecutor(started)));
+  return config.outputSchema as z.ZodType;
+}
+
+describe("array_status disk ids", () => {
+  it("includes every parity, data and cache disk id in detailed output", async () => {
+    const handler = createArrayStatusHandler(fakeExecutor(started));
+
+    const result = await handler({ response_format: "detailed" });
+
+    const parsed = JSON.parse(firstText(result)) as ArrayStatusQuery["array"];
+    expect(rowIds(parsed.parities)).toEqual([PARITY_ID]);
+    expect(rowIds(parsed.disks)).toEqual([DISK1_ID, DISK2_ID]);
+    expect(rowIds(parsed.caches)).toEqual([CACHE_ID]);
+  });
+
+  it("carries the disk ids in structuredContent in concise mode too", async () => {
+    const handler = createArrayStatusHandler(fakeExecutor(started));
+
+    const result = await handler({ response_format: "concise" });
+
+    const structured = result.structuredContent as ArrayStatusQuery["array"];
+    expect(rowIds(structured.parities)).toEqual([PARITY_ID]);
+    expect(rowIds(structured.disks)).toEqual([DISK1_ID, DISK2_ID]);
+    expect(rowIds(structured.caches)).toEqual([CACHE_ID]);
+  });
+
+  it("returns structuredContent that satisfies the declared outputSchema", async () => {
+    const outputSchema = declaredOutputSchema();
+    const handler = createArrayStatusHandler(fakeExecutor(started));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(outputSchema.safeParse(result.structuredContent).success).toBe(true);
+  });
+
+  it("declares an outputSchema that requires an id on every disk row", () => {
+    const outputSchema = declaredOutputSchema();
+    const { id: _dropped, ...diskWithoutId } = started.array.disks[0];
+
+    const parsed = outputSchema.safeParse({
+      ...started.array,
+      disks: [diskWithoutId],
+      data_age_ms: 0,
+    });
+
+    expect(parsed.success).toBe(false);
   });
 });
