@@ -17,7 +17,7 @@
 
 [Features](#features) · [Quick start](#quick-start) · [Tools](#tools) · [MCP features](#mcp-features-beyond-tools) · [Configuration](#configuration) · [HTTP transport](#remote-http-transport) · [Security](#security) · [FAQ](#faq) · [Development](#development)
 
-<img src="docs/assets/demo.svg" alt="Better Unraid MCP in a Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
+<img src="assets/demo.svg" alt="Better Unraid MCP in a Claude Code session: asking why the array is degraded, getting a health rollup, and a gated container restart" width="760">
 
 </div>
 
