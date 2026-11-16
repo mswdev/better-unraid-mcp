@@ -19,6 +19,7 @@ import {
 } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { requireService, VMS_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -62,7 +63,7 @@ const PAST_TENSE: Record<VmAction, string> = {
 };
 
 /** A resolvable VM (id + nullable name) from the `VmResolve` read. */
-type VmDomain = NonNullable<VmResolveQuery["vms"]["domains"]>[number];
+type VmDomain = NonNullable<NonNullable<VmResolveQuery["vms"]>["domains"]>[number];
 
 const inputSchema = z.object({
   response_format: responseFormatSchema,
@@ -203,7 +204,8 @@ export function createVmActionHandler(
       return refusal;
     }
     try {
-      const { vms } = await client.execute(VmResolveDocument);
+      const data = await client.execute(VmResolveDocument);
+      const vms = requireService(data.vms, VMS_UNAVAILABLE);
       const resolved = resolveVm(vms.domains ?? [], vm);
       if ("error" in resolved) {
         return toolError(resolved.error);

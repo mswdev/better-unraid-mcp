@@ -8,6 +8,7 @@ import {
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import {
   formatStructuredResponse,
   type ResponseFormat,
@@ -205,6 +206,13 @@ function checkUps(reading: UpsReading): SubsystemHealth {
 }
 
 function checkDockerUpdates(data: HealthData): SubsystemHealth {
+  if (data.docker === null) {
+    return {
+      subsystem: "docker",
+      severity: "warning",
+      detail: `Docker status unknown: ${DOCKER_UNAVAILABLE}.`,
+    };
+  }
   const pending = data.docker.containers.filter((c) => c.isUpdateAvailable === true).length;
   if (pending === 0) {
     return { subsystem: "docker", severity: "ok", detail: "All container images current." };

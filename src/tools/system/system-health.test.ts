@@ -6,6 +6,7 @@ import {
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
+import { DOCKER_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createSystemHealthHandler } from "./system-health.js";
 
@@ -188,9 +189,21 @@ describe("system_health", () => {
     expect(firstText(result)).toContain("OVERALL: CRITICAL");
   });
 
+  it("warns that Docker status is unknown when the API returned no Docker data", async () => {
+    const fixture = healthyFixture();
+    fixture.docker = null;
+    const { executor } = recordingExecutor(fixture);
+    const handler = createSystemHealthHandler(executor);
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toContain("OVERALL: WARNING");
+    expect(firstText(result)).toContain(DOCKER_UNAVAILABLE);
+  });
+
   it("counts pending container updates as a warning", async () => {
     const fixture = healthyFixture();
-    fixture.docker.containers = [{ isUpdateAvailable: true }, { isUpdateAvailable: true }];
+    fixture.docker = { containers: [{ isUpdateAvailable: true }, { isUpdateAvailable: true }] };
     const { executor } = recordingExecutor(fixture);
     const handler = createSystemHealthHandler(executor);
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import type { DockerContainerListQuery } from "../../../types/unraid/graphql.js";
+import { DOCKER_UNAVAILABLE } from "../../_shared/errors/require-service.js";
 import { firstText, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerListHandler } from "./container-list.js";
 
@@ -84,5 +85,16 @@ describe("docker_container_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch Docker containers/);
     expect(firstText(result)).toMatch(/unauthorized/);
+  });
+});
+
+describe("docker_container_list handler when the Docker service is unavailable", () => {
+  it("reports that the API returned no Docker data", async () => {
+    const handler = createDockerContainerListHandler(fakeExecutor({ docker: null }));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain(DOCKER_UNAVAILABLE);
   });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { VmListDocument, type VmListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { requireService, VMS_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -21,7 +22,7 @@ const inputSchema = z.object({
 });
 
 /** Non-null element list of the `vms.domains` selection. */
-type VmDomains = NonNullable<VmListQuery["vms"]["domains"]>;
+type VmDomains = NonNullable<NonNullable<VmListQuery["vms"]>["domains"]>;
 
 /** Filters VMs by a case-insensitive substring of their (nullable) name. */
 function filterByName(domains: VmDomains, name: string | undefined): VmDomains {
@@ -59,7 +60,8 @@ export function createVmListHandler(client: GraphQLExecutor) {
     name?: string;
   }): Promise<CallToolResult> => {
     try {
-      const { vms } = await client.execute(VmListDocument);
+      const data = await client.execute(VmListDocument);
+      const vms = requireService(data.vms, VMS_UNAVAILABLE);
       const domains = filterByName(vms.domains ?? [], name);
       return formatResponse(response_format, summarize(domains, name), domains);
     } catch (error) {
