@@ -7,10 +7,15 @@ import {
   ParityCheckResumeDocument,
   ParityCheckStartDocument,
 } from "../../types/unraid/graphql.js";
-import { requireConfirmationInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "parity_check";
 
@@ -33,10 +38,19 @@ const INVALID_STATE_MESSAGE = "Invalid parity check state";
 const HISTORY_READ_MESSAGE = "Parity history file not found";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  action: z.enum(["start", "pause", "resume", "cancel"]),
-  correct: z.boolean().optional(),
-  confirm: z.boolean().optional(),
+  response_format: responseFormatSchema,
+  action: z
+    .enum(["start", "pause", "resume", "cancel"])
+    .describe(
+      "`start` begins a check (refused while one is running); `pause`, `resume`, and `cancel` act on the running check.",
+    ),
+  correct: z
+    .boolean()
+    .optional()
+    .describe(
+      "Only with `start`: `true` writes corrections to parity; omitted or `false` runs a read-only check.",
+    ),
+  confirm: confirmSchema,
 });
 
 /** The validated handler arguments. */

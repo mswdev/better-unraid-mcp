@@ -4,7 +4,12 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "vm_snapshot_list";
 
@@ -12,8 +17,8 @@ const PROBE_TIMEOUT_MS = 10_000;
 const COMMAND_TIMEOUT_MS = 30_000;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  vm: z.string().min(1),
+  response_format: responseFormatSchema,
+  vm: z.string().min(1).describe("VM name, passed to `virsh` as the libvirt domain."),
 });
 
 /**
@@ -86,7 +91,7 @@ export function registerVmSnapshotList(server: McpServer, shell: ShellExecutor |
     {
       title: "List VM Snapshots",
       description:
-        "Read-only. Lists a VM's libvirt snapshots by name via virsh over SSH (snapshots are not exposed by the GraphQL API). Reports clearly when the VM service is disabled.",
+        "Read-only. Lists a VM's libvirt snapshots by name via virsh over SSH (snapshots are not exposed by the GraphQL API). Reports clearly when the VM service is disabled. Requires SSH (UNRAID_SSH_*). Use vm_snapshot_create to add one; for ZFS dataset snapshots use zfs_snapshot_list instead.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

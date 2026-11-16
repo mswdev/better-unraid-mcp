@@ -12,7 +12,10 @@ import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from 
 
 const TOOL_NAME = "share_edit";
 
-const inputSchema = z.object({ name: z.string().min(1), ...shareSettingsSchema });
+const inputSchema = z.object({
+  name: z.string().min(1).describe("Exact name of the existing share to edit, from share_list."),
+  ...shareSettingsSchema,
+});
 
 function hasChanges(args: ShareWriteArgs): boolean {
   return Object.values(settingsOf(args)).some((value) => value !== undefined);
@@ -93,7 +96,7 @@ export function registerShareEdit(server: McpServer, shell: ShellExecutor | null
     {
       title: "Edit User Share",
       description:
-        "⚠ Changes a user share's settings through emhttpd (the web UI's own form, via emcmd over SSH) and verifies by re-reading /boot/config/shares/<name>.cfg. Editable subset: comment, allocator (highwater|fillup|mostfree), useCache (no|yes|only|prefer), cachePool (must exist), smbExport (-|e|eh), smbSecurity (public|secure|private); every other setting is passed through unchanged. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH.",
+        "⚠ Changes an existing user share's settings through emhttpd (the web UI's own form, via emcmd over SSH) and verifies by re-reading /boot/config/shares/<name>.cfg. Pass at least one of comment, allocator, useCache, cachePool, smbExport, smbSecurity; omitted ones and every other share setting are passed through unchanged. It cannot rename a share, and it refuses a share that has no config yet (use share_create). Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

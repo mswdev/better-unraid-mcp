@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { ResponseFormat } from "../_shared/respond.js";
+import { confirmSchema } from "../_shared/confirm.js";
+import { type ResponseFormat, responseFormatSchema } from "../_shared/respond.js";
 
 /**
  * Allowed form for a `names` entry: a bare or scoped npm package name with **no**
@@ -19,12 +20,22 @@ export interface PluginNamesInput {
   confirm?: boolean;
 }
 
-/** The zod input fields shared by `plugin_add` and `plugin_remove`. */
-export const pluginNamesSchema = {
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  names: z.array(z.string()).min(1),
-  confirm: z.boolean().optional(),
-};
+/**
+ * The zod input schema shared by `plugin_add` and `plugin_remove`. It is a
+ * `z.object` rather than a raw shape because the MCP SDK wraps a raw shape in
+ * `z.object` anyway, and the registry's schema audit needs a real zod schema to
+ * read the parameter descriptions from.
+ */
+export const pluginNamesSchema = z.object({
+  response_format: responseFormatSchema,
+  names: z
+    .array(z.string())
+    .min(1)
+    .describe(
+      "npm package names of Unraid API plugins, bare or scoped (`@scope/name`); versions, URLs, git refs and paths are refused.",
+    ),
+  confirm: confirmSchema,
+});
 
 /**
  * Returns the first `names` entry that is not a bare/scoped package name, or `null`

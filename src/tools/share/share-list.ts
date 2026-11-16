@@ -4,13 +4,21 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ShareListDocument, type ShareListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeKilobytes, toNumber } from "../_shared/format-bytes.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "share_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  name: z.string().optional(),
+  response_format: responseFormatSchema,
+  name: z
+    .string()
+    .optional()
+    .describe("Case-insensitive substring of the share name to filter by; omit to list all."),
 });
 
 type Shares = ShareListQuery["shares"];
@@ -79,7 +87,7 @@ export function registerShareList(server: McpServer, client: GraphQLExecutor): v
     {
       title: "List Unraid Shares",
       description:
-        "Read-only. Lists user shares with usage (free/used/total). Use `name` to filter by a share name substring.",
+        "Read-only. Lists user shares with usage (free/used/total); `detailed` adds each share's cache flag, included/excluded disks, and comment. Use `name` to filter by a share name substring. Pass a returned name to share_edit, share_delete, or flash_backup; those accept only letters, digits, dots, underscores, and hyphens. Other settings are not returned: the allocator is on the API's Share type (graphql_query `shares { name allocator }`), and /boot/config/shares/<name>.cfg (file_read, over SSH) holds all of them, including cache mode and SMB. For array-wide capacity and per-disk usage use array_status.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -4,7 +4,12 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import {
   DISKS_INI,
   LIST_TIMEOUT_MS,
@@ -17,7 +22,7 @@ import {
 const TOOL_NAME = "unassigned_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 function renderPartition(partition: UnassignedDisk["partitions"][number]): string {
@@ -77,7 +82,7 @@ export function registerUnassignedList(server: McpServer, shell: ShellExecutor |
     {
       title: "List Unassigned Disks",
       description:
-        "Read-only. Lists disks that belong to neither the array, a pool, nor the flash drive (cross-referencing lsblk with emhttpd's disks.ini over SSH): model, serial, size, transport, and each partition's filesystem, label, and mount point. The GraphQL API has no unassigned-devices surface. Requires SSH (UNRAID_SSH_*).",
+        "Read-only. Lists disks that belong to neither the array, a pool, nor the flash drive (cross-referencing lsblk with emhttpd's disks.ini over SSH): model, serial, size, transport, and each partition's filesystem, label, and mount point. Works without the Unassigned Devices plugin. Pass a partition path to unassigned_action to mount or unmount it; for all physical disks with SMART status use disk_list. The GraphQL API has no unassigned-devices surface. Requires SSH (UNRAID_SSH_*).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -3,12 +3,17 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { RecalculateOverviewDocument } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "notification_recalculate";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /**
@@ -46,7 +51,7 @@ export function registerNotificationRecalculate(server: McpServer, client: Graph
     {
       title: "Recalculate Notification Overview",
       description:
-        "Re-syncs the notification overview counts from disk (corrects cache drift after bulk changes). Returns the refreshed counts.",
+        "Re-syncs the notification overview counts from disk (corrects cache drift after bulk changes). Returns the refreshed counts. Use it when notification_overview disagrees with notification_list; it rewrites only the cached counts, never a notification. To just read the counts use notification_overview.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

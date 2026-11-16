@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "gpu_metrics";
@@ -19,7 +24,7 @@ const NVIDIA_QUERY =
 const INTEL_SAMPLE = "timeout 3 intel_gpu_top -J 2>/dev/null";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Parsed nvidia-smi row. */
@@ -260,7 +265,7 @@ export function registerGpuMetrics(server: McpServer, shell: ShellExecutor | nul
     {
       title: "GPU Metrics",
       description:
-        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a one-line summary (frequency, idle share, engine load, GPU clients) parsed from intel_gpu_top for Intel; a clear absence report otherwise.",
+        "Read-only. GPU utilization over SSH: full per-GPU metrics via nvidia-smi (utilization, VRAM, temperature, power) when the NVIDIA driver plugin is installed; a one-line summary (frequency, idle share, engine load, GPU clients) parsed from a 3-second intel_gpu_top sample for Intel; a clear absence report otherwise. NVIDIA takes precedence when both are present. Use this for GPU load, which system_metrics does not report. Requires SSH (UNRAID_SSH_*).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

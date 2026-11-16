@@ -4,7 +4,12 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import { DATASET_PATTERN, probeZfs, ZFS_COMMAND_TIMEOUT_MS } from "./_shared.js";
 
 const TOOL_NAME = "zfs_dataset_list";
@@ -12,8 +17,13 @@ const TOOL_NAME = "zfs_dataset_list";
 const BYTES_PER_GIB = 1024 ** 3;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  pool: z.string().optional(),
+  response_format: responseFormatSchema,
+  pool: z
+    .string()
+    .optional()
+    .describe(
+      "Pool name from zfs_status (or a pool/dataset path) to list recursively; omit for every pool.",
+    ),
 });
 
 /** One dataset row from `zfs list -H -p`. */
@@ -107,7 +117,7 @@ export function registerZfsDatasetList(server: McpServer, shell: ShellExecutor |
     {
       title: "List ZFS Datasets",
       description:
-        "Read-only. Lists ZFS datasets with used/available space and mountpoints over SSH; optional `pool` limits to one pool (recursive). Reports clearly when ZFS is not available.",
+        "Read-only. Lists ZFS datasets with used/available space and mountpoints over SSH; optional `pool` limits to one pool (recursive). `detailed` returns exact byte counts plus referenced size. Use the returned names as `dataset` in zfs_snapshot_list and zfs_snapshot_action; for pool health use zfs_status instead. Reports clearly when ZFS is not available.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

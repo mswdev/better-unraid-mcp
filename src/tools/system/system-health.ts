@@ -8,7 +8,12 @@ import {
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatStructuredResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "system_health";
 
@@ -39,7 +44,7 @@ interface SubsystemHealth {
 }
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Shape of the structuredContent payload. */

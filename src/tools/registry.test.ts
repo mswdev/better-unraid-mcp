@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { GraphQLExecutor } from "../graphql/client.js";
 import { registerAllTools, TOOL_REGISTRATIONS } from "./registry.js";
 
@@ -8,6 +9,34 @@ interface Registration {
   hasHandler: boolean;
   annotations: unknown;
   hasOutputSchema: boolean;
+  inputSchema: unknown;
+}
+
+/** A node of a tool's input schema as an MCP client sees it: an object, an array, or a leaf. */
+interface JsonSchemaNode {
+  description?: string;
+  properties?: Record<string, JsonSchemaNode>;
+  items?: JsonSchemaNode;
+}
+
+/** Converts a tool's zod input schema to the JSON Schema clients receive. */
+function inputJsonSchema(inputSchema: unknown): JsonSchemaNode {
+  return z.toJSONSchema(inputSchema as z.ZodType, { io: "input" }) as JsonSchemaNode;
+}
+
+/**
+ * Lists the path of every property under `node` that has no description. It
+ * descends into nested objects and array items, so `changes[].id` is audited
+ * as well as `changes`.
+ */
+function undescribedPaths(node: JsonSchemaNode, path: string): string[] {
+  const inItems = node.items ? undescribedPaths(node.items, `${path}[]`) : [];
+  const inProperties = Object.entries(node.properties ?? {}).flatMap(([name, child]) => {
+    const childPath = `${path}.${name}`;
+    const own = child.description?.trim() ? [] : [childPath];
+    return [...own, ...undescribedPaths(child, childPath)];
+  });
+  return [...inItems, ...inProperties];
 }
 
 function fakeServer() {
@@ -17,7 +46,7 @@ function fakeServer() {
     server: {
       registerTool: (
         name: string,
-        config: { annotations?: unknown; outputSchema?: unknown },
+        config: { annotations?: unknown; outputSchema?: unknown; inputSchema?: unknown },
         handler: unknown,
       ) => {
         registrations.push({
@@ -26,6 +55,7 @@ function fakeServer() {
           hasHandler: typeof handler === "function",
           annotations: config?.annotations,
           hasOutputSchema: config?.outputSchema !== undefined,
+          inputSchema: config?.inputSchema,
         });
       },
     },
@@ -314,6 +344,19 @@ describe("annotation audit", () => {
         );
       }
     }
+  });
+});
+
+describe("input schema audit", () => {
+  it("every tool parameter has a description, including nested ones", () => {
+    const { server, registrations } = fakeServer();
+
+    registerAll(server);
+
+    const undescribed = registrations.flatMap((registration) =>
+      undescribedPaths(inputJsonSchema(registration.inputSchema), registration.name),
+    );
+    expect(undescribed).toEqual([]);
   });
 });
 

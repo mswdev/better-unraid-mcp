@@ -4,12 +4,17 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { DiskListDocument, type DiskListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "disk_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 type Disks = DiskListQuery["disks"];
@@ -102,7 +107,7 @@ export function registerDiskList(server: McpServer, client: GraphQLExecutor): vo
     {
       title: "List Unraid Physical Disks",
       description:
-        "Read-only. Lists physical disks with model, size, interface, SMART status, temperature, and partitions.",
+        "Read-only. Lists every physical disk with model, size, SMART status, and temperature; `response_format: detailed` adds the device path (/dev/sdX), vendor, serial, interface, spin state, and partitions. Use array_status for each disk's role and health in the array, disk_smart_report for one disk's full SMART attributes, and unassigned_list for disks outside the array and pools.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

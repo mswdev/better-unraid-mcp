@@ -5,7 +5,7 @@ import { BUCKET_CAPACITY, REFILL_PER_SECOND } from "../../graphql/rate-limit.js"
 import type { ShellExecutor } from "../../shell/executor.js";
 import { ConnectionDoctorDocument } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat } from "../_shared/respond.js";
+import { formatResponse, type ResponseFormat, responseFormatSchema } from "../_shared/respond.js";
 
 const TOOL_NAME = "connection_doctor";
 
@@ -39,7 +39,7 @@ interface GraphqlProbe {
 const CONTRACT_SEGMENTS = 2;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Classifies a GraphQL failure into actionable guidance. */
@@ -219,7 +219,7 @@ export function registerConnectionDoctor(server: McpServer, deps: DoctorDeps): v
     {
       title: "Connection Doctor",
       description:
-        "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, schema skew between the vendored Unraid schema and the server's API version, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves.",
+        "Read-only self-test of this MCP server's plumbing: Unraid GraphQL endpoint reachability and latency, API key validity, server and API versions, schema skew between the vendored Unraid schema and the server's API version, optional SSH channel connectivity, client-side rate-limit configuration, and read-only mode. Safe to run anytime; run it first when any other tool misbehaves. It diagnoses the connection, not the server — use system_health for the Unraid server's own condition.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
