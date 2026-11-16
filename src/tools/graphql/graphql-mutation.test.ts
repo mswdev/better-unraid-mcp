@@ -1,8 +1,53 @@
+import type { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
+import {
+  createElicitationChannel,
+  type ElicitationChannel,
+  type ElicitationOutcome,
+  type ElicitationPrompt,
+} from "../_shared/elicitation.js";
 import { firstText, recordingExecutor, throwingExecutor } from "../_shared/test-support.js";
 import { createGraphqlMutationHandler } from "./graphql-mutation.js";
 
 const ARCHIVE_ALL = "mutation { archiveAll { unread { total } } }";
+const STOP_ARRAY = "mutation { array { setState(input: { desiredState: STOP }) { state } } }";
+
+/** Channel fake answering every prompt with one scripted outcome and recording each prompt. */
+function recordingChannel(outcome: ElicitationOutcome) {
+  const prompts: ElicitationPrompt[] = [];
+  const channel: ElicitationChannel = {
+    isAvailable: () => true,
+    confirm: async (prompt) => {
+      prompts.push(prompt);
+      return outcome;
+    },
+  };
+  return { channel, prompts };
+}
+
+/** The form a fake client submits back, and the forms it was asked to fill. */
+interface ElicitingServer {
+  server: McpServer;
+  requiredFields: string[][];
+}
+
+/**
+ * A minimal McpServer fake whose client supports elicitation and submits the
+ * given form, so a test drives the real channel's "every box ticked" rule.
+ */
+function elicitingServer(content: Record<string, unknown>): ElicitingServer {
+  const requiredFields: string[][] = [];
+  const server = {
+    server: {
+      getClientCapabilities: () => ({ elicitation: {} }),
+      elicitInput: async (params: { requestedSchema: { required: string[] } }) => {
+        requiredFields.push(params.requestedSchema.required);
+        return { action: "accept", content };
+      },
+    },
+  } as unknown as McpServer;
+  return { server, requiredFields };
+}
 
 describe("graphql_mutation", () => {
   it("refuses without confirm and never calls the API", async () => {
@@ -73,8 +118,6 @@ describe("graphql_mutation", () => {
 });
 
 describe("graphql_mutation risk gate", () => {
-  const STOP_ARRAY = "mutation { array { setState(input: { desiredState: STOP }) { state } } }";
-
   it("refuses a dangerous mutation without acknowledge_risk and never calls the API", async () => {
     const { executor, calls } = recordingExecutor({});
     const handler = createGraphqlMutationHandler(executor);
@@ -129,6 +172,89 @@ describe("graphql_mutation risk gate", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("validation failed");
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("graphql_mutation elicitation", () => {
+  it("asks once, with both checkboxes, before running a risky mutation", async () => {
+    const { executor, calls } = recordingExecutor({ array: { setState: { state: "STOPPED" } } });
+    const { channel, prompts } = recordingChannel("accepted");
+    const handler = createGraphqlMutationHandler(executor, channel);
+
+    const result = await handler({ mutation: STOP_ARRAY });
+
+    expect(result.isError).toBeUndefined();
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].requireRiskAcknowledgement).toBe(true);
+    expect(prompts[0].message).toContain("setState");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs a risky mutation after one prompt with both boxes ticked", async () => {
+    const { executor, calls } = recordingExecutor({ array: { setState: { state: "STOPPED" } } });
+    const { server, requiredFields } = elicitingServer({ confirm: true, acknowledge_risk: true });
+    const handler = createGraphqlMutationHandler(executor, createElicitationChannel(server));
+
+    const result = await handler({ mutation: STOP_ARRAY });
+
+    expect(result.isError).toBeUndefined();
+    expect(requiredFields).toEqual([["confirm", "acknowledge_risk"]]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("requires both boxes: a risky prompt answered with confirm alone sends nothing", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const { server, requiredFields } = elicitingServer({ confirm: true });
+    const handler = createGraphqlMutationHandler(executor, createElicitationChannel(server));
+
+    const result = await handler({ mutation: STOP_ARRAY });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain("declined");
+    expect(requiredFields).toHaveLength(1);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("changes nothing when the human declines the risky prompt", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const { channel, prompts } = recordingChannel("declined");
+    const handler = createGraphqlMutationHandler(executor, channel);
+
+    const result = await handler({ mutation: STOP_ARRAY, confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      "The user declined the confirmation prompt. No changes were made.",
+    );
+    expect(prompts).toHaveLength(1);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("keeps the one-checkbox prompt for a benign mutation", async () => {
+    const { executor, calls } = recordingExecutor({ archiveAll: { unread: { total: 0 } } });
+    const { channel, prompts } = recordingChannel("accepted");
+    const handler = createGraphqlMutationHandler(executor, channel);
+
+    const result = await handler({ mutation: ARCHIVE_ALL });
+
+    expect(result.isError).toBeUndefined();
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].requireRiskAcknowledgement).toBe(false);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("falls back to the combined risk refusal when the prompt cannot be shown", async () => {
+    const { executor, calls } = recordingExecutor({});
+    const { channel } = recordingChannel("unavailable");
+    const handler = createGraphqlMutationHandler(executor, channel);
+
+    const result = await handler({ mutation: STOP_ARRAY });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      'Refusing to run this mutation: it selects setState, which can stop the array, hard-kill a VM, or rewrite the system shutdown configuration. Re-call with both "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
+    );
     expect(calls).toHaveLength(0);
   });
 });

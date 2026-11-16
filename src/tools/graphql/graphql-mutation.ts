@@ -12,6 +12,7 @@ import { toolError, toolText } from "../_shared/respond.js";
 import {
   DRY_RUN_VALID_TEXT,
   findRiskyFields,
+  type ParsedOperation,
   parseSingleOperation,
   renderJsonResult,
   validateAgainstSchema,
@@ -57,14 +58,79 @@ function riskyRefusalMessage(fields: string[]): string {
   return `Refusing to run this mutation: it selects ${fields.join(", ")}, which can stop the array, hard-kill a VM, or rewrite the system shutdown configuration. Re-call with both "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`;
 }
 
+/** A document ready for the confirm gate, or the result to return without sending anything. */
+type PreparedMutation =
+  | { parsed: ParsedOperation; riskyFields: string[] }
+  | { early: CallToolResult };
+
+/**
+ * Parses and validates the document locally. A non-mutation operation, a
+ * schema violation, or a dry run ends here with the result to return, so
+ * nothing reaches the gate or the server.
+ *
+ * @param input - The tool input carrying the document and the dry-run flag.
+ * @returns The parsed document plus the risky fields it selects, or the early result.
+ * @throws Error when the document has a syntax error or not exactly one operation.
+ */
+function prepareMutation(input: GraphqlMutationInput): PreparedMutation {
+  const parsed = parseSingleOperation(input.mutation);
+  if (parsed.operation !== "mutation") {
+    return {
+      early: toolError(
+        `graphql_mutation only runs mutation operations; got a ${parsed.operation}. Use graphql_query for queries.`,
+      ),
+    };
+  }
+  const problems = validateAgainstSchema(parsed.document);
+  if (problems.length > 0) {
+    return { early: toolError(validationFailure(problems)) };
+  }
+  if (input.dry_run) {
+    return { early: toolText(DRY_RUN_VALID_TEXT) };
+  }
+  return { parsed, riskyFields: findRiskyFields(parsed.document) };
+}
+
+/**
+ * Two-tier gate, matching the dedicated tier-2 tools. A mutation selecting a
+ * risky field needs both `confirm` and `acknowledge_risk` (one combined
+ * refusal, or one two-checkbox prompt under elicitation); any other mutation
+ * needs `confirm` alone. The tiers are exclusive, so the human is asked once.
+ *
+ * @param input - The tool input carrying both gate flags.
+ * @param riskyFields - The risky field names the document selects; empty when benign.
+ * @param channel - The elicitation channel, when the client can prompt the human.
+ * @returns `null` to proceed, or a refusal `CallToolResult` to return as-is.
+ */
+async function gateRefusal(
+  input: GraphqlMutationInput,
+  riskyFields: string[],
+  channel?: ElicitationChannel | null,
+): Promise<CallToolResult | null> {
+  if (riskyFields.length === 0) {
+    return requireConfirmationInteractive({
+      confirm: input.confirm,
+      actionDescription: "run a raw GraphQL mutation against the Unraid API",
+      channel,
+    });
+  }
+  return requireRiskAcknowledgementInteractive({
+    flags: input,
+    refusalMessage: riskyRefusalMessage(riskyFields),
+    channel,
+  });
+}
+
 /**
  * Creates the `graphql_mutation` handler bound to a GraphQL executor. Accepts
- * only `mutation` operations, requires explicit confirmation before any call
- * reaches the server, and demands an additional acknowledge_risk flag when
- * the document selects a known-dangerous field (matching the double gate the
- * dedicated array/VM tools enforce).
+ * only `mutation` operations and requires explicit confirmation before any
+ * call reaches the server. A document selecting a known-dangerous field needs
+ * `acknowledge_risk` as well, through the same single gate the dedicated
+ * array/VM tools use.
  *
  * @param client - The GraphQL executor used to run the mutation.
+ * @param channel - Optional elicitation channel; when the client supports it,
+ *   the human is prompted once instead of the call being refused.
  * @returns An MCP handler returning the raw JSON data payload.
  * @example
  * const handler = createGraphqlMutationHandler(client);
@@ -76,39 +142,15 @@ export function createGraphqlMutationHandler(
 ) {
   return async (input: GraphqlMutationInput): Promise<CallToolResult> => {
     try {
-      const parsed = parseSingleOperation(input.mutation);
-      if (parsed.operation !== "mutation") {
-        return toolError(
-          `graphql_mutation only runs mutation operations; got a ${parsed.operation}. Use graphql_query for queries.`,
-        );
+      const prepared = prepareMutation(input);
+      if ("early" in prepared) {
+        return prepared.early;
       }
-      const problems = validateAgainstSchema(parsed.document);
-      if (problems.length > 0) {
-        return toolError(validationFailure(problems));
-      }
-      if (input.dry_run) {
-        return toolText(DRY_RUN_VALID_TEXT);
-      }
-      const riskyFields = findRiskyFields(parsed.document);
-      if (riskyFields.length > 0) {
-        const riskRefusal = await requireRiskAcknowledgementInteractive({
-          flags: input,
-          refusalMessage: riskyRefusalMessage(riskyFields),
-          channel,
-        });
-        if (riskRefusal) {
-          return riskRefusal;
-        }
-      }
-      const refusal = await requireConfirmationInteractive({
-        confirm: input.confirm,
-        actionDescription: "run a raw GraphQL mutation against the Unraid API",
-        channel,
-      });
+      const refusal = await gateRefusal(input, prepared.riskyFields, channel);
       if (refusal) {
         return refusal;
       }
-      const data = await client.execute(parsed.document, input.variables);
+      const data = await client.execute(prepared.parsed.document, input.variables);
       return renderJsonResult(data);
     } catch (error) {
       const message = errorMessage(error);
