@@ -12,17 +12,31 @@ interface Registration {
   inputSchema: unknown;
 }
 
-/** One property of a tool's input schema as an MCP client sees it. */
-interface JsonSchemaProperty {
+/** A node of a tool's input schema as an MCP client sees it: an object, an array, or a leaf. */
+interface JsonSchemaNode {
   description?: string;
+  properties?: Record<string, JsonSchemaNode>;
+  items?: JsonSchemaNode;
 }
 
-/** Converts a tool's zod input schema to the JSON Schema properties clients receive. */
-function inputProperties(inputSchema: unknown): Record<string, JsonSchemaProperty> {
-  const jsonSchema = z.toJSONSchema(inputSchema as z.ZodType, { io: "input" }) as {
-    properties?: Record<string, JsonSchemaProperty>;
-  };
-  return jsonSchema.properties ?? {};
+/** Converts a tool's zod input schema to the JSON Schema clients receive. */
+function inputJsonSchema(inputSchema: unknown): JsonSchemaNode {
+  return z.toJSONSchema(inputSchema as z.ZodType, { io: "input" }) as JsonSchemaNode;
+}
+
+/**
+ * Lists the path of every property under `node` that has no description. It
+ * descends into nested objects and array items, so `changes[].id` is audited
+ * as well as `changes`.
+ */
+function undescribedPaths(node: JsonSchemaNode, path: string): string[] {
+  const inItems = node.items ? undescribedPaths(node.items, `${path}[]`) : [];
+  const inProperties = Object.entries(node.properties ?? {}).flatMap(([name, child]) => {
+    const childPath = `${path}.${name}`;
+    const own = child.description?.trim() ? [] : [childPath];
+    return [...own, ...undescribedPaths(child, childPath)];
+  });
+  return [...inItems, ...inProperties];
 }
 
 function fakeServer() {
@@ -334,15 +348,13 @@ describe("annotation audit", () => {
 });
 
 describe("input schema audit", () => {
-  it("every tool parameter has a description", () => {
+  it("every tool parameter has a description, including nested ones", () => {
     const { server, registrations } = fakeServer();
 
     registerAll(server);
 
     const undescribed = registrations.flatMap((registration) =>
-      Object.entries(inputProperties(registration.inputSchema))
-        .filter(([, property]) => !property.description?.trim())
-        .map(([parameter]) => `${registration.name}.${parameter}`),
+      undescribedPaths(inputJsonSchema(registration.inputSchema), registration.name),
     );
     expect(undescribed).toEqual([]);
   });
