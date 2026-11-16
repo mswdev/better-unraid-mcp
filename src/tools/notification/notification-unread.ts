@@ -8,7 +8,12 @@ import { toolError, toolText } from "../_shared/respond.js";
 const TOOL_NAME = "notification_unread";
 
 const inputSchema = z.object({
-  id: z.string().min(1),
+  id: z
+    .string()
+    .min(1)
+    .describe(
+      "Id of the archived notification to mark unread, from notification_list (`response_format: detailed`).",
+    ),
 });
 
 /**
@@ -46,7 +51,7 @@ export function registerNotificationUnread(server: McpServer, client: GraphQLExe
     {
       title: "Mark Notification Unread",
       description:
-        "Marks one notification as unread (moves it back to the unread bucket), e.g. to re-surface something archived too early. Reversible via notification_archive. Get ids from notification_list.",
+        "Marks one notification as unread (moves it back to the unread bucket), e.g. to re-surface something archived too early. This is a write, not a way to read unread notifications: to view them use notification_list (`type: unread`) or notification_alerts. To restore several ids or everything at once use notification_archive with `direction: unarchive`. Reversible via notification_archive. Get ids from notification_list.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

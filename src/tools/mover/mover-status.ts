@@ -3,12 +3,17 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { MoverStatusDocument, type MoverStatusQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "mover_status";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 interface MoverStatusInput {
@@ -69,7 +74,7 @@ export function registerMoverStatus(server: McpServer, client: GraphQLExecutor):
     {
       title: "Mover Status",
       description:
-        "Read-only. Reports whether the mover (the process that migrates data from the cache pool to the array) is currently running, plus its cron schedule and whether mover logging is enabled. Needs a viewer-level key (VARS read). Mover activity detail appears in the syslog (see log_read).",
+        "Read-only. Reports whether the mover (the process that migrates data from the cache pool to the array) is currently running, plus its cron schedule and whether mover logging is enabled. Needs a viewer-level key (VARS read). Mover activity detail appears in the syslog (see log_read). Use mover_action to start or stop it.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -3,12 +3,17 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { SystemInfoDocument, type SystemInfoQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "system_info";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** Builds a one-line human summary of the system info payload. */
@@ -54,7 +59,7 @@ export function registerSystemInfo(server: McpServer, client: GraphQLExecutor): 
     {
       title: "Get Unraid System Info",
       description:
-        "Read-only. Returns the Unraid server's OS, distro, release, kernel, uptime, hostname, and a CPU summary.",
+        "Read-only. Returns the Unraid server's static identity: OS distro, release, kernel, hostname, and a CPU summary (model, cores, threads); `response_format: detailed` adds platform, boot time, and current server time. For live CPU, memory, and network load use system_metrics; for a scored health verdict use system_health.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

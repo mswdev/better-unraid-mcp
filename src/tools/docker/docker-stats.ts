@@ -9,7 +9,12 @@ import {
 import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "docker_stats";
 /**
@@ -49,7 +54,7 @@ function liveContainers(data: unknown): TimestampedContainerStats[] | null {
 }
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 interface DockerStatsInput {
@@ -168,7 +173,7 @@ export function registerDockerStats(
     {
       title: "Docker Container Stats",
       description:
-        "Read-only. Per-container resource usage (CPU %, memory, network IO, block IO), hungriest first. Prefers fresh data from the live WebSocket subscription (subscribe to unraid://live/docker-stats to keep it warm) and falls back to `docker stats --no-stream` over SSH; the response says which source served it. The SSH path requires UNRAID_SSH_* configuration.",
+        "Read-only. Per-container resource usage (CPU %, memory, network IO, block IO), hungriest first. Prefers fresh data from the live WebSocket subscription (subscribe to unraid://live/docker-stats to keep it warm) and falls back to `docker stats --no-stream` over SSH; the response says which source served it (live rows are labelled by container id, SSH rows by name). The SSH path requires UNRAID_SSH_* configuration. For host-wide CPU/memory use system_metrics; for the host's busiest processes use process_list.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

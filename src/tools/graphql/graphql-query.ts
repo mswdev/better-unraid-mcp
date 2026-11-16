@@ -14,9 +14,17 @@ import {
 const TOOL_NAME = "graphql_query";
 
 const inputSchema = z.object({
-  query: z.string().min(1),
-  variables: z.record(z.string(), z.unknown()).optional(),
-  dry_run: z.boolean().optional(),
+  query: z.string().min(1).describe("GraphQL document containing exactly one `query` operation."),
+  variables: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("Values for the variables the document declares, keyed by name without the `$`."),
+  dry_run: z
+    .boolean()
+    .optional()
+    .describe(
+      "`true` validates the document against the vendored schema and returns without sending it.",
+    ),
 });
 
 interface GraphqlQueryInput {
@@ -74,7 +82,7 @@ export function registerGraphqlQuery(server: McpServer, client: GraphQLExecutor)
     {
       title: "Raw GraphQL Query",
       description:
-        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (users, API keys, registration, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. Every document is validated against the vendored schema before it is sent (typos get did-you-mean hints); pass `dry_run: true` to validate only. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; oversized results are head-truncated, so narrow the selection or page.",
+        "Advanced escape hatch. Runs an arbitrary GraphQL *query* operation against the Unraid API and returns the raw JSON data, for API fields no dedicated tool covers yet (registration, the flash drive, rclone remotes, Unraid Connect, share details, ...). Prefer the dedicated tools when one exists: they encode server quirks this passthrough does not. Only `query` operations are accepted; mutations must go through graphql_mutation and subscriptions are unsupported. Every document is validated against the vendored schema before it is sent (typos get did-you-mean hints); pass `dry_run: true` to validate only. The schema is in this package's schema/unraid.graphql. Results are subject to the API key's permissions; oversized results are head-truncated, so narrow the selection or page.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

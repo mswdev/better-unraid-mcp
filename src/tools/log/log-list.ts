@@ -4,12 +4,17 @@ import type { GraphQLExecutor } from "../../graphql/client.js";
 import { LogListDocument, type LogListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes } from "../_shared/format-bytes.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "log_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 type LogFiles = LogListQuery["logFiles"];
@@ -68,7 +73,7 @@ export function registerLogList(server: McpServer, client: GraphQLExecutor): voi
     {
       title: "List Log Files",
       description:
-        "Read-only. Lists the server's log files (name, path, size, last modified), most recently modified first. Pass a returned path or name to log_read. An empty list may also mean the log directory was unreadable — the API does not distinguish. Requires LOGS read permission (any viewer-level key).",
+        "Read-only. Lists the server's log files (name, path, size, last modified), most recently modified first. Pass a returned path or name to log_read. For a Docker container's own output use docker_container_logs instead. An empty list may also mean the log directory was unreadable — the API does not distinguish. Requires LOGS read permission (any viewer-level key).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

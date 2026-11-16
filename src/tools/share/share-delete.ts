@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
-import { requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
+import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
@@ -19,9 +19,17 @@ import { readShareCfg, submitToEmhttpd } from "./write-flow.js";
 const TOOL_NAME = "share_delete";
 
 const inputSchema = z.object({
-  name: z.string().min(1),
-  confirm: z.boolean().optional(),
-  acknowledge_risk: z.boolean().optional(),
+  name: z
+    .string()
+    .min(1)
+    .describe("Exact name of the empty share whose configuration to delete, from share_list."),
+  confirm: confirmSchema,
+  acknowledge_risk: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set `true` only after the user accepts the risk; needed with `confirm` on every call.",
+    ),
 });
 
 /** The validated handler input. */

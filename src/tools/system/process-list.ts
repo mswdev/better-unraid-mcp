@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "process_list";
 
@@ -15,9 +20,18 @@ const MAX_COUNT = 50;
 const SORT_KEYS = { cpu: "-pcpu", memory: "-pmem" } as const;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  sort_by: z.enum(["cpu", "memory"]).default("cpu"),
-  count: z.number().int().positive().max(MAX_COUNT).default(DEFAULT_COUNT),
+  response_format: responseFormatSchema,
+  sort_by: z
+    .enum(["cpu", "memory"])
+    .default("cpu")
+    .describe("Rank processes by CPU share or by memory share, highest first."),
+  count: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_COUNT)
+    .default(DEFAULT_COUNT)
+    .describe("How many of the top-ranked processes to return."),
 });
 
 /** One parsed process row. */
@@ -103,7 +117,7 @@ export function registerProcessList(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Top Processes",
       description:
-        "Read-only. The host's busiest processes by CPU or memory (`sort_by`, default cpu; `count` up to 50) via `ps` over SSH — for finding what's eating resources when docker_stats doesn't explain the load.",
+        "Read-only. The host's busiest processes by CPU or memory via `ps` over SSH: pid, CPU %, memory %, elapsed run time, and command name (no arguments) — for finding what's eating resources when docker_stats doesn't explain the load. Requires SSH (UNRAID_SSH_*).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

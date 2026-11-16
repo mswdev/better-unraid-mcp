@@ -9,7 +9,12 @@ import {
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { humanizeBytes, toNumber } from "../_shared/format-bytes.js";
-import { formatStructuredResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatStructuredResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "system_metrics";
 
@@ -46,8 +51,13 @@ function unitSuffix(unit: TemperatureUnit): string {
 }
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
-  include_temperature: z.boolean().default(false),
+  response_format: responseFormatSchema,
+  include_temperature: z
+    .boolean()
+    .default(false)
+    .describe(
+      "Also probe temperature sensors; off by default because a cold probe can take seconds on multi-disk servers.",
+    ),
 });
 
 /** Shape of the structuredContent payload (deep metric typing adds no safety). */
@@ -221,7 +231,7 @@ export function registerSystemMetrics(server: McpServer, client: GraphQLExecutor
     {
       title: "Get System Metrics",
       description:
-        "Read-only. Point-in-time health snapshot: CPU load, memory pressure (percent + available bytes), per-interface network rates/errors, and server time (timezone, NTP). Set include_temperature=true to also probe temperature sensors — omitted by default because a cold probe can take seconds on multi-disk servers. Network rates read 0 right after the Unraid API restarts. Requires INFO+VARS read permission (any viewer-level key).",
+        "Read-only. Point-in-time resource snapshot: CPU load, memory pressure (percent + available bytes), per-interface network rates/errors, server time (timezone, NTP), and optionally temperature sensors (include_temperature). Network rates read 0 right after the Unraid API restarts. For trends over time use metrics_history, for per-container usage docker_stats, for GPUs gpu_metrics, and for a scored verdict system_health. Requires INFO+VARS read permission (any viewer-level key).",
       inputSchema,
       outputSchema,
       annotations: {

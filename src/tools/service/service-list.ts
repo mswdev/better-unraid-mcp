@@ -4,7 +4,12 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 import {
   NOT_INSTALLED_MARKER,
   parseStatusOutput,
@@ -19,7 +24,7 @@ import {
 const TOOL_NAME = "service_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** One service's status as reported by its rc.d script. */
@@ -99,7 +104,7 @@ export function registerServiceList(server: McpServer, shell: ShellExecutor | nu
     {
       title: "List Host Services",
       description:
-        "Read-only. Reports whether the standard Unraid host services are running — samba (SMB shares), nfs, sshd, docker, libvirt (VMs), tailscale — by asking each /etc/rc.d/rc.* script for its status over SSH. Services whose script is absent are reported as not installed. The GraphQL API has no service surface. Requires SSH (UNRAID_SSH_*).",
+        "Read-only. Reports whether the standard Unraid host services are running — samba (SMB shares), nfs, sshd, docker, libvirt (VMs), tailscale — by asking each /etc/rc.d/rc.* script for its status over SSH. Services whose script is absent are reported as not installed. The GraphQL API has no service surface. Covers these daemons only: for individual containers use docker_container_list, for VMs vm_list; to restart, start or stop a service use service_action. Requires SSH (UNRAID_SSH_*).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

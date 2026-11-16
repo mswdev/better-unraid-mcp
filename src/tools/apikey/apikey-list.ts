@@ -3,12 +3,17 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { ApiKeyListDocument, type ApiKeyListQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "apikey_list";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 type ApiKeyEntry = ApiKeyListQuery["apiKeys"][number];
@@ -59,7 +64,7 @@ export function registerApiKeyList(server: McpServer, client: GraphQLExecutor): 
     {
       title: "List API Keys",
       description:
-        "Read-only. Lists the Unraid API keys configured on the server: name, id, roles, permissions, and creation date. Key VALUES are never selected or returned. Requires an API key with permission to read API keys (typically ADMIN).",
+        "Read-only. Lists the Unraid API keys configured on the server: name, id, roles, and creation date, plus description and permissions with `response_format: detailed`. Key VALUES are never selected or returned. Use it to get the key ids that apikey_manage takes. Requires an API key with permission to read API keys (typically ADMIN).",
       inputSchema,
       annotations: {
         readOnlyHint: true,

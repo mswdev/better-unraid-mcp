@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import { UpsStatusDocument, type UpsStatusQuery } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "ups_status";
 
@@ -47,7 +52,7 @@ const APCACCESS_EMPTY_NOTE =
   "No live UPS data — apcaccess returned nothing (apcupsd is not running or no UPS is attached). The Unraid API only reads apcupsd; a NUT-managed UPS is invisible here — check the NUT plugin's UI instead.";
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /** The validated handler input. */

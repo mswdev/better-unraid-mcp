@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { formatResponse, type ResponseFormat, toolError } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "user_script_list";
 
@@ -15,7 +20,7 @@ export const USER_SCRIPTS_DIR = "/boot/config/plugins/user.scripts/scripts";
 const LIST_COMMAND = `ls -1 ${USER_SCRIPTS_DIR} 2>/dev/null`;
 
 const inputSchema = z.object({
-  response_format: z.enum(["concise", "detailed"]).default("concise"),
+  response_format: responseFormatSchema,
 });
 
 /**
@@ -61,7 +66,7 @@ export function registerUserScriptList(server: McpServer, shell: ShellExecutor |
     {
       title: "List User Scripts",
       description:
-        "Read-only. Lists the scripts managed by the User Scripts plugin (from /boot/config/plugins/user.scripts/scripts) over SSH. Reports clearly when the plugin is not installed.",
+        "Read-only. Lists the scripts managed by the User Scripts plugin (from /boot/config/plugins/user.scripts/scripts) over SSH. Returns names only: pass one to user_script_run, or review its source first by reading `<name>/script` in that directory with file_read. Reports clearly when the plugin is not installed (the same error is returned when it has no scripts).",
       inputSchema,
       annotations: {
         readOnlyHint: true,
