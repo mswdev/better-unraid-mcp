@@ -7,6 +7,7 @@ import {
   type DockerContainerListQuery,
 } from "../../../types/unraid/graphql.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE, requireService } from "../../_shared/errors/require-service.js";
 import {
   formatStructuredResponse,
   type ResponseFormat,
@@ -31,7 +32,7 @@ const outputSchema = z.object({
   data_age_ms: z.number(),
 });
 
-type Containers = DockerContainerListQuery["docker"]["containers"];
+type Containers = NonNullable<DockerContainerListQuery["docker"]>["containers"];
 
 /** Filters containers by a case-insensitive substring of any slash-stripped name. */
 function filterByName(containers: Containers, name: string | undefined): Containers {
@@ -74,7 +75,10 @@ export function createDockerContainerListHandler(client: GraphQLExecutor) {
   }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerContainerListDocument);
-      const containers = filterByName(data.docker.containers, name);
+      const containers = filterByName(
+        requireService(data.docker, DOCKER_UNAVAILABLE).containers,
+        name,
+      );
       const detailed = { containers, data_age_ms: cacheAgeMs(data) ?? 0 };
       return formatStructuredResponse(response_format, summarize(containers), detailed);
     } catch (error) {

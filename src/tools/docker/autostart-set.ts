@@ -10,6 +10,7 @@ import {
 import { confirmSchema, requireConfirmationInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE, requireService } from "../_shared/errors/require-service.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -20,7 +21,7 @@ import { stripLeadingSlash } from "./_shared.js";
 
 const TOOL_NAME = "docker_autostart_set";
 
-type Containers = DockerAutostartStateQuery["docker"]["containers"];
+type Containers = NonNullable<DockerAutostartStateQuery["docker"]>["containers"];
 type Container = Containers[number];
 
 const changeSchema = z.object({
@@ -188,7 +189,8 @@ export function createDockerAutostartSetHandler(
       return refusal;
     }
     try {
-      const { docker } = await client.execute(DockerAutostartStateDocument);
+      const state = await client.execute(DockerAutostartStateDocument);
+      const docker = requireService(state.docker, DOCKER_UNAVAILABLE);
       const validationError = validateChanges(changes, docker.containers);
       if (validationError) {
         return toolError(validationError);

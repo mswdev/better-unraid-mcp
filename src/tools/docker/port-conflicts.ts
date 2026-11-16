@@ -6,6 +6,7 @@ import {
   type DockerPortConflictsQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE, requireService } from "../_shared/errors/require-service.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -20,7 +21,7 @@ const inputSchema = z.object({
   response_format: responseFormatSchema,
 });
 
-type Conflicts = DockerPortConflictsQuery["docker"]["portConflicts"];
+type Conflicts = NonNullable<DockerPortConflictsQuery["docker"]>["portConflicts"];
 type ContainerPortConflict = Conflicts["containerPorts"][number];
 type LanPortConflict = Conflicts["lanPorts"][number];
 
@@ -73,7 +74,7 @@ export function createDockerPortConflictsHandler(client: GraphQLExecutor) {
   }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerPortConflictsDocument);
-      const conflicts = data.docker.portConflicts;
+      const conflicts = requireService(data.docker, DOCKER_UNAVAILABLE).portConflicts;
       return formatResponse(response_format, summarize(conflicts), conflicts);
     } catch (error) {
       const message = errorMessage(error);

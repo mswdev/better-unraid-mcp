@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { VmListQuery } from "../../types/unraid/graphql.js";
+import { VMS_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createVmListHandler } from "./vm-list.js";
 
@@ -81,5 +82,16 @@ describe("vm_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch VMs/);
     expect(firstText(result)).toMatch(/VMs are not available/);
+  });
+});
+
+describe("vm_list handler when the VM service is unavailable", () => {
+  it("reports that the API returned no VM data", async () => {
+    const handler = createVmListHandler(fakeExecutor({ vms: null }));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain(VMS_UNAVAILABLE);
   });
 });
