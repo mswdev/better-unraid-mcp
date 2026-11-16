@@ -540,7 +540,7 @@ The Model Context Protocol (MCP) is the standard AI clients use to call outside 
 
 ### Is there an official Unraid MCP server?
 
-Not as of November 2026. Unraid doesn't ship or recommend an MCP server of its own. Better Unraid MCP is an independent, MIT-licensed community project and isn't affiliated with Unraid or Lime Technology. It talks to the official GraphQL API that ships with Unraid.
+Not as of November 2026: neither Unraid OS nor its API includes an MCP server. Better Unraid MCP is an independent, MIT-licensed community project and isn't affiliated with Unraid or Lime Technology. It talks to the official GraphQL API that ships with Unraid.
 
 ### Which Unraid versions does it support?
 
