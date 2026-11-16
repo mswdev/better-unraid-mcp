@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatResponse, formatStructuredResponse, toolError } from "./respond.js";
+import { formatIdTag, formatResponse, formatStructuredResponse, toolError } from "./respond.js";
 import { firstText } from "./test-support.js";
 
 describe("formatResponse", () => {
@@ -14,6 +14,16 @@ describe("formatResponse", () => {
     const result = formatResponse("detailed", "short summary", { a: 1 });
 
     expect(firstText(result)).toBe(JSON.stringify({ a: 1 }, null, 2));
+  });
+});
+
+describe("formatIdTag", () => {
+  it("wraps the full id in an [id: …] marker", () => {
+    const id = "srv:3f2a9c1e5b7d4a6f8e0c2b4d6f8a0c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a";
+
+    const tag = formatIdTag(id);
+
+    expect(tag).toBe(`[id: ${id}]`);
   });
 });
 

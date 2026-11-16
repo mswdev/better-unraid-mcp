@@ -54,7 +54,7 @@ export function registerNotificationAlerts(server: McpServer, client: GraphQLExe
     {
       title: "Notification Alerts",
       description:
-        "Read-only. Lists the unread warning and alert notifications, deduplicated and newest first (up to 50) — the 'needs attention now' view. Takes no filters and never includes info or archived notifications; for those, or for an importance filter or paging, use notification_list. For counts only use notification_overview. Ids appear only with `response_format: detailed`.",
+        "Read-only. Lists the unread warning and alert notifications, deduplicated and newest first (up to 50) — the 'needs attention now' view. Takes no filters and never includes info or archived notifications; for those, or for an importance filter or paging, use notification_list. For counts only use notification_overview. Each concise line ends with the notification's `[id: …]` for notification_archive or notification_delete.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

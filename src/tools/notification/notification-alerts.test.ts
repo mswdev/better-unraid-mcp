@@ -27,11 +27,14 @@ const fake = (result: NotificationAlertsQuery): GraphQLExecutor => ({
 });
 
 describe("notification_alerts handler", () => {
-  it("renders unread warnings and alerts, newest first", async () => {
-    const result = await createNotificationAlertsHandler(fake(data))({
-      response_format: "concise",
-    });
-    expect(firstText(result)).toBe("[ALERT] Array offline — Parity (2023-11-14 12:01)");
+  it("renders unread warnings and alerts, each ending with its id", async () => {
+    const handler = createNotificationAlertsHandler(fake(data));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result)).toBe(
+      "[ALERT] Array offline — Parity (2023-11-14 12:01) [id: srv:Alert_1700000009.notify]",
+    );
   });
 
   it("reports the empty attention set distinctly", async () => {

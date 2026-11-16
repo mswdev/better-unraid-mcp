@@ -12,7 +12,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Id of the archived notification to mark unread, from notification_list (`response_format: detailed`).",
+      "Id of the archived notification to mark unread, from notification_list with `type: archive`.",
     ),
 });
 

@@ -48,13 +48,17 @@ describe("notification_list handler", () => {
     });
   });
 
-  it("renders one line per notification", async () => {
+  it("renders one line per notification, ending with its id", async () => {
     const { executor } = recordingExecutor(data);
+
     const result = await createNotificationListHandler(executor)({
       response_format: "concise",
       type: "unread",
     });
-    expect(firstText(result)).toBe("[WARNING] Disk warning — Disk 1 (2023-11-14 12:00)");
+
+    expect(firstText(result)).toBe(
+      "[WARNING] Disk warning — Disk 1 (2023-11-14 12:00) [id: srv:Disk_1700000001.notify]",
+    );
   });
 
   it("distinguishes importance-filtered-empty from plain-empty", async () => {

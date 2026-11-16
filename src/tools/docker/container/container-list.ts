@@ -9,6 +9,7 @@ import {
 import { errorMessage } from "../../_shared/errors/error-message.js";
 import { DOCKER_UNAVAILABLE, requireService } from "../../_shared/errors/require-service.js";
 import {
+  formatIdTag,
   formatStructuredResponse,
   type ResponseFormat,
   responseFormatSchema,
@@ -45,18 +46,22 @@ function filterByName(containers: Containers, name: string | undefined): Contain
   );
 }
 
-/** One line per container: name, state, image, and an update marker. */
+/**
+ * One container's line: name, state, image, an update marker, and the id the
+ * other docker_container_* tools take, so concise output is enough to act on.
+ */
+function summarizeContainer(container: Containers[number]): string {
+  const name = stripLeadingSlash(container.names[0], "(unnamed)");
+  const update = container.isUpdateAvailable ? " — ⬆ update available" : "";
+  return `${name} — ${container.state} — ${container.image}${update} ${formatIdTag(container.id)}`;
+}
+
+/** One line per container, or a note that there are none. */
 function summarize(containers: Containers): string {
   if (containers.length === 0) {
     return "No Docker containers found.";
   }
-  return containers
-    .map((container) => {
-      const name = stripLeadingSlash(container.names[0], "(unnamed)");
-      const update = container.isUpdateAvailable ? " — ⬆ update available" : "";
-      return `${name} — ${container.state} — ${container.image}${update}`;
-    })
-    .join("\n");
+  return containers.map(summarizeContainer).join("\n");
 }
 
 /**
@@ -100,7 +105,7 @@ export function registerDockerContainerList(server: McpServer, client: GraphQLEx
     {
       title: "List Docker Containers",
       description:
-        "Read-only. Lists Docker containers with state, image, and whether an update is available. Use `name` to filter by a container-name substring. The concise summary omits container ids; use `detailed` (or structuredContent) to get the `id` the other docker_container_* tools and docker_autostart_set take. For live CPU/memory use docker_stats; for a container's output use docker_container_logs.",
+        "Read-only. Lists Docker containers with state, image, whether an update is available, and the container `id` that the other docker_container_* tools and docker_autostart_set take (each concise line ends with `[id: …]`). Use `name` to filter by a container-name substring. For live CPU/memory use docker_stats; for a container's output use docker_container_logs.",
       inputSchema,
       outputSchema,
       annotations: {

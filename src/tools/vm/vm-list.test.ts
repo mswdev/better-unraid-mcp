@@ -5,10 +5,13 @@ import { VMS_UNAVAILABLE } from "../_shared/errors/require-service.js";
 import { firstText, throwingExecutor } from "../_shared/test-support.js";
 import { createVmListHandler } from "./vm-list.js";
 
+/** A VM id as the API returns it: server prefix + libvirt domain uuid. */
+const WINDOWS_ID = "srv:6f1c2b3a-4d5e-4f60-8a1b-2c3d4e5f6a7b";
+
 const data = {
   vms: {
     domains: [
-      { id: "srv:win11", name: "Windows 11", state: "RUNNING" },
+      { id: WINDOWS_ID, name: "Windows 11", state: "RUNNING" },
       { id: "srv:ubuntu", name: "Ubuntu Server", state: "SHUTOFF" },
       { id: "srv:nameless", name: null, state: "PAUSED" },
     ],
@@ -20,17 +23,20 @@ function fakeExecutor(result: VmListQuery): GraphQLExecutor {
 }
 
 describe("vm_list handler", () => {
-  it("summarizes each VM by name and state", async () => {
+  it("summarizes each VM by name and state, ending with its full id", async () => {
     const result = await createVmListHandler(fakeExecutor(data))({ response_format: "concise" });
 
-    expect(firstText(result)).toMatch(/^Windows 11 — RUNNING$/m);
-    expect(firstText(result)).toMatch(/^Ubuntu Server — SHUTOFF$/m);
+    expect(firstText(result).split("\n")).toEqual([
+      `Windows 11 — RUNNING [id: ${WINDOWS_ID}]`,
+      "Ubuntu Server — SHUTOFF [id: srv:ubuntu]",
+      "(unnamed) — PAUSED [id: srv:nameless]",
+    ]);
   });
 
-  it("renders a null-name VM as its id in parentheses", async () => {
+  it("renders a null-name VM as (unnamed), keeping its id in the tag", async () => {
     const result = await createVmListHandler(fakeExecutor(data))({ response_format: "concise" });
 
-    expect(firstText(result)).toMatch(/^\(srv:nameless\) — PAUSED$/m);
+    expect(firstText(result)).toMatch(/^\(unnamed\) — PAUSED \[id: srv:nameless\]$/m);
   });
 
   it("filters by case-insensitive name substring", async () => {
