@@ -89,6 +89,47 @@ describe("user_script_run", () => {
   });
 });
 
+describe("user_script_run refusal names the SSH user", () => {
+  const unconfirmed = {
+    response_format: "concise",
+    name: "backup",
+    timeout_seconds: 60,
+    confirm: true,
+  } as const;
+
+  it("names the configured SSH user instead of assuming root", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell, null, "scripts-bot");
+
+    const result = await handler(unconfirmed);
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain('would run as the SSH user "scripts-bot" on your server');
+    expect(firstText(result)).not.toContain("root");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("names root when root is the configured SSH user", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell, null, "root");
+
+    const result = await handler(unconfirmed);
+
+    expect(firstText(result)).toContain('would run as the SSH user "root" on your server');
+  });
+
+  it("falls back to neutral wording when the SSH user is not known", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell);
+
+    const result = await handler(unconfirmed);
+
+    expect(firstText(result)).toBe(
+      'Refusing to run user script "backup": user scripts are arbitrary code, and this one would run as the SSH user on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
+    );
+  });
+});
+
 describe("user_script_run dot-name confinement", () => {
   it('rejects "." and ".." names before the gate', async () => {
     const { shell, calls } = recordingShell(okResult);

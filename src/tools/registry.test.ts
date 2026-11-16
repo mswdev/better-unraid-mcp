@@ -1,6 +1,8 @@
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../graphql/client.js";
+import { firstText, recordingShell } from "./_shared/test-support.js";
 import { registerAllTools, TOOL_REGISTRATIONS } from "./registry.js";
 
 interface Registration {
@@ -253,6 +255,37 @@ describe("registerAllTools host-level tools", () => {
     const { server, registrations } = fakeServer();
     registerAll(server);
     expect(registrations).toHaveLength(67);
+  });
+});
+
+describe("registerAllTools SSH user wiring", () => {
+  it("passes the configured SSH user through to user_script_run's refusal", async () => {
+    const handlers = new Map<string, (args: unknown) => Promise<CallToolResult>>();
+    const server = {
+      registerTool: (
+        name: string,
+        _config: unknown,
+        handler: (args: unknown) => Promise<CallToolResult>,
+      ) => {
+        handlers.set(name, handler);
+      },
+      // No elicitation support, so the gate refuses instead of prompting.
+      server: { getClientCapabilities: () => undefined },
+    };
+    const { shell, calls } = recordingShell({ stdout: "", stderr: "", exitCode: 0 });
+
+    registerAllTools(server as never, {
+      client: noopClient,
+      shell,
+      readOnly: false,
+      schemaApiVersion: null,
+      sshUser: "scripts-bot",
+    });
+    const run = handlers.get("user_script_run");
+    const result = await run?.({ response_format: "concise", name: "backup", timeout_seconds: 60 });
+
+    expect(result && firstText(result)).toContain('run as the SSH user "scripts-bot"');
+    expect(calls).toHaveLength(0);
   });
 });
 

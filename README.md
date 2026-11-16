@@ -380,8 +380,8 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin. |
-| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary root code, so this requires `confirm` + `acknowledge_risk`. |
+| `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin, and says whether the plugin is missing or installed with no scripts yet. |
+| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary code run as the SSH user (typically root), so this requires `confirm` + `acknowledge_risk`. |
 
 </details>
 
