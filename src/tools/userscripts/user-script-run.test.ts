@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import { MAX_OUTPUT_CHARS } from "../_shared/truncate-output.js";
 import { createUserScriptRunHandler } from "./user-script-run.js";
 
 const okResult = { stdout: "done\n", stderr: "", exitCode: 0 };
@@ -109,6 +110,28 @@ describe("user_script_run dot-name confinement", () => {
     expect(dot.isError).toBe(true);
     expect(dotdot.isError).toBe(true);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("user_script_run oversized output", () => {
+  it("keeps the newest output lines in detailed mode and stays parseable", async () => {
+    const stdout = `${Array.from({ length: 4_000 }, (_, index) => `step ${index + 1}`).join("\n")}\n`;
+    const { shell } = recordingShell({ stdout, stderr: "", exitCode: 0 });
+    const handler = createUserScriptRunHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      name: "backup",
+      timeout_seconds: 60,
+      ...bothFlags,
+    });
+    const text = firstText(result);
+    const payload = JSON.parse(text) as { name: string; stdout: string; truncated: boolean };
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(payload.name).toBe("backup");
+    expect(payload.stdout.endsWith("step 4000\n")).toBe(true);
+    expect(payload.truncated).toBe(true);
   });
 });
 

@@ -12,7 +12,7 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+import { fitTailsToOutputCap, truncateOutput } from "../_shared/truncate-output.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
 
 const TOOL_NAME = "user_script_run";
@@ -121,12 +121,10 @@ export function createUserScriptRunHandler(
         buildRunner(args.name),
         args.timeout_seconds * MS_PER_SECOND,
       );
-      const detailed = {
-        name: args.name,
-        exit_code: result.exitCode,
-        stdout: truncateOutput(result.stdout),
-        stderr: truncateOutput(result.stderr),
-      };
+      const detailed = fitTailsToOutputCap({
+        fixed: { name: args.name, exit_code: result.exitCode },
+        tails: { stdout: result.stdout, stderr: result.stderr },
+      });
       const summary = summarize(args.name, result.exitCode, result.stdout, result.stderr);
       return formatResponse(args.response_format, summary, detailed);
     } catch (error) {

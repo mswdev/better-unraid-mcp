@@ -10,7 +10,11 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
-import { MAX_OUTPUT_CHARS, truncateOutput } from "../_shared/truncate-output.js";
+import {
+  fitTailsToOutputCap,
+  MAX_OUTPUT_CHARS,
+  truncateOutput,
+} from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "file_read";
 const DEFAULT_LINES = 200;
@@ -86,16 +90,26 @@ function renderResult(input: FileReadInput, result: ShellResult): CallToolResult
     const detail = result.stderr.trim() || result.stdout.trim() || "(no error output)";
     return toolError(`Failed to read ${input.path} (exit ${result.exitCode}): ${detail}`);
   }
-  const content = truncateOutput(result.stdout.replace(TRAILING_NEWLINE, ""));
+  return renderContent(input, result);
+}
+
+/**
+ * Renders a successful read. Both modes keep the newest lines when the output
+ * is too large: concise via `truncateOutput`, detailed via a tail-fitted payload
+ * that stays parseable and reports how much was dropped.
+ */
+function renderContent(input: FileReadInput, result: ShellResult): CallToolResult {
+  const fullContent = result.stdout.replace(TRAILING_NEWLINE, "");
+  const content = truncateOutput(fullContent);
   const summary =
     content === ""
       ? `${input.path} is empty${input.pattern ? ` (or nothing matched ${input.pattern})` : ""}.`
       : `${input.path}: last ${input.lines} lines${input.pattern ? ` matching ${input.pattern}` : ""}:\n\n${content}`;
-  return formatResponse(input.response_format, summary, {
-    path: input.path,
-    exit_code: result.exitCode,
-    content,
+  const detailed = fitTailsToOutputCap({
+    fixed: { path: input.path, exit_code: result.exitCode },
+    tails: { content: fullContent },
   });
+  return formatResponse(input.response_format, summary, detailed);
 }
 
 /**
@@ -137,7 +151,7 @@ export function registerFileRead(server: McpServer, shell: ShellExecutor | null)
     TOOL_NAME,
     {
       title: "Read Host File",
-      description: `Read-only. Returns the last \`lines\` lines of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional \`pattern\` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Prefer log_read for any log that log_list returns: it needs no SSH and pages from any line. file_read only tails, and output beyond ${MAX_OUTPUT_CHARS} characters is truncated. Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).`,
+      description: `Read-only. Returns the last \`lines\` lines of any absolute file path on the Unraid host over SSH, reaching files the GraphQL API cannot (e.g. /boot/logs/syslog-previous, /proc/cpuinfo). Optional \`pattern\` (extended regex) filters server-side via grep before the tail, so searching huge logs stays cheap. Prefer log_read for any log that log_list returns: it needs no SSH and pages from any line. file_read only tails; output beyond ${MAX_OUTPUT_CHARS} characters is cut from the start, so the newest lines are kept (detailed JSON then reports \`truncated\` and the characters dropped). Requires SSH to be configured (UNRAID_SSH_* environment variables); reads run as the SSH user (typically root).`,
       inputSchema,
       annotations: {
         readOnlyHint: true,

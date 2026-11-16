@@ -1,10 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { redactSecrets } from "./redact.js";
-import { truncateJsonPayload } from "./truncate-output.js";
-
-/** Number of spaces used when pretty-printing detailed JSON responses. */
-const JSON_INDENT_SPACES = 2;
+import { JSON_INDENT_SPACES, truncateJsonPayload } from "./truncate-output.js";
 
 /** How verbose a tool response should be. */
 export type ResponseFormat = "concise" | "detailed";

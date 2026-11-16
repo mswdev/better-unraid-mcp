@@ -12,7 +12,11 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
-import { MAX_OUTPUT_CHARS, truncateOutput } from "../_shared/truncate-output.js";
+import {
+  fitTailsToOutputCap,
+  MAX_OUTPUT_CHARS,
+  truncateOutput,
+} from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "shell_exec";
 const DEFAULT_TIMEOUT_SECONDS = 30;
@@ -62,6 +66,14 @@ function summarize(result: ShellResult): string {
   return parts.join("\n");
 }
 
+/** The detailed payload: both streams keep their newest output when the JSON would overflow. */
+function detailedPayload(input: ShellExecInput, result: ShellResult): Record<string, unknown> {
+  return fitTailsToOutputCap({
+    fixed: { command: input.command, exit_code: result.exitCode },
+    tails: { stdout: result.stdout, stderr: result.stderr },
+  });
+}
+
 /**
  * Creates the `shell_exec` handler bound to a shell executor. A non-zero exit
  * code is reported faithfully as a normal result (diagnostic commands like
@@ -94,12 +106,11 @@ export function createShellExecHandler(
     });
     try {
       const result = await shell.execute(input.command, input.timeout_seconds * MS_PER_SECOND);
-      return formatResponse(input.response_format, summarize(result), {
-        command: input.command,
-        exit_code: result.exitCode,
-        stdout: truncateOutput(result.stdout),
-        stderr: truncateOutput(result.stderr),
-      });
+      return formatResponse(
+        input.response_format,
+        summarize(result),
+        detailedPayload(input, result),
+      );
     } catch (error) {
       const message = errorMessage(error);
       return toolError(`Failed to run command over SSH: ${message}`);
@@ -121,7 +132,7 @@ export function registerShellExec(server: McpServer, shell: ShellExecutor | null
     TOOL_NAME,
     {
       title: "Run Shell Command",
-      description: `⚠ Runs an arbitrary shell command on the Unraid host over SSH as the SSH user (typically root, i.e. full control of the server). Requires \`confirm: true\` on every call; without it the tool refuses and nothing runs. Prefer a dedicated tool when one covers the task, and use file_read for plain file reads (it is ungated). Non-zero exit codes are reported as results, not errors; stdout and stderr are each truncated beyond ${MAX_OUTPUT_CHARS} characters. Requires SSH to be configured (UNRAID_SSH_* environment variables).`,
+      description: `⚠ Runs an arbitrary shell command on the Unraid host over SSH as the SSH user (typically root, i.e. full control of the server). Requires \`confirm: true\` on every call; without it the tool refuses and nothing runs. Prefer a dedicated tool when one covers the task, and use file_read for plain file reads (it is ungated). Non-zero exit codes are reported as results, not errors; output beyond ${MAX_OUTPUT_CHARS} characters is cut from the start, so the newest lines of stdout and stderr are kept (detailed JSON then reports \`truncated\` and the characters dropped). Requires SSH to be configured (UNRAID_SSH_* environment variables).`,
       inputSchema,
       annotations: {
         readOnlyHint: false,
