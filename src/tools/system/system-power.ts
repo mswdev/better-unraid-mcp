@@ -5,7 +5,12 @@ import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
-import { toolError, toolText } from "../_shared/respond.js";
+import {
+  formatResponse,
+  type ResponseFormat,
+  responseFormatSchema,
+  toolError,
+} from "../_shared/respond.js";
 
 const TOOL_NAME = "system_power";
 
@@ -25,10 +30,7 @@ const POWER_COMMANDS: Record<PowerAction, string> = {
 const COMMAND_TIMEOUT_MS = 15_000;
 
 const inputSchema = z.object({
-  response_format: z
-    .enum(["concise", "detailed"])
-    .default("concise")
-    .describe("Has no effect here; the result is always plain text."),
+  response_format: responseFormatSchema,
   action: z
     .enum(["reboot", "shutdown"])
     .describe(
@@ -45,7 +47,7 @@ const inputSchema = z.object({
 
 /** The validated handler arguments. */
 interface SystemPowerArgs {
-  response_format: "concise" | "detailed";
+  response_format: ResponseFormat;
   action: PowerAction;
   confirm?: boolean;
   acknowledge_risk?: boolean;
@@ -72,23 +74,55 @@ const EXEC_PHASE_MARKER = "run the command";
  * issued; every other failure (connect timeout, DNS, auth) means NOTHING
  * was sent and must surface as a real error, never a false confirmation.
  */
-function mapPowerError(action: PowerAction, message: string): CallToolResult {
+function mapPowerError(args: SystemPowerArgs, message: string): CallToolResult {
+  const { action } = args;
   if (message.includes(EXEC_PHASE_MARKER)) {
-    return toolText(
-      `The ${action} command was issued, then the SSH connection dropped — expected while the server goes down. Verify with connection_doctor once the server should be back.`,
-    );
+    const summary = `The ${action} command was issued, then the SSH connection dropped — expected while the server goes down. Verify with connection_doctor once the server should be back.`;
+    const detailed = {
+      requested: action,
+      command: POWER_COMMANDS[action],
+      outcome: "issued-unverified",
+      sshMessage: message,
+    };
+    return formatResponse(args.response_format, summary, detailed);
   }
   return toolError(
     `Failed to ${action}: the command was never sent — SSH failed first: ${message}`,
   );
 }
 
+/** Reports a power command that exited 0: the host is on its way down. */
+function reportInitiated(args: SystemPowerArgs): CallToolResult {
+  const label = args.action === "reboot" ? "Reboot" : "Shutdown";
+  const summary = `${label} initiated — the server is going down now and this connection will drop. Unraid stops the array cleanly on the way down.`;
+  const detailed = {
+    requested: args.action,
+    command: POWER_COMMANDS[args.action],
+    outcome: "initiated",
+  };
+  return formatResponse(args.response_format, summary, detailed);
+}
+
+/** Runs the power command; a non-zero exit means the host refused it. */
+async function runPowerCommand(
+  shell: ShellExecutor,
+  args: SystemPowerArgs,
+): Promise<CallToolResult> {
+  const result = await shell.execute(POWER_COMMANDS[args.action], COMMAND_TIMEOUT_MS);
+  if (result.exitCode !== 0) {
+    const detail = result.stderr.trim() || "(no error output)";
+    return toolError(`${args.action} failed (exit ${result.exitCode}): ${detail}`);
+  }
+  return reportInitiated(args);
+}
+
 /**
  * Creates the `system_power` handler bound to a shell executor.
  *
  * @param shell - The SSH executor, or `null` when SSH is not configured.
+ * @param channel - Optional elicitation channel for interactive confirmation.
  * @returns An MCP handler that reboots or shuts down the host behind the
- *   two-flag gate.
+ *   two-flag gate, honoring `response_format` on its success paths.
  */
 export function createSystemPowerHandler(
   shell: ShellExecutor | null,
@@ -107,17 +141,10 @@ export function createSystemPowerHandler(
       return refusal;
     }
     try {
-      const result = await shell.execute(POWER_COMMANDS[args.action], COMMAND_TIMEOUT_MS);
-      if (result.exitCode !== 0) {
-        const detail = result.stderr.trim() || "(no error output)";
-        return toolError(`${args.action} failed (exit ${result.exitCode}): ${detail}`);
-      }
-      return toolText(
-        `${args.action === "reboot" ? "Reboot" : "Shutdown"} initiated — the server is going down now and this connection will drop. Unraid stops the array cleanly on the way down.`,
-      );
+      return await runPowerCommand(shell, args);
     } catch (error) {
       const message = errorMessage(error);
-      return mapPowerError(args.action, message);
+      return mapPowerError(args, message);
     }
   };
 }
@@ -135,7 +162,7 @@ export function registerSystemPower(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Reboot or Shut Down the Server",
       description:
-        "⚠ Reboots (`/sbin/reboot`) or shuts down (`/sbin/poweroff`) the entire Unraid server over SSH. Unraid performs a clean array stop on the way down. Every share, Docker container, and VM goes offline; shutdown requires physical/WoL access to power back on. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_* variables). The SSH connection dropping after the command is expected. To take only the array offline, use array_action instead.",
+        "⚠ Reboots (`/sbin/reboot`) or shuts down (`/sbin/poweroff`) the entire Unraid server over SSH. Unraid performs a clean array stop on the way down. Every share, Docker container, and VM goes offline; shutdown requires physical/WoL access to power back on. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_* variables). The SSH connection dropping after the command is expected. `response_format: detailed` returns JSON with `requested`, `command` and `outcome` (`initiated`, or `issued-unverified` when the connection dropped mid-command). To take only the array offline, use array_action instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,
