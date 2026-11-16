@@ -66,7 +66,7 @@ const inputSchema = z.object({
     .positive()
     .optional()
     .describe(
-      "Newest archives to keep in the share's flash-backups folder, config and full combined; older ones are deleted. Omit to keep all.",
+      "Newest archives of this call's scope (config or full) to keep in the share's flash-backups folder, counting the new one; older archives of that scope are deleted and the other scope's are never touched. Omit to keep all.",
     ),
   confirm: confirmSchema,
   acknowledge_risk: z
@@ -163,15 +163,28 @@ function isTarWarningOnly(result: ShellResult): boolean {
   return result.exitCode === TAR_WARNING_EXIT_CODE;
 }
 
-/** Lists then deletes archives beyond `keep`, returning exactly what was removed. */
+/**
+ * The name prefix shared by every archive of one scope. Neither scope name is
+ * a prefix of the other, so a config prefix can never match a full archive.
+ */
+function scopePrefix(scope: BackupScope): string {
+  return `${ARCHIVE_PREFIX}-${scope}-`;
+}
+
+/**
+ * Lists then deletes archives of the target's scope beyond `keep`, returning
+ * exactly what was removed. Archives of the other scope are never listed, and
+ * the prefix filter re-checks every listed path before anything is deleted.
+ */
 async function pruneOlder(
   shell: ShellExecutor,
   target: BackupTarget,
   keep: number,
 ): Promise<string[]> {
-  const listCommand = `ls -1t ${quoteForShell(target.directory)}/${ARCHIVE_PREFIX}-*${ARCHIVE_SUFFIX} | tail -n +${keep + TAIL_OFFSET}`;
+  const pattern = `${scopePrefix(target.scope)}*${ARCHIVE_SUFFIX}`;
+  const listCommand = `ls -1t ${quoteForShell(target.directory)}/${pattern} | tail -n +${keep + TAIL_OFFSET}`;
   const listing = await shell.execute(listCommand, PRUNE_TIMEOUT_MS);
-  const prefix = `${target.directory}/${ARCHIVE_PREFIX}-`;
+  const prefix = `${target.directory}/${scopePrefix(target.scope)}`;
   const victims = listing.stdout
     .split("\n")
     .map((line) => line.trim())
@@ -291,7 +304,7 @@ export function registerFlashBackup(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Back Up Flash Device",
       description:
-        "⚠ Archives the Unraid flash (USB boot) device over SSH into a user share: by default /boot/config only (settings, plugins, keys — a few hundred MB); `full: true` archives all of /boot (several GB, includes the OS images). Writes /mnt/user/<share>/flash-backups/flash-backup-<scope>-<UTC timestamp>.tar.gz, verifies it with `tar -tzf`, and reports size and entry count; `keep: N` prunes older archives in that folder beyond N and lists exactly what it removed. The archive CONTAINS your license key, API keys, passwords, and network config — it stays on your own array; never copy it off the server unencrypted. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_*). Replaces the Unraid API's flash-backup mutation, which is an unimplemented stub.",
+        "⚠ Archives the Unraid flash (USB boot) device over SSH into a user share: by default /boot/config only (settings, plugins, keys — a few hundred MB); `full: true` archives all of /boot (several GB, includes the OS images). Writes /mnt/user/<share>/flash-backups/flash-backup-<scope>-<UTC timestamp>.tar.gz, verifies it with `tar -tzf`, and reports size and entry count; `keep: N` keeps the newest N archives of the scope just written (including the new one), deletes older ones of that scope only (a config backup never prunes full archives, nor the reverse), and lists exactly what it removed. The archive CONTAINS your license key, API keys, passwords, and network config — it stays on your own array; never copy it off the server unencrypted. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_*). Replaces the Unraid API's flash-backup mutation, which is an unimplemented stub.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

@@ -206,7 +206,9 @@ describe("flash_backup pruning", () => {
       ...bothFlags,
     });
 
-    expect(calls[3].command).toBe(`ls -1t '${EXPECTED_DIR}'/flash-backup-*.tar.gz | tail -n +3`);
+    expect(calls[3].command).toBe(
+      `ls -1t '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | tail -n +3`,
+    );
     expect(calls[4].command).toBe(`rm -f '${older[0]}' '${older[1]}'`);
     expect(firstText(result)).toContain("Pruned 2 older archive(s)");
     expect(firstText(result)).toContain(older[1]);
@@ -232,6 +234,45 @@ describe("flash_backup pruning", () => {
     await handler({ response_format: "concise", share: "backups", ...bothFlags });
 
     expect(calls).toHaveLength(3);
+  });
+
+  it("prunes only config archives on a config backup, never full ones", async () => {
+    const fullArchive = `${EXPECTED_DIR}/flash-backup-full-20260801-010101.tar.gz`;
+    const listing = ok(`${older[0]}\n${fullArchive}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[3].command).toBe(
+      `ls -1t '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | tail -n +2`,
+    );
+    expect(calls[4].command).toBe(`rm -f '${older[0]}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([older[0]]);
+  });
+
+  it("prunes only full archives on a full backup, never config ones", async () => {
+    const fullArchive = `${EXPECTED_DIR}/flash-backup-full-20260801-010101.tar.gz`;
+    const listing = ok(`${fullArchive}\n${older[0]}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      full: true,
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[3].command).toBe(
+      `ls -1t '${EXPECTED_DIR}'/flash-backup-full-*.tar.gz | tail -n +2`,
+    );
+    expect(calls[4].command).toBe(`rm -f '${fullArchive}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([fullArchive]);
   });
 
   it("ignores listed paths outside the backup directory", async () => {

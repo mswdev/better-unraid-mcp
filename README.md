@@ -369,7 +369,7 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
+| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives of the same scope (config backups never prune full ones, and the reverse) and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
 
 </details>
 
