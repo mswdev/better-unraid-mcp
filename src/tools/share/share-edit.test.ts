@@ -12,6 +12,9 @@ const CFG_BEFORE =
 const CFG_AFTER =
   'shareComment="New"\nshareAllocator="mostfree"\nshareFloor="100"\nshareUseCache="no"\nshareCachePool=""\nshareExport="-"\nshareSecurity="public"\n';
 
+/** One name per unsafe category (path, parent, quotes, backtick, `$`, control, option). */
+const DANGEROUS_NAMES = ["a/b", "..", "it's", 'say"hi', "a`id`", "$HOME", "media\nrm", "-rf"];
+
 describe("share_edit", () => {
   it("refuses without both flags and runs nothing", async () => {
     const { shell, calls } = sequencedShell([]);
@@ -87,6 +90,28 @@ describe("share_edit", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("edits a share whose name has spaces, quoting the path and URL-encoding the form", async () => {
+    const { shell, calls } = sequencedShell([ok(CFG_BEFORE), context, ok(), ok(CFG_AFTER)]);
+    const handler = createShareEditHandler(shell);
+
+    const result = await handler({
+      name: "TV Shows",
+      comment: "New",
+      allocator: "mostfree",
+      ...bothFlags,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls[0].command).toBe("cat '/boot/config/shares/TV Shows.cfg'");
+    expect(
+      calls[2].command.startsWith(
+        "'/usr/local/sbin/emcmd' 'shareName=TV%20Shows&shareNameOrig=TV%20Shows&shareComment=New&",
+      ),
+    ).toBe(true);
+    expect(calls[3].command).toBe("cat '/boot/config/shares/TV Shows.cfg'");
+    expect(firstText(result)).toContain('Share "TV Shows" updated');
+  });
+
   it("reports an unverified edit when the read-back still shows the old value", async () => {
     const { shell } = sequencedShell([ok(CFG_BEFORE), context, ok(), ok(CFG_BEFORE)]);
     const handler = createShareEditHandler(shell);
@@ -107,11 +132,11 @@ describe("share_edit failures", () => {
     expect(firstText(result)).toContain("SSH is not configured");
   });
 
-  it("rejects an invalid share name before any command", async () => {
+  it.each(DANGEROUS_NAMES)("rejects the unsafe share name %j before any command", async (name) => {
     const { shell, calls } = sequencedShell([]);
     const handler = createShareEditHandler(shell);
 
-    const result = await handler({ name: "bad name", comment: "x", ...bothFlags });
+    const result = await handler({ name, comment: "x", ...bothFlags });
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("No changes were made.");

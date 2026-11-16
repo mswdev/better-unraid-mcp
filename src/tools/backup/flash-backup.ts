@@ -14,19 +14,17 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
+import { validateExistingShareName } from "../_shared/share-name/share-name.js";
 
 const TOOL_NAME = "flash_backup";
 
-/** User shares live here; the share name is appended after validation. */
+/** User shares live here; the share name is appended after validation (and always quoted). */
 const USER_SHARES_ROOT = "/mnt/user";
 const BACKUP_SUBDIR = "flash-backups";
 const FLASH_ROOT = "/boot";
 const CONFIG_SUBDIR = "config";
 const ARCHIVE_PREFIX = "flash-backup";
 const ARCHIVE_SUFFIX = ".tar.gz";
-
-/** Share names as Unraid allows them, minus anything that could escape the shares root. */
-const SHARE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 const PROBE_TIMEOUT_MS = 10_000;
 /** A full-flash archive (bzroot, bzimage, … ≈ 2.6 GB on a real server) can take minutes. */
@@ -54,7 +52,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Existing user share to write the archive into: the plain name from share_list, not a path.",
+      "Existing user share to write the archive into: the plain name from share_list, not a path. Spaces are fine; quotes, `$`, backticks, `/`, and a leading `-` are refused.",
     ),
   full: z
     .boolean()
@@ -246,6 +244,21 @@ function isToolResult(value: BackupOutcome | CallToolResult): value is CallToolR
 }
 
 /**
+ * Refuses, before anything runs, a share name that breaks the shared
+ * existing-share rule (spaces allowed; quotes, `$`, backticks, `/`, `..`,
+ * control characters, and a leading `-` refused).
+ */
+function invalidShareError(share: string): CallToolResult | null {
+  const reason = validateExistingShareName(share);
+  if (!reason) {
+    return null;
+  }
+  return toolError(
+    `Invalid share name "${share}": ${reason} Use the plain share name from share_list. No changes were made.`,
+  );
+}
+
+/**
  * Creates the `flash_backup` handler bound to a shell executor.
  *
  * @param deps - Shell executor (null when SSH is unconfigured), elicitation channel, clock.
@@ -259,10 +272,9 @@ export function createFlashBackupHandler(deps: FlashBackupDeps) {
     if (!deps.shell) {
       return sshUnavailableError();
     }
-    if (!SHARE_NAME_PATTERN.test(args.share)) {
-      return toolError(
-        `Invalid share name "${args.share}": use the plain share name from share_list. No changes were made.`,
-      );
+    const invalidShare = invalidShareError(args.share);
+    if (invalidShare) {
+      return invalidShare;
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
