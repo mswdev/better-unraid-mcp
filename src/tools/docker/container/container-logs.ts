@@ -7,6 +7,7 @@ import {
   type DockerContainerLogsQuery,
 } from "../../../types/unraid/graphql.js";
 import { errorMessage } from "../../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE, requireService } from "../../_shared/errors/require-service.js";
 import { quoteForShell } from "../../_shared/quote-shell.js";
 import {
   formatResponse,
@@ -49,7 +50,7 @@ const inputSchema = z.object({
     .describe("Number of most recent log lines to return."),
 });
 
-type Logs = DockerContainerLogsQuery["docker"]["logs"];
+type Logs = NonNullable<DockerContainerLogsQuery["docker"]>["logs"];
 
 /** The validated handler input (tail is always present via the zod default). */
 interface ContainerLogsInput {
@@ -130,13 +131,14 @@ export function createDockerContainerLogsHandler(
     try {
       const { id, since, tail } = input;
       const data = await client.execute(DockerContainerLogsDocument, { id, since, tail });
-      if (data.docker.logs.lines.length === 0 && shell) {
+      const { logs } = requireService(data.docker, DOCKER_UNAVAILABLE);
+      if (logs.lines.length === 0 && shell) {
         const fallback = await fallbackOverSsh(shell, input).catch(() => null);
         if (fallback) {
           return fallback;
         }
       }
-      return formatResponse(input.response_format, summarize(data.docker.logs), data.docker.logs);
+      return formatResponse(input.response_format, summarize(logs), logs);
     } catch (error) {
       const message = errorMessage(error);
       return toolError(`Failed to fetch logs for ${input.id}: ${message}`);

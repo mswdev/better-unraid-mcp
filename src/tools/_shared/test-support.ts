@@ -1,6 +1,41 @@
-import type { CallToolResult } from "@modelcontextprotocol/server";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
+
+/** The parts of a `registerTool` config that an MCP client sees in `tools/list`. */
+export interface CapturedToolConfig {
+  title?: string;
+  description?: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+}
+
+/**
+ * Runs one tool's `register*` function against a fake MCP server and returns
+ * the config it passed to `registerTool`, so a test can assert the title,
+ * description, or schemas a client will be shown.
+ *
+ * @param register - Calls a single tool's `register*` function on the given server.
+ * @returns The config of the tool that was registered.
+ * @throws Error when `register` did not register a tool.
+ * @example
+ * const config = captureToolConfig((server) => registerArrayStatus(server, executor));
+ */
+export function captureToolConfig(register: (server: McpServer) => void): CapturedToolConfig {
+  let captured: CapturedToolConfig | undefined;
+  const fakeServer = {
+    registerTool: (_name: string, config: CapturedToolConfig) => {
+      captured = config;
+    },
+  };
+  // Only `registerTool` is exercised at registration time; the elicitation
+  // channel reads `server.server` lazily, when a tool call needs it.
+  register(fakeServer as unknown as McpServer);
+  if (!captured) {
+    throw new Error("Expected the register function to register a tool");
+  }
+  return captured;
+}
 
 /**
  * Returns the text of the first content block, asserting it is a text block.

@@ -6,6 +6,7 @@ import {
   type DockerNetworkListQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE, requireService } from "../_shared/errors/require-service.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -19,7 +20,7 @@ const inputSchema = z.object({
   response_format: responseFormatSchema,
 });
 
-type Networks = DockerNetworkListQuery["docker"]["networks"];
+type Networks = NonNullable<DockerNetworkListQuery["docker"]>["networks"];
 
 /** Formats one network with its scope and any active flag markers (IPv6, internal). */
 function formatNetwork(network: Networks[number]): string {
@@ -56,7 +57,8 @@ export function createDockerNetworkListHandler(client: GraphQLExecutor) {
   }): Promise<CallToolResult> => {
     try {
       const data = await client.execute(DockerNetworkListDocument);
-      return formatResponse(response_format, summarize(data.docker.networks), data.docker.networks);
+      const { networks } = requireService(data.docker, DOCKER_UNAVAILABLE);
+      return formatResponse(response_format, summarize(networks), networks);
     } catch (error) {
       const message = errorMessage(error);
       return toolError(`Failed to fetch Docker networks: ${message}`);

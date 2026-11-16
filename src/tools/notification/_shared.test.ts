@@ -29,28 +29,43 @@ describe("summarizeOverview", () => {
 });
 
 describe("summarizeLine", () => {
-  it("renders [IMPORTANCE] title — subject (formattedTimestamp)", () => {
+  it("renders [IMPORTANCE] title — subject (formattedTimestamp) [id: …]", () => {
     expect(
       summarizeLine({
+        id: "srv:Disk_1700000001.notify",
         importance: "WARNING",
         title: "Disk warning",
         subject: "Disk 1",
         timestamp: "1700000001",
         formattedTimestamp: "2023-11-14 12:00",
       }),
-    ).toBe("[WARNING] Disk warning — Disk 1 (2023-11-14 12:00)");
+    ).toBe("[WARNING] Disk warning — Disk 1 (2023-11-14 12:00) [id: srv:Disk_1700000001.notify]");
   });
 
-  it("falls back to timestamp then a placeholder when formattedTimestamp is null", () => {
+  it("falls back to the raw timestamp when formattedTimestamp is null", () => {
+    const line = summarizeLine({
+      id: "srv:n1",
+      importance: "INFO",
+      title: "t",
+      subject: "s",
+      timestamp: "1700000002",
+      formattedTimestamp: null,
+    });
+
+    expect(line).toBe("[INFO] t — s (1700000002) [id: srv:n1]");
+  });
+
+  it("falls back to a placeholder when both timestamps are null", () => {
     expect(
       summarizeLine({
+        id: "srv:n2",
         importance: "INFO",
         title: "t",
         subject: "s",
         timestamp: null,
         formattedTimestamp: null,
       }),
-    ).toBe("[INFO] t — s (no timestamp)");
+    ).toBe("[INFO] t — s (no timestamp) [id: srv:n2]");
   });
 });
 

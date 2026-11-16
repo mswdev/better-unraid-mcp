@@ -150,6 +150,71 @@ describe("system_power SSH failure classification", () => {
   });
 });
 
+describe("system_power response_format", () => {
+  const confirmed = { confirm: true, acknowledge_risk: true } as const;
+  const droppedMidCommand = "Timed out after 15000 ms trying to run the command over SSH.";
+
+  it("keeps the concise initiated text for a command that exits 0", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createSystemPowerHandler(shell);
+
+    const result = await handler({ ...confirmed, response_format: "concise", action: "shutdown" });
+
+    expect(firstText(result)).toBe(
+      "Shutdown initiated — the server is going down now and this connection will drop. Unraid stops the array cleanly on the way down.",
+    );
+  });
+
+  it("returns detailed JSON with the outcome for a command that exits 0", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createSystemPowerHandler(shell);
+
+    const result = await handler({ ...confirmed, response_format: "detailed", action: "reboot" });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(firstText(result))).toEqual({
+      requested: "reboot",
+      command: "/sbin/reboot",
+      outcome: "initiated",
+    });
+  });
+
+  it("keeps the concise issued text when the connection drops mid-command", async () => {
+    const handler = createSystemPowerHandler(throwingShell(droppedMidCommand));
+
+    const result = await handler({ ...confirmed, response_format: "concise", action: "reboot" });
+
+    expect(firstText(result)).toBe(
+      "The reboot command was issued, then the SSH connection dropped — expected while the server goes down. Verify with connection_doctor once the server should be back.",
+    );
+  });
+
+  it("returns detailed JSON marked issued-unverified when the connection drops", async () => {
+    const handler = createSystemPowerHandler(throwingShell(droppedMidCommand));
+
+    const result = await handler({ ...confirmed, response_format: "detailed", action: "shutdown" });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(firstText(result))).toEqual({
+      requested: "shutdown",
+      command: "/sbin/poweroff",
+      outcome: "issued-unverified",
+      sshMessage: droppedMidCommand,
+    });
+  });
+
+  it("keeps a never-sent failure as error text in detailed mode", async () => {
+    const handler = createSystemPowerHandler(throwingShell("handshake failed"));
+
+    const result = await handler({ ...confirmed, response_format: "detailed", action: "reboot" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toBe(
+      "Failed to reboot: the command was never sent — SSH failed first: handshake failed",
+    );
+  });
+});
+
 describe("system_power command failures", () => {
   const confirmed = { response_format: "concise", confirm: true, acknowledge_risk: true } as const;
 

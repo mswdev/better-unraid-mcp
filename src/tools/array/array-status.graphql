@@ -17,12 +17,14 @@ query ArrayStatus {
       speed
     }
     parities {
+      id
       name
       status
       temp
       type
     }
     disks {
+      id
       name
       status
       temp
@@ -34,6 +36,7 @@ query ArrayStatus {
       type
     }
     caches {
+      id
       name
       status
       temp

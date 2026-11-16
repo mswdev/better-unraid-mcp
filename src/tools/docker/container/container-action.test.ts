@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   DockerPauseDocument,
   type DockerPauseMutation,
@@ -11,8 +12,16 @@ import {
   DockerUnpauseDocument,
   type DockerUnpauseMutation,
 } from "../../../types/unraid/graphql.js";
-import { firstText, recordingExecutor, throwingExecutor } from "../../_shared/test-support.js";
-import { createDockerContainerActionHandler } from "./container-action.js";
+import {
+  captureToolConfig,
+  firstText,
+  recordingExecutor,
+  throwingExecutor,
+} from "../../_shared/test-support.js";
+import {
+  createDockerContainerActionHandler,
+  registerDockerContainerAction,
+} from "./container-action.js";
 
 // Per-action fixtures are typed `satisfies <Op>Mutation` so codegen/selection
 // drift (a renamed field or changed ContainerState member) breaks the build.
@@ -194,5 +203,31 @@ describe("docker_container_action failure messages", () => {
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toBe("Failed to stop container srv:abc: socket hang up");
+  });
+});
+
+/** The `action` enum as a client sees it in the tool's JSON input schema. */
+function advertisedActions(inputSchema: unknown): string[] {
+  const json = z.toJSONSchema(inputSchema as z.ZodType, { io: "input" });
+  const action = json.properties?.action;
+  if (typeof action !== "object" || !Array.isArray(action.enum)) {
+    return [];
+  }
+  return action.enum.map(String);
+}
+
+describe("docker_container_action registration", () => {
+  it("names every action the enum allows in its title", () => {
+    const { executor } = recordingExecutor({});
+
+    const config = captureToolConfig((server) => registerDockerContainerAction(server, executor));
+
+    // Whole words, so "start" is not satisfied by "restart" nor "pause" by "unpause".
+    const titleWords = (config.title ?? "").toLowerCase().split(/[^a-z]+/);
+    const actions = advertisedActions(config.inputSchema);
+    expect(actions).toEqual(["start", "stop", "pause", "unpause", "restart"]);
+    for (const action of actions) {
+      expect(titleWords).toContain(action);
+    }
   });
 });

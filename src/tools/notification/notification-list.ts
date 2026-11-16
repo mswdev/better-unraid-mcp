@@ -114,7 +114,7 @@ export function registerNotificationList(server: McpServer, client: GraphQLExecu
     {
       title: "List Notifications",
       description:
-        "Read-only. Lists notifications of one `type` (`unread` or `archive`), newest first. Optional `importance` filter (alert/warning/info); paginate with `offset` and `limit`. The source of truth for which notifications exist and for the ids that notification_archive, notification_unread and notification_delete take; ids appear only with `response_format: detailed`. For just the unread warnings and alerts use notification_alerts; for counts only use notification_overview.",
+        "Read-only. Lists notifications of one `type` (`unread` or `archive`), newest first. Optional `importance` filter (alert/warning/info); paginate with `offset` and `limit`. The source of truth for which notifications exist and for the ids that notification_archive, notification_unread and notification_delete take; each concise line ends with the notification's `[id: …]`. For just the unread warnings and alerts use notification_alerts; for counts only use notification_overview.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

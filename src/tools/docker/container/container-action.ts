@@ -24,7 +24,7 @@ const TOOL_NAME = "docker_container_action";
 
 type ContainerAction = "start" | "stop" | "pause" | "unpause" | "restart";
 
-/** A lifecycle action's resulting container (all four ops return this shape). */
+/** A lifecycle action's resulting container (all five ops return this shape). */
 interface ActionResult {
   id: string;
   names: string[];
@@ -76,7 +76,8 @@ async function runAction(
  * Creates the `docker_container_action` handler bound to a GraphQL executor.
  *
  * @param client - The GraphQL executor used to run the lifecycle mutation.
- * @returns An MCP handler that starts/stops/pauses/unpauses a container.
+ * @param channel - Optional elicitation channel for interactive confirmation.
+ * @returns An MCP handler that starts, stops, restarts, pauses, or unpauses a container.
  */
 export function createDockerContainerActionHandler(
   client: GraphQLExecutor,
@@ -131,7 +132,7 @@ export function registerDockerContainerAction(server: McpServer, client: GraphQL
   server.registerTool(
     TOOL_NAME,
     {
-      title: "Start/Stop/Pause Docker Container",
+      title: "Start / Stop / Restart / Pause / Unpause a Docker Container",
       description:
         "Changes a container's run state (start | stop | pause | unpause | restart). restart uses the API's native restart mutation (API 4.37+). Requires `confirm: true`. Pass the container `id` from docker_container_list; names often work but the API's post-action read-back is unreliable with names. stop/pause/restart disrupt a running container; start/unpause are restorative but still gated for consistency. To delete a container use docker_container_remove; to change what starts at boot use docker_autostart_set.",
       inputSchema,

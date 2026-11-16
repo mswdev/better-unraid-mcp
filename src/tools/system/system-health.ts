@@ -2,12 +2,15 @@ import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
 import {
+  ParityHistoryDocument,
   SystemHealthDocument,
   type SystemHealthQuery,
   UpsStatusDocument,
   type UpsStatusQuery,
 } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { DOCKER_UNAVAILABLE } from "../_shared/errors/require-service.js";
+import { type ParityChecks, sortNewestFirst } from "../_shared/parity/sort-newest-first.js";
 import {
   formatStructuredResponse,
   type ResponseFormat,
@@ -35,6 +38,12 @@ const HEALTHY_DISK_STATUSES = new Set(["DISK_OK", "DISK_NP"]);
 
 /** apcupsd status meaning mains power is present. */
 const UPS_ONLINE_STATUS = "ONLINE";
+
+/** Live parity statuses meaning a check is in progress right now. */
+const ACTIVE_PARITY_STATUSES: ReadonlySet<string> = new Set(["RUNNING", "PAUSED"]);
+
+/** The history outcome for a check that exited with an error (not a cancel). */
+const FAILED_PARITY_STATUS = "FAILED";
 
 /** One subsystem's verdict. */
 interface SubsystemHealth {
@@ -118,17 +127,65 @@ function checkDisks(array: HealthArray): SubsystemHealth {
   return { subsystem: "disks", severity: worst, detail: `Disk problems: ${names}.` };
 }
 
-function checkParity(array: HealthArray): SubsystemHealth {
-  const errors = toNumber(array.parityCheckStatus.errors);
-  if (errors > 0) {
-    return {
-      subsystem: "parity",
-      severity: "warning",
-      detail: `Last parity check reported ${errors} error(s).`,
-    };
+/** Parity-check history, or the failure message when the API could not read its log. */
+type ParityReading = { checks: ParityChecks } | { failure: string };
+
+/**
+ * Reads parity-check history separately so a failed read cannot sink the
+ * whole rollup. The API throws "Parity history file not found" when
+ * /boot/config/parity-checks.log is absent, which is normal on a server that
+ * has never run a check.
+ */
+async function readParityHistory(client: GraphQLExecutor): Promise<ParityReading> {
+  try {
+    const data = await client.execute(ParityHistoryDocument);
+    return { checks: data.parityHistory };
+  } catch (error) {
+    return { failure: errorMessage(error) };
   }
-  const running = array.parityCheckStatus.running ? " A parity check is running." : "";
-  return { subsystem: "parity", severity: "ok", detail: `No parity errors reported.${running}` };
+}
+
+/** Names a check in progress (" A parity check is running (37% done).") or returns "". */
+function activeCheckClause(live: HealthArray["parityCheckStatus"]): string {
+  if (!ACTIVE_PARITY_STATUSES.has(live.status)) {
+    return "";
+  }
+  return ` A parity check is ${live.status.toLowerCase()} (${live.progress ?? 0}% done).`;
+}
+
+/** Scores the newest recorded check: any errors, or a FAILED outcome, is a warning. */
+function scoreLastCheck(check: ParityChecks[number]): Pick<SubsystemHealth, "severity" | "detail"> {
+  const errors = check.errors ?? 0;
+  const isProblem = errors > 0 || check.status === FAILED_PARITY_STATUS;
+  return {
+    severity: isProblem ? "warning" : "ok",
+    detail: `Last parity check (${check.date ?? "date unknown"}): ${check.status}, ${errors} error(s).`,
+  };
+}
+
+/**
+ * Scores parity from the newest parity-history entry, plus any check the live
+ * array status shows in progress. The live `parityCheckStatus` cannot carry
+ * the error count: the API fills only its status, speed, date, duration and
+ * progress (upstream getParityCheckStatus at unraid/api v4.37.11), so
+ * `errors` and `running` there are always null. No readable history is not a
+ * fault, so it scores ok.
+ */
+function checkParity(
+  live: HealthArray["parityCheckStatus"],
+  reading: ParityReading,
+): SubsystemHealth {
+  const active = activeCheckClause(live);
+  if ("failure" in reading) {
+    const detail = `No parity-check history could be read (${reading.failure}).${active}`;
+    return { subsystem: "parity", severity: "ok", detail };
+  }
+  const [latest] = sortNewestFirst(reading.checks);
+  if (latest === undefined) {
+    return { subsystem: "parity", severity: "ok", detail: `No parity checks recorded.${active}` };
+  }
+  const scored = scoreLastCheck(latest);
+  return { subsystem: "parity", severity: scored.severity, detail: `${scored.detail}${active}` };
 }
 
 function checkNotifications(data: HealthData): SubsystemHealth {
@@ -205,6 +262,13 @@ function checkUps(reading: UpsReading): SubsystemHealth {
 }
 
 function checkDockerUpdates(data: HealthData): SubsystemHealth {
+  if (data.docker === null) {
+    return {
+      subsystem: "docker",
+      severity: "warning",
+      detail: `Docker status unknown: ${DOCKER_UNAVAILABLE}.`,
+    };
+  }
   const pending = data.docker.containers.filter((c) => c.isUpdateAvailable === true).length;
   if (pending === 0) {
     return { subsystem: "docker", severity: "ok", detail: "All container images current." };
@@ -231,15 +295,6 @@ function summarize(overall: Severity, reports: SubsystemHealth[]): string {
   return [`OVERALL: ${overall.toUpperCase()}`, ...lines].join("\n");
 }
 
-/**
- * Creates the `system_health` handler bound to a GraphQL executor.
- *
- * @param client - The GraphQL executor used for the combined health read.
- * @returns An MCP handler producing a severity-scored health rollup.
- * @example
- * const handler = createSystemHealthHandler(client);
- * await handler({ response_format: "concise" });
- */
 /** The severity-scored rollup, reused by the tool and the unraid://health resource. */
 export interface SystemHealthReport {
   overall: Severity;
@@ -247,19 +302,25 @@ export interface SystemHealthReport {
 }
 
 /**
- * Computes the severity-scored health rollup from one combined GraphQL read.
+ * Computes the severity-scored health rollup from one combined GraphQL read,
+ * plus separate UPS and parity-history reads that degrade on failure.
  *
- * @param client - The GraphQL executor used for the combined health read.
+ * @param client - The GraphQL executor used for the health reads.
  * @returns The overall verdict plus per-subsystem reports.
- * @throws Error when the health query fails (a failed UPS read degrades instead).
+ * @throws Error when the combined health query fails (a failed UPS or
+ *   parity-history read degrades instead).
  */
 export async function runSystemHealth(client: GraphQLExecutor): Promise<SystemHealthReport> {
-  const [data, ups] = await Promise.all([client.execute(SystemHealthDocument), readUps(client)]);
+  const [data, ups, parity] = await Promise.all([
+    client.execute(SystemHealthDocument),
+    readUps(client),
+    readParityHistory(client),
+  ]);
   const subsystems = [
     checkArrayState(data.array),
     checkCapacity(data.array),
     checkDisks(data.array),
-    checkParity(data.array),
+    checkParity(data.array.parityCheckStatus, parity),
     checkNotifications(data),
     checkUps(ups),
     checkDockerUpdates(data),
@@ -267,6 +328,15 @@ export async function runSystemHealth(client: GraphQLExecutor): Promise<SystemHe
   return { overall: worstSeverity(subsystems), subsystems };
 }
 
+/**
+ * Creates the `system_health` handler bound to a GraphQL executor.
+ *
+ * @param client - The GraphQL executor used for the health reads.
+ * @returns An MCP handler producing a severity-scored health rollup.
+ * @example
+ * const handler = createSystemHealthHandler(client);
+ * await handler({ response_format: "concise" });
+ */
 export function createSystemHealthHandler(client: GraphQLExecutor) {
   return async (input: { response_format: ResponseFormat }): Promise<CallToolResult> => {
     try {
@@ -293,7 +363,7 @@ export function registerSystemHealth(server: McpServer, client: GraphQLExecutor)
     {
       title: "System Health Rollup",
       description:
-        "Read-only. One severity-scored health report (OK / WARNING / CRITICAL) across array state, capacity, disk status and temperatures, parity errors, unread notifications, UPS, and pending container updates — start here instead of assembling health from separate reads. Thresholds: capacity warns at 90% and goes critical at 95%; disk temps warn at 50°C and go critical at 60°C. Follow up with array_status, disk_list, or notification_alerts for depth.",
+        "Read-only. One severity-scored health report (OK / WARNING / CRITICAL) across array state, capacity, disk status and temperatures, parity (the last recorded check's outcome and error count, plus any check in progress), unread notifications, UPS, and pending container updates — start here instead of assembling health from separate reads. Thresholds: capacity warns at 90% and goes critical at 95%; disk temps warn at 50°C and go critical at 60°C; a last parity check with errors or a FAILED outcome warns. Follow up with array_status, disk_list, parity_history, or notification_alerts for depth.",
       inputSchema,
       outputSchema,
       annotations: {

@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { GraphQLExecutor } from "../../../graphql/client.js";
 import type { DockerContainerListQuery } from "../../../types/unraid/graphql.js";
+import { DOCKER_UNAVAILABLE } from "../../_shared/errors/require-service.js";
 import { firstText, throwingExecutor } from "../../_shared/test-support.js";
 import { createDockerContainerListHandler } from "./container-list.js";
+
+/** A full-length container id (server prefix + 64 hex chars), as the API returns it. */
+const PLEX_ID = "srv:4f9a2c7e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a";
 
 const data = {
   docker: {
     containers: [
       {
-        id: "srv:abc",
+        id: PLEX_ID,
         names: ["/plex"],
         image: "linuxserver/plex",
         state: "RUNNING",
@@ -58,6 +62,17 @@ describe("docker_container_list handler", () => {
     expect(firstText(result)).toMatch(/update available/i);
   });
 
+  it("ends each concise line with the full container id", async () => {
+    const handler = createDockerContainerListHandler(fakeExecutor(data));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(firstText(result).split("\n")).toEqual([
+      `plex — RUNNING — linuxserver/plex — ⬆ update available [id: ${PLEX_ID}]`,
+      "sonarr — EXITED — linuxserver/sonarr [id: srv:def]",
+    ]);
+  });
+
   it("filters by case-insensitive name substring on the stripped name", async () => {
     const result = await createDockerContainerListHandler(fakeExecutor(data))({
       response_format: "concise",
@@ -84,5 +99,16 @@ describe("docker_container_list handler", () => {
     expect(result.isError).toBe(true);
     expect(firstText(result)).toMatch(/Failed to fetch Docker containers/);
     expect(firstText(result)).toMatch(/unauthorized/);
+  });
+});
+
+describe("docker_container_list handler when the Docker service is unavailable", () => {
+  it("reports that the API returned no Docker data", async () => {
+    const handler = createDockerContainerListHandler(fakeExecutor({ docker: null }));
+
+    const result = await handler({ response_format: "concise" });
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain(DOCKER_UNAVAILABLE);
   });
 });
