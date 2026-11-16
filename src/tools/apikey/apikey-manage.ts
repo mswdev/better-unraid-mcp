@@ -24,7 +24,7 @@ const inputSchema = z.object({
   action: z
     .enum(["create", "update", "add_role", "remove_role", "delete"])
     .describe(
-      "`create` a key, `update` its name/description/roles, `add_role`/`remove_role` one role on a key, or `delete` keys.",
+      "`create` a key, `update` whichever of name/description/roles are given, `add_role`/`remove_role` one role on a key, or `delete` keys.",
     ),
   name: z
     .string()
@@ -57,7 +57,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` for every action: acknowledges this changes the credentials that control server access.",
+      "Set `true` only after the user accepts changing the credentials that control server access; needed for every action.",
     ),
 });
 
@@ -209,7 +209,7 @@ export function registerApiKeyManage(server: McpServer, client: GraphQLExecutor)
     {
       title: "Manage API Keys",
       description:
-        "⚠ Credential management: create, update, add_role, remove_role, or delete Unraid API keys. This is the model managing the very credentials that control server access — the key VALUE is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. Per `action`: create needs `name`; update needs `id` and changes whichever of `name`, `description`, `roles` are given; add_role/remove_role need `id` and exactly one role in `roles`; delete needs `ids`. Requires `confirm: true` AND `acknowledge_risk: true`. Use apikey_list (read-only) for ids and to inspect keys.",
+        "⚠ Credential management: create, update, add_role, remove_role, or delete Unraid API keys. This is the model managing the very credentials that control server access — the key VALUE is disclosed exactly once, at creation. Deleting the key this MCP server uses locks it out. Requires `confirm: true` AND `acknowledge_risk: true`. Use apikey_list (read-only) for ids and to inspect keys.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

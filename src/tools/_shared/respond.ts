@@ -20,7 +20,7 @@ export type ResponseFormat = "concise" | "detailed";
 export const responseFormatSchema = z
   .enum(["concise", "detailed"])
   .default("concise")
-  .describe("`concise` returns human-readable text; `detailed` returns the full data as JSON.");
+  .describe("`detailed` returns full JSON instead of readable text.");
 
 /**
  * Wraps plain text as a successful tool result. Secrets (configured values,

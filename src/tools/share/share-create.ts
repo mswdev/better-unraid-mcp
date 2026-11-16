@@ -10,22 +10,28 @@ import { MAX_SHARE_NAME_LENGTH, type ShareSettings, validateShareName } from "./
 import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from "./write-flow.js";
 
 const TOOL_NAME = "share_create";
+/** Longest share comment this tool accepts. */
+const MAX_COMMENT_LENGTH = 200;
 
 /** Shared by create and edit: the settings subset plus the gate flags. */
 export const shareSettingsSchema = {
   comment: z
     .string()
-    .max(200)
+    .max(MAX_COMMENT_LENGTH)
     .optional()
     .describe("Free-text comment stored on the share (Unraid's `shareComment` setting)."),
   allocator: z
     .enum(["highwater", "fillup", "mostfree"])
     .optional()
-    .describe("Allocation method that decides where new files land (`shareAllocator`)."),
+    .describe(
+      "Where new files land: `highwater` fills the lowest-numbered disk down to a stepped free-space mark, `fillup` fills it to its minimum free space, `mostfree` picks the emptiest disk.",
+    ),
   useCache: z
     .enum(["no", "yes", "only", "prefer"])
     .optional()
-    .describe("Cache mode, Unraid's primary/secondary storage setting (`shareUseCache`)."),
+    .describe(
+      "`no` writes straight to the array; `yes` writes to the pool and the mover moves files to the array; `prefer` keeps files on the pool; `only` uses the pool alone.",
+    ),
   cachePool: z
     .string()
     .min(1)
@@ -43,7 +49,9 @@ export const shareSettingsSchema = {
   acknowledge_risk: z
     .boolean()
     .optional()
-    .describe("Second gate flag: must be `true` together with `confirm` on every call."),
+    .describe(
+      "Set `true` only after the user accepts the risk; needed with `confirm` on every call.",
+    ),
 };
 
 const inputSchema = z.object({

@@ -73,7 +73,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must be `true` together with `confirm` on every call: the archive holds the license key, API keys, and passwords.",
+      "Set `true` only after the user accepts that the archive holds the license key, API keys, and passwords; needed on every call.",
     ),
 });
 

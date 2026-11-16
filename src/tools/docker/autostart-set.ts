@@ -54,7 +54,7 @@ const inputSchema = z.object({
     .boolean()
     .default(false)
     .describe(
-      "`true` also writes the WebGUI's saved prefs, which reorders the Docker-page container list.",
+      "`true` also writes the WebGUI's saved prefs, which irreversibly reorders the Docker-page container list; leave it false unless that is wanted.",
     ),
   confirm: confirmSchema,
 });
@@ -222,7 +222,7 @@ export function registerDockerAutostartSet(server: McpServer, client: GraphQLExe
     {
       title: "Set Docker Container Autostart",
       description:
-        "Sets which containers auto-start on boot. Merge-safe: reads the current autostart config, applies your changes, and resubmits the complete set (sorted to preserve boot order) so unlisted containers are untouched. Boot-time only — does not start/stop running containers now (use docker_container_action for that); takes effect on the next array/Docker start. `persist: true` also writes the WebGUI's saved prefs but ⚠ reorders the Docker-page container list irreversibly — leave it false unless you want that. Requires `confirm: true`. Needs Unraid OS 7.3+ (ENABLE_NEXT_DOCKER_RELEASE).",
+        "Sets which containers auto-start on boot. Merge-safe: reads the current autostart config, applies your changes, and resubmits the complete set (sorted to preserve boot order) so unlisted containers are untouched. Boot-time only — does not start/stop running containers now (use docker_container_action for that); takes effect on the next array/Docker start. Requires `confirm: true`. Needs Unraid OS 7.3+ (ENABLE_NEXT_DOCKER_RELEASE).",
       inputSchema,
       annotations: {
         readOnlyHint: false,

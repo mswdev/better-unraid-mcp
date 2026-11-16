@@ -34,7 +34,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` when the mutation selects `setState`, `forceStop`, `reset` or `configureUps`; ignored otherwise.",
+      "Set `true` only after the user accepts the risk; needed when the mutation selects `setState`, `forceStop`, `reset` or `configureUps`, ignored otherwise.",
     ),
   dry_run: z
     .boolean()
@@ -130,7 +130,7 @@ export function registerGraphqlMutation(server: McpServer, client: GraphQLExecut
     {
       title: "Raw GraphQL Mutation",
       description:
-        "⚠ Advanced escape hatch. Runs an arbitrary GraphQL *mutation* against the Unraid API, reaching write operations no dedicated tool covers yet (share edits, user/API-key management, disk operations, ...). Requires `confirm: true` on every call, and additionally `acknowledge_risk: true` when the mutation selects a known-dangerous field (setState, forceStop, reset, configureUps); without them the tool refuses and never touches your server. Prefer the dedicated gated tools when one exists: they encode server quirks (stale read-backs, replace-vs-merge semantics) this passthrough does not, so verify results with a follow-up read. Only `mutation` operations are accepted (use graphql_query for queries). Every document is validated against the vendored schema before the confirm gate (typos get did-you-mean hints); pass `dry_run: true` to validate only — nothing is sent and no confirmation is needed. The schema is in this package's schema/unraid.graphql; results are subject to the API key's permissions.",
+        "⚠ Advanced escape hatch. Runs an arbitrary GraphQL *mutation* against the Unraid API, reaching write operations no dedicated tool covers yet (server identity, SSH settings, system time, Docker folders, ...). Requires `confirm: true` on every call, and additionally `acknowledge_risk: true` when the mutation selects a known-dangerous field; without them the tool refuses and never touches your server. Prefer the dedicated gated tools when one exists: they encode server quirks (stale read-backs, replace-vs-merge semantics) this passthrough does not, so verify results with a follow-up read. Only `mutation` operations are accepted (use graphql_query for queries). Every document is validated against the vendored schema before the confirm gate (typos get did-you-mean hints); `dry_run: true` validates only. The schema is in this package's schema/unraid.graphql; results are subject to the API key's permissions.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

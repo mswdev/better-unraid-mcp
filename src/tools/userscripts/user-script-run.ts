@@ -47,7 +47,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must be `true` together with `confirm` on every call: the script is arbitrary code run as the SSH user.",
+      "Set `true` only after the user accepts running arbitrary code as the SSH user; needed on every call.",
     ),
 });
 

@@ -95,7 +95,7 @@ export function registerArrayStatus(server: McpServer, client: GraphQLExecutor):
     {
       title: "Get Unraid Array Status",
       description:
-        "Read-only. Returns the array state, capacity, current parity-check status and progress, and disk counts; `response_format: detailed` adds a row per data, parity, and cache disk (status and temperature, plus usage and error counts where the API reports them). Parity error counts come from parity_history, not this tool. Use disk_list for hardware details (model, SMART, partitions) and system_health for one scored verdict.",
+        "Read-only. Returns the array state, capacity, current parity-check status and progress, and disk counts; `response_format: detailed` (or structuredContent) adds a row per data, parity, and cache disk (status and temperature, plus usage and error counts where the API reports them). Parity error counts come from parity_history, not this tool. Use disk_list for hardware details (model, SMART, partitions) and system_health for one scored verdict.",
       inputSchema,
       outputSchema,
       annotations: {

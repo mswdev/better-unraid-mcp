@@ -74,7 +74,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must be `true` together with `confirm` for `stop`, acknowledging the outage; `start` needs only `confirm`.",
+      "Set `true` only after the user accepts the outage; needed with `confirm` for `stop` (`start` needs only `confirm`).",
     ),
 });
 

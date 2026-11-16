@@ -124,7 +124,7 @@ export function registerNotificationDelete(server: McpServer, client: GraphQLExe
     {
       title: "Delete Notifications",
       description:
-        "⚠ Permanently deletes notifications (irreversible). `scope`: `one` (needs `id` and its `type`) or `all_archived` (every archived notification). Requires `confirm: true`. Reports the resulting counts. To hide notifications without losing them use notification_archive instead.",
+        "⚠ Permanently deletes notifications (irreversible): one by id, or every archived one. Requires `confirm: true`. Reports the resulting counts. To hide notifications without losing them use notification_archive instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

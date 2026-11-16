@@ -40,7 +40,9 @@ const inputSchema = z.object({
   acknowledge_risk: z
     .boolean()
     .optional()
-    .describe("Must be `true` together with `confirm` for every action, including `create`."),
+    .describe(
+      "Set `true` only after the user accepts the risk; needed with `confirm` for every action, including `create`.",
+    ),
 });
 
 /** The validated handler arguments. */

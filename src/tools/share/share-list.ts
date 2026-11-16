@@ -87,7 +87,7 @@ export function registerShareList(server: McpServer, client: GraphQLExecutor): v
     {
       title: "List Unraid Shares",
       description:
-        "Read-only. Lists user shares with usage (free/used/total); `detailed` adds each share's cache flag, included/excluded disks, and comment. Use `name` to filter by a share name substring. Pass a returned name to share_edit, share_delete, or flash_backup; those accept only letters, digits, dots, underscores, and hyphens. Allocator, cache-mode, and SMB settings are not returned (read /boot/config/shares/<name>.cfg with file_read). For array-wide capacity and per-disk usage use array_status.",
+        "Read-only. Lists user shares with usage (free/used/total); `detailed` adds each share's cache flag, included/excluded disks, and comment. Use `name` to filter by a share name substring. Pass a returned name to share_edit, share_delete, or flash_backup; those accept only letters, digits, dots, underscores, and hyphens. Other settings are not returned: the allocator is on the API's Share type (graphql_query `shares { name allocator }`), and /boot/config/shares/<name>.cfg (file_read, over SSH) holds all of them, including cache mode and SMB. For array-wide capacity and per-disk usage use array_status.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

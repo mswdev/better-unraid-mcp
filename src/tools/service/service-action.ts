@@ -53,14 +53,14 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must be `true` when `action` is `stop`: accepts that every client of the service is cut off.",
+      "Set `true` only after the user accepts every client of the service being cut off; needed for `stop`.",
     ),
   confirm: confirmSchema,
   acknowledge_risk: z
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` for every action (restart, start, stop): acknowledges the service is interrupted for its clients.",
+      "Set `true` only after the user accepts the service being interrupted for its clients; needed for every action.",
     ),
 });
 

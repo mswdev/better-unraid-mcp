@@ -146,8 +146,7 @@ export function registerMetricsHistory(
     TOOL_NAME,
     {
       title: "Metric History",
-      description:
-        "Read-only. Recent CPU / memory / network history from this server's in-memory recorder (opt-in: MCP_METRICS_HISTORY=true): 30-second buckets with min/avg/max for up to 24 hours, honest about gaps; concise output folds the window into at most 24 rows. Nothing is persisted to disk — history starts when the server starts. When recording is off the tool says how to enable it. For current values rather than a trend, use system_metrics.",
+      description: `Read-only. Recent CPU / memory / network history from this server's in-memory recorder (opt-in: MCP_METRICS_HISTORY=true): 30-second buckets with min/avg/max for up to 24 hours, honest about gaps; concise output folds the window into at most ${CONCISE_ROWS} rows. Nothing is persisted to disk — history starts when the server starts. When recording is off the tool says how to enable it. For current values rather than a trend, use system_metrics.`,
       inputSchema,
       annotations: {
         readOnlyHint: true,

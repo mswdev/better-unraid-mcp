@@ -4,7 +4,7 @@ import type { ShellExecutor } from "../../shell/executor.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+import { MAX_OUTPUT_CHARS, truncateOutput } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "disk_smart_report";
 
@@ -71,8 +71,7 @@ export function registerDiskSmartReport(server: McpServer, shell: ShellExecutor 
     TOOL_NAME,
     {
       title: "Deep SMART Report",
-      description:
-        "Read-only. Full smartctl attribute report for one disk (`device`: /dev/sdX or /dev/nvmeXnY) over SSH, returned as raw text — the deep view behind disk_list's summary SMART status. smartctl's informational exit flags are tolerated; the report is returned whenever produced, keeping only the last 30,000 characters if longer. Get device paths from disk_list (`response_format: detailed`). Requires SSH (UNRAID_SSH_*).",
+      description: `Read-only. Full smartctl attribute report for one disk (\`device\`: /dev/sdX or /dev/nvmeXnY) over SSH, returned as raw text — the deep view behind disk_list's summary SMART status. smartctl's informational exit flags are tolerated; the report is returned whenever produced, keeping only the last ${MAX_OUTPUT_CHARS} characters if longer. Get device paths from disk_list (\`response_format: detailed\`). Requires SSH (UNRAID_SSH_*).`,
       inputSchema,
       annotations: {
         readOnlyHint: true,

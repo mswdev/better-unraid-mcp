@@ -27,7 +27,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` on every call: the overlay files stay in the VM's disk chain until merged in the Unraid UI.",
+      "Set `true` only after the user accepts that overlay files stay in the VM's disk chain until merged in the Unraid UI; needed on every call.",
     ),
 });
 

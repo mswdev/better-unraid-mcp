@@ -79,7 +79,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` for `forceStop` and `reset`, which can corrupt the guest filesystem; ignored for other actions.",
+      "Set `true` only after the user accepts possible guest filesystem corruption; needed for `forceStop` and `reset`, ignored otherwise.",
     ),
 });
 

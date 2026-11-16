@@ -28,9 +28,7 @@ const inputSchema = z.object({
   response_format: z
     .enum(["concise", "detailed"])
     .default("concise")
-    .describe(
-      "Accepted for consistency with other tools; the result is always a short text message.",
-    ),
+    .describe("Has no effect here; the result is always plain text."),
   action: z
     .enum(["reboot", "shutdown"])
     .describe(
@@ -41,7 +39,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must be `true` together with `confirm` for both actions; acknowledges every share, container, and VM going offline.",
+      "Set `true` only after the user accepts every share, container, and VM going offline; needed with `confirm` for both actions.",
     ),
 });
 

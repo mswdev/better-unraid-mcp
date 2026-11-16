@@ -46,7 +46,9 @@ const inputSchema = z.object({
   acknowledge_risk: z
     .boolean()
     .optional()
-    .describe("Must be `true` together with `confirm` for both `mount` and `unmount`."),
+    .describe(
+      "Set `true` only after the user accepts the risk; needed with `confirm` for both `mount` and `unmount`.",
+    ),
 });
 
 /** The validated handler input. */

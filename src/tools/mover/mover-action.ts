@@ -36,9 +36,7 @@ const inputSchema = z.object({
   response_format: responseFormatSchema,
   action: z
     .enum(["start", "stop"])
-    .describe(
-      "`start` runs the mover now; `stop` interrupts in-flight transfers and can leave partial files on the destination.",
-    ),
+    .describe("`start` runs the mover now; `stop` halts a running one."),
   confirm: confirmSchema,
 });
 

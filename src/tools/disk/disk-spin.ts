@@ -34,7 +34,7 @@ const inputSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Array slot name such as disk1, parity, parity2, or cache; use this instead of `device` for array disks.",
+      "Slot name: diskN, parity, parity2, or a pool named cache or cacheN (other pool names are rejected); use this instead of `device`.",
     ),
   device: z
     .string()
@@ -131,7 +131,7 @@ export function registerDiskSpin(server: McpServer, shell: ShellExecutor | null)
     {
       title: "Spin Disk Up/Down",
       description:
-        "Spins a disk up or down over SSH. Pass exactly one target: array/pool slots (`disk`: disk1, parity, cache, ...) go through emhttpd (`emcmd`) so Unraid's tracked spin state stays consistent; unassigned devices (`device`: /dev/sdX) use `sdspin` (an hdparm wrapper — ATA only, SAS needs the community plugin). Requires `confirm: true` and SSH (UNRAID_SSH_*). Spinning down interrupts nothing but adds spin-up latency on next access. Verify the result with disk_list.",
+        "Spins a disk up or down over SSH. Pass exactly one target: array slots and `cache*` pools (`disk`: disk1, parity, cache, ...) go through emhttpd (`emcmd`) so Unraid's tracked spin state stays consistent; unassigned devices (`device`: /dev/sdX) use `sdspin` (an hdparm wrapper — ATA only, SAS needs the community plugin). Requires `confirm: true` and SSH (UNRAID_SSH_*). Spinning down interrupts nothing but adds spin-up latency on next access. Verify the result with disk_list (`response_format: detailed` shows the spin state).",
       inputSchema,
       annotations: {
         readOnlyHint: false,

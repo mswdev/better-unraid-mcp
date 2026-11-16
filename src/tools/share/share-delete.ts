@@ -27,7 +27,9 @@ const inputSchema = z.object({
   acknowledge_risk: z
     .boolean()
     .optional()
-    .describe("Second gate flag: must be `true` together with `confirm` on every call."),
+    .describe(
+      "Set `true` only after the user accepts the risk; needed with `confirm` on every call.",
+    ),
 });
 
 /** The validated handler input. */

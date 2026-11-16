@@ -30,7 +30,7 @@ const inputSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Must also be `true` on every call: acknowledges that the `.plg` installer runs arbitrary code as root.",
+      "Set `true` only after the user accepts that the `.plg` installer runs arbitrary code as root; needed on every call.",
     ),
 });
 
