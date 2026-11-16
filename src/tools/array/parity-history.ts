@@ -1,8 +1,9 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { GraphQLExecutor } from "../../graphql/client.js";
-import { ParityHistoryDocument, type ParityHistoryQuery } from "../../types/unraid/graphql.js";
+import { ParityHistoryDocument } from "../../types/unraid/graphql.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
+import { type ParityChecks, sortNewestFirst } from "../_shared/parity/sort-newest-first.js";
 import {
   formatResponse,
   type ResponseFormat,
@@ -25,13 +26,6 @@ const inputSchema = z.object({
     .describe("How many of the most recent checks to return."),
 });
 
-type Checks = ParityHistoryQuery["parityHistory"];
-
-/** Sorts parity checks newest-first by ISO date (null dates last); the SDL guarantees no order. */
-function sortNewestFirst(checks: Checks): Checks {
-  return [...checks].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-}
-
 /** Contains any letter, meaning the API already formatted the speed with a unit. */
 const HAS_UNIT = /[a-z]/i;
 
@@ -47,7 +41,7 @@ function renderSpeed(speed: string | null | undefined): string {
 }
 
 /** Renders every returned check (newest first), not just the latest. */
-function summarize(checks: Checks): string {
+function summarize(checks: ParityChecks): string {
   if (checks.length === 0) {
     return "No parity checks recorded.";
   }

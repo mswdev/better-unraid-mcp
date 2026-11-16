@@ -9,8 +9,7 @@ query SystemHealth {
     }
     parityCheckStatus {
       status
-      errors
-      running
+      progress
     }
     parities {
       name

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { recordingExecutor } from "../tools/_shared/test-support.js";
 import type {
   ConnectionDoctorQuery,
+  ParityHistoryQuery,
   SystemHealthQuery,
   UpsStatusQuery,
 } from "../types/unraid/graphql.js";
@@ -105,11 +106,11 @@ describe("registerAllResources", () => {
   });
 
   it("serves the health rollup as JSON", async () => {
-    const health: SystemHealthQuery & UpsStatusQuery = {
+    const health: SystemHealthQuery & UpsStatusQuery & ParityHistoryQuery = {
       array: {
         state: "STARTED",
         capacity: { kilobytes: { used: "1", total: "10" } },
-        parityCheckStatus: { status: "COMPLETED", errors: 0, running: false },
+        parityCheckStatus: { status: "COMPLETED", progress: 0 },
         parities: [],
         disks: [],
         caches: [],
@@ -117,6 +118,7 @@ describe("registerAllResources", () => {
       notifications: { overview: { unread: { warning: 0, alert: 0 } } },
       docker: { containers: [] },
       upsDevices: [],
+      parityHistory: [],
     };
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(health);
