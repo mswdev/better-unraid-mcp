@@ -139,7 +139,7 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 </details>
 
-If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.3`) if you want fully predictable behavior.
+If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.4`) if you want fully predictable behavior.
 
 #### Other ways to install
 
