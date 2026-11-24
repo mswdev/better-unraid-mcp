@@ -1,7 +1,7 @@
 {
   "name": "better-unraid-mcp",
   "mcpName": "io.github.mswdev/better-unraid-mcp",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Unraid MCP server: monitor and manage your array, Docker, VMs, ZFS, logs, and UPS from Claude, Codex, Gemini CLI, or any MCP client.",
   "license": "MIT",
   "keywords": [
@@ -39,7 +39,7 @@
     "schema"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.1"
   },
   "publishConfig": {
     "access": "public"
