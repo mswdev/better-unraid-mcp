@@ -71,6 +71,13 @@ describe("renderJsonResult", () => {
     expect(envelope.truncated).toBe(true);
     expect(envelope.partial_json_head.startsWith("{")).toBe(true);
   });
+
+  it("redacts a secret inside a string value and stays valid JSON", () => {
+    const result = renderJsonResult({ log: 'PASSWORD="hunter2"\nnext' });
+
+    expect(firstText(result)).not.toContain("hunter2");
+    expect(JSON.parse(firstText(result))).toEqual({ log: 'PASSWORD="[redacted]"\nnext' });
+  });
 });
 
 describe("validateAgainstSchema", () => {

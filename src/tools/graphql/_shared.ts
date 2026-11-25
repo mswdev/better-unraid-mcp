@@ -11,10 +11,7 @@ import {
   visit,
 } from "graphql";
 import { loadSchemaSdl } from "../../resources/schema-sdl.js";
-import { toolText } from "../_shared/respond.js";
-import { truncateJsonPayload } from "../_shared/truncate-output.js";
-
-const JSON_INDENT_SPACES = 2;
+import { toolJson } from "../_shared/respond.js";
 
 /**
  * Mutation fields whose blast radius warrants the same acknowledge_risk
@@ -76,15 +73,17 @@ export function findRiskyFields(document: DocumentNode): string[] {
 }
 
 /**
- * Renders a raw GraphQL data payload as pretty-printed JSON. Oversized
- * payloads are replaced by a parseable truncation envelope carrying the head
- * of the serialization, so the output always survives JSON.parse.
+ * Renders a raw GraphQL data payload as pretty-printed JSON, with secrets
+ * redacted value by value. Oversized payloads are replaced by a parseable
+ * truncation envelope carrying the head of the serialization, so the output
+ * always survives JSON.parse.
  *
  * @param data - The operation's data payload.
  * @returns A successful tool result carrying the (possibly enveloped) JSON.
+ * @see toolJson
  */
 export function renderJsonResult(data: unknown): CallToolResult {
-  return toolText(truncateJsonPayload(JSON.stringify(data, null, JSON_INDENT_SPACES)));
+  return toolJson(data);
 }
 
 /** Loads the SDL text the validation schema is built from (injectable for tests). */

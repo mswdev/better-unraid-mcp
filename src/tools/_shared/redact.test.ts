@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { clearSecretValues, redactSecrets, registerSecretValues } from "./redact.js";
+import {
+  clearSecretValues,
+  redactSecrets,
+  registerSecretValues,
+  stringifyRedacted,
+} from "./redact.js";
 
 afterEach(() => {
   clearSecretValues();
@@ -69,5 +74,55 @@ describe("redactSecrets performance", () => {
     const text = `${"o".repeat(LONG_RUN_CHARS)}_PASSWORD=hunter2`;
 
     expect(redactSecrets(text)).not.toContain("hunter2");
+  });
+});
+
+describe("stringifyRedacted", () => {
+  it("redacts an env-style secret inside a string value and stays valid JSON", () => {
+    const serialized = stringifyRedacted({ stdout: 'PASSWORD="hunter2"\nnext line\n' });
+
+    const parsed = JSON.parse(serialized) as { stdout: string };
+    expect(serialized).not.toContain("hunter2");
+    expect(parsed.stdout).toBe('PASSWORD="[redacted]"\nnext line\n');
+  });
+
+  it("redacts a JSON credential member embedded in a string value", () => {
+    const serialized = stringifyRedacted({ stdout: '{"token":"abc123"}' });
+
+    expect(serialized).not.toContain("abc123");
+    expect(JSON.parse(serialized)).toEqual({ stdout: '{"token":"[redacted]"}' });
+  });
+
+  it("replaces every scalar under a credential-named key and keeps other fields", () => {
+    const value = { token: "abc", count: 3, nested: { password: 42, apiKey: true } };
+
+    const parsed = JSON.parse(stringifyRedacted(value));
+
+    expect(parsed).toEqual({
+      token: "[redacted]",
+      count: 3,
+      nested: { password: "[redacted]", apiKey: "[redacted]" },
+    });
+  });
+
+  it("keeps null under a credential-named key, since it carries no secret", () => {
+    expect(JSON.parse(stringifyRedacted({ token: null }))).toEqual({ token: null });
+  });
+
+  it("omits an undefined credential field the way JSON.stringify does", () => {
+    expect(stringifyRedacted({ token: undefined, ok: true })).toBe('{"ok":true}');
+  });
+
+  it("walks into an object or array under a credential-named key instead of breaking it", () => {
+    registerSecretValues(["s3cr3t-api-key"]);
+    const value = { secret: { note: "s3cr3t-api-key" }, token: ["s3cr3t-api-key"] };
+
+    const parsed = JSON.parse(stringifyRedacted(value));
+
+    expect(parsed).toEqual({ secret: { note: "[redacted]" }, token: ["[redacted]"] });
+  });
+
+  it("indents like JSON.stringify when given an indent", () => {
+    expect(stringifyRedacted({ a: 1 }, 2)).toBe(JSON.stringify({ a: 1 }, null, 2));
   });
 });
