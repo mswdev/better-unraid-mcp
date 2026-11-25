@@ -170,9 +170,21 @@ function scopePrefix(scope: BackupScope): string {
 }
 
 /**
+ * True for a listed path that may be deleted: an archive of the target's scope
+ * (the prefix re-check) that is not the archive this run just wrote.
+ */
+function isPrunable(path: string, target: BackupTarget): boolean {
+  const prefix = `${target.directory}/${scopePrefix(target.scope)}`;
+  return path.startsWith(prefix) && path.endsWith(ARCHIVE_SUFFIX) && path !== target.file;
+}
+
+/**
  * Lists then deletes archives of the target's scope beyond `keep`, returning
- * exactly what was removed. Archives of the other scope are never listed, and
- * the prefix filter re-checks every listed path before anything is deleted.
+ * exactly what was removed. Archives are ranked by the UTC timestamp in their
+ * names (zero-padded, so a byte-wise reverse sort is newest first), not by
+ * modification time: a copied-back or clock-skewed file must not outrank the
+ * new archive. Archives of the other scope are never listed, and the archive
+ * just written is never deleted, even if a future-dated name outranks it.
  */
 async function pruneOlder(
   shell: ShellExecutor,
@@ -180,13 +192,12 @@ async function pruneOlder(
   keep: number,
 ): Promise<string[]> {
   const pattern = `${scopePrefix(target.scope)}*${ARCHIVE_SUFFIX}`;
-  const listCommand = `ls -1t ${quoteForShell(target.directory)}/${pattern} | tail -n +${keep + TAIL_OFFSET}`;
+  const listCommand = `ls -1 ${quoteForShell(target.directory)}/${pattern} | LC_ALL=C sort -r | tail -n +${keep + TAIL_OFFSET}`;
   const listing = await shell.execute(listCommand, PRUNE_TIMEOUT_MS);
-  const prefix = `${target.directory}/${scopePrefix(target.scope)}`;
   const victims = listing.stdout
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.startsWith(prefix) && line.endsWith(ARCHIVE_SUFFIX));
+    .filter((line) => isPrunable(line, target));
   if (victims.length === 0) {
     return [];
   }

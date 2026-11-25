@@ -230,7 +230,7 @@ describe("flash_backup pruning", () => {
     });
 
     expect(calls[3].command).toBe(
-      `ls -1t '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | tail -n +3`,
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +3`,
     );
     expect(calls[4].command).toBe(`rm -f '${older[0]}' '${older[1]}'`);
     expect(firstText(result)).toContain("Pruned 2 older archive(s)");
@@ -249,6 +249,38 @@ describe("flash_backup pruning", () => {
 
     expect(result.isError).toBeUndefined();
     expect(calls).toHaveLength(4);
+  });
+
+  it("never deletes the archive it just wrote, even when another name outranks it", async () => {
+    // A future-dated archive (flash-backup-config-20300101-…) sorts first, so
+    // with keep: 1 the listing past it holds the new archive and an older one.
+    const listing = ok(`${EXPECTED_FILE}\n${older[0]}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[4].command).toBe(`rm -f '${older[0]}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([older[0]]);
+  });
+
+  it("removes nothing when the only archive beyond keep is the one just written", async () => {
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, ok(`${EXPECTED_FILE}\n`)]);
+
+    const result = await handler({
+      response_format: "concise",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(4);
+    expect(firstText(result)).not.toContain("Pruned");
   });
 
   it("never prunes when keep is unset", async () => {
@@ -272,7 +304,7 @@ describe("flash_backup pruning", () => {
     });
 
     expect(calls[3].command).toBe(
-      `ls -1t '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | tail -n +2`,
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
     );
     expect(calls[4].command).toBe(`rm -f '${older[0]}'`);
     expect(JSON.parse(firstText(result)).pruned).toEqual([older[0]]);
@@ -292,7 +324,7 @@ describe("flash_backup pruning", () => {
     });
 
     expect(calls[3].command).toBe(
-      `ls -1t '${EXPECTED_DIR}'/flash-backup-full-*.tar.gz | tail -n +2`,
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-full-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
     );
     expect(calls[4].command).toBe(`rm -f '${fullArchive}'`);
     expect(JSON.parse(firstText(result)).pruned).toEqual([fullArchive]);
@@ -317,7 +349,7 @@ describe("flash_backup pruning", () => {
       "test -d '/mnt/user/My Backups'",
       `mkdir -p '${spacedDir}' && tar -czf '${spacedFile}' -C '/boot' 'config'`,
       `tar -tzf '${spacedFile}' | wc -l && stat -c %s '${spacedFile}'`,
-      `ls -1t '${spacedDir}'/flash-backup-config-*.tar.gz | tail -n +2`,
+      `ls -1 '${spacedDir}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
       `rm -f '${olderSpaced}'`,
     ]);
     expect(firstText(result)).toContain(spacedFile);
