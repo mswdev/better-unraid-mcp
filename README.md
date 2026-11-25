@@ -8,7 +8,7 @@
 [![CI](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmswdev%2Fbetter-unraid-mcp%2Fbadges%2Fcoverage-summary.json&query=%24.total.lines.pct&suffix=%25&label=coverage&color=brightgreen)](https://github.com/mswdev/better-unraid-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js 20.18.1+](https://img.shields.io/badge/node-%3E%3D20.18.1-brightgreen)](https://nodejs.org)
+[![Node.js 22.19+](https://img.shields.io/badge/node-%3E%3D22.19-brightgreen)](https://nodejs.org)
 
 [![MCP protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-8b5cf6)](https://modelcontextprotocol.io)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.mswdev%2Fbetter--unraid--mcp-0ea5e9)](https://registry.modelcontextprotocol.io/v0.1/servers?search=better-unraid-mcp)
@@ -139,7 +139,7 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 </details>
 
-If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.6`) if you want fully predictable behavior.
+If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.2.0`) if you want fully predictable behavior.
 
 #### Other ways to install
 
