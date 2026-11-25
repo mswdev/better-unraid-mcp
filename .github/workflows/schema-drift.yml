@@ -1,6 +1,11 @@
 # Weekly check that the vendored Unraid GraphQL schema still matches upstream
 # unraid/api main. When it drifts, refresh the SDL + generated types and open
 # a PR into develop so API changes are caught before users hit them.
+#
+# The PR's commit is signed (sign-commits), because the main/develop ruleset
+# requires signed commits; an unsigned bot commit cannot be merged. CI and
+# review on a bot-opened PR wait for a maintainer to click "Approve workflows
+# to run"; the PR body says so.
 name: Schema drift
 
 on:
@@ -46,10 +51,12 @@ jobs:
         with:
           base: develop
           branch: chore/schema-drift
+          sign-commits: true
           title: "chore(schema): upstream unraid/api ${{ steps.summary.outputs.version }} drift"
           commit-message: "chore(schema): refresh vendored SDL to unraid/api ${{ steps.summary.outputs.version }}"
           body: |
             The weekly schema-drift check found the vendored `schema/unraid.graphql` behind upstream `unraid/api` (`${{ steps.summary.outputs.version }}`).
             This PR refreshes the SDL and regenerated types. Review the diff for removed or renamed fields (tool documents that no longer validate fail `npm run generate` — check the workflow log), then run the quality gate.
+            CI does not start on its own for a bot-opened PR: click "Approve workflows to run" on this PR to run it.
           labels: schema, dependencies
           draft: true
