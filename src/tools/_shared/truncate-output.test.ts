@@ -81,6 +81,19 @@ function rendered(payload: unknown): string {
 /** The most two tail-fitted fields may differ by when the budget is split evenly. */
 const EVEN_SPLIT_TOLERANCE_CHARS = 100;
 
+/** A control character JSON escapes to six characters (\u0001). */
+const CONTROL_CHARACTER = "\u0001";
+const CONTROL_PREFIX_CHARS = 5_000;
+const PLAIN_TAIL_CHARS = 27_000;
+
+/**
+ * How far under the cap an exact fit may land: one escaped control character
+ * (6) plus the slack left by sizing the drop counts at their maximum digits.
+ */
+const TIGHT_FIT_TOLERANCE_CHARS = 20;
+
+const EMOJI_LINES = 20_000;
+
 describe("fitTailsToOutputCap", () => {
   it("returns the payload unchanged, with no truncation fields, when it fits", () => {
     const parts = { fixed: { path: "/etc/hosts", exit_code: 0 }, tails: { content: "short" } };
@@ -149,6 +162,33 @@ describe("fitTailsToOutputCap", () => {
     expect(parsed.stderr).toBe(stderr);
     expect(parsed.dropped_leading_chars.stderr).toBe(0);
     expect(parsed.stdout.length).toBeGreaterThan(TRUNCATED_HEAD_CHARS);
+  });
+
+  it("keeps every character that fits when the dropped part is escape-heavy", () => {
+    const plainTail = "a".repeat(PLAIN_TAIL_CHARS);
+    const stdout = `${CONTROL_CHARACTER.repeat(CONTROL_PREFIX_CHARS)}${plainTail}`;
+
+    const payload = fitTailsToOutputCap({ fixed: { exit_code: 0 }, tails: { stdout } });
+    const parsed = JSON.parse(rendered(payload)) as { stdout: string };
+
+    expect(rendered(payload).length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(parsed.stdout.endsWith(plainTail)).toBe(true);
+    expect(parsed.stdout.length).toBeGreaterThan(PLAIN_TAIL_CHARS);
+    expect(rendered(payload).length).toBeGreaterThan(MAX_OUTPUT_CHARS - TIGHT_FIT_TOLERANCE_CHARS);
+  });
+
+  it("never starts the kept tail in the middle of an emoji", () => {
+    const stdout = `${"😀\n".repeat(EMOJI_LINES)}aaa`;
+
+    const payload = fitTailsToOutputCap({
+      fixed: { command: "", exit_code: 0 },
+      tails: { stdout },
+    });
+    const parsed = JSON.parse(rendered(payload)) as { stdout: string };
+
+    expect(rendered(payload).length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(parsed.stdout).toMatch(/^(😀|\n)/u);
+    expect(parsed.stdout.endsWith("😀\naaa")).toBe(true);
   });
 
   it("empties the tails and still ends when the fixed fields alone exceed the cap", () => {

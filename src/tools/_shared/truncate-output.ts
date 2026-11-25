@@ -165,19 +165,38 @@ function allocateBudget(sizes: Record<string, number>, budget: number): Record<s
   return allotments;
 }
 
+/** The largest code point that fits in one UTF-16 unit; anything above is a surrogate pair. */
+const MAX_SINGLE_UNIT_CODE_POINT = 0xffff;
+
+/** UTF-16 units in a surrogate pair (an emoji, for example). */
+const SURROGATE_PAIR_UNITS = 2;
+
 /**
  * The longest tail of `text` whose escaped form fits in `limit` characters.
- * Escaping never shrinks text, so each pass cuts the tail strictly shorter in
- * proportion to its overshoot, and the loop always ends (at worst on "").
+ * It walks back from the end one code point at a time, adding each one's
+ * escaped width, so the fit is exact however escape-heavy the dropped part
+ * is, and the tail never starts with the second half of a surrogate pair.
  */
 function tailWithinEscapedLength(text: string, limit: number): string {
-  let length = Math.min(text.length, limit);
-  let tail = text.slice(text.length - length);
-  while (escapedLength(tail) > limit) {
-    length = Math.floor((length * limit) / escapedLength(tail));
-    tail = text.slice(text.length - length);
+  let start = text.length;
+  let used = 0;
+  while (start > 0) {
+    const previous = codePointStartBefore(text, start);
+    used += escapedLength(text.slice(previous, start));
+    if (used > limit) {
+      return text.slice(start);
+    }
+    start = previous;
   }
-  return tail;
+  return text;
+}
+
+/** Index where the code point that ends just before `index` starts. */
+function codePointStartBefore(text: string, index: number): number {
+  const pairStart = index - SURROGATE_PAIR_UNITS;
+  const codePoint = pairStart >= 0 ? text.codePointAt(pairStart) : undefined;
+  const isSurrogatePair = codePoint !== undefined && codePoint > MAX_SINGLE_UNIT_CODE_POINT;
+  return isSurrogatePair ? pairStart : index - 1;
 }
 
 /** Applies a transform to every value of a string record, keeping the keys. */
