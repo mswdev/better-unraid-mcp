@@ -13,6 +13,9 @@ afterEach(() => {
 /** Long enough that a quadratic pattern takes about a minute (it took 1.4 s at 30k). */
 const LONG_RUN_CHARS = 200_000;
 
+/** Longer than the ~5.3 MB single run that overflowed V8's stack with `[\w-]{8,}`. */
+const STACK_OVERFLOW_RUN_CHARS = 7_000_000;
+
 /** Generous ceiling for a linear pass over LONG_RUN_CHARS, so the test is not flaky. */
 const MAX_LINEAR_REDACTION_MS = 1_000;
 
@@ -96,6 +99,12 @@ describe("redactSecrets performance", () => {
     redactSecrets(run);
 
     expect(performance.now() - started).toBeLessThan(MAX_LINEAR_REDACTION_MS);
+  });
+
+  it("does not overflow the stack on a multi-megabyte eyJ run", () => {
+    const run = `eyJ${"a".repeat(STACK_OVERFLOW_RUN_CHARS)}`;
+
+    expect(redactSecrets(run)).toBe(run);
   });
 
   it("still finds a credential key at the end of a long run", () => {
