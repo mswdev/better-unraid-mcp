@@ -1,6 +1,12 @@
 # Weekly check that the vendored Unraid GraphQL schema still matches upstream
 # unraid/api main. When it drifts, refresh the SDL + generated types and open
 # a PR into develop so API changes are caught before users hit them.
+#
+# The PR's commit is signed (sign-commits), because the main/develop ruleset
+# requires signed commits; an unsigned bot commit cannot be merged. A PR
+# opened with GITHUB_TOKEN never triggers other workflows, so the last step
+# dispatches CI for the PR branch (workflow_dispatch is the one event a
+# GITHUB_TOKEN may trigger, as release.yml does for docker.yml).
 name: Schema drift
 
 on:
@@ -11,6 +17,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # dispatch CI for the drift PR branch
 
 jobs:
   check:
@@ -41,11 +48,13 @@ jobs:
             echo "Vendored schema matches unraid/api $VERSION"
           fi
       - name: Open a pull request
+        id: pr
         if: steps.summary.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           base: develop
           branch: chore/schema-drift
+          sign-commits: true
           title: "chore(schema): upstream unraid/api ${{ steps.summary.outputs.version }} drift"
           commit-message: "chore(schema): refresh vendored SDL to unraid/api ${{ steps.summary.outputs.version }}"
           body: |
@@ -53,3 +62,8 @@ jobs:
             This PR refreshes the SDL and regenerated types. Review the diff for removed or renamed fields (tool documents that no longer validate fail `npm run generate` — check the workflow log), then run the quality gate.
           labels: schema, dependencies
           draft: true
+      - name: Run CI on the pull request branch
+        if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref chore/schema-drift
