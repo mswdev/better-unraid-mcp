@@ -5,6 +5,12 @@ afterEach(() => {
   clearSecretValues();
 });
 
+/** Long enough that a quadratic pattern takes about a minute (it took 1.4 s at 30k). */
+const LONG_RUN_CHARS = 200_000;
+
+/** Generous ceiling for a linear pass over LONG_RUN_CHARS, so the test is not flaky. */
+const MAX_LINEAR_REDACTION_MS = 1_000;
+
 describe("redactSecrets", () => {
   it("returns text without secrets unchanged", () => {
     expect(redactSecrets("array is healthy, 3 disks spinning")).toBe(
@@ -45,5 +51,23 @@ describe("redactSecrets", () => {
     const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9P";
 
     expect(redactSecrets(`token was ${jwt}`)).not.toContain(jwt);
+  });
+});
+
+describe("redactSecrets performance", () => {
+  it("stays linear on a long unbroken run of word characters", () => {
+    const run = "o".repeat(LONG_RUN_CHARS);
+
+    const started = performance.now();
+    const result = redactSecrets(run);
+
+    expect(result).toBe(run);
+    expect(performance.now() - started).toBeLessThan(MAX_LINEAR_REDACTION_MS);
+  });
+
+  it("still finds a credential key at the end of a long run", () => {
+    const text = `${"o".repeat(LONG_RUN_CHARS)}_PASSWORD=hunter2`;
+
+    expect(redactSecrets(text)).not.toContain("hunter2");
   });
 });

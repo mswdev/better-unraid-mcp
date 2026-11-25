@@ -4,11 +4,16 @@ const REDACTED = "[redacted]";
 /**
  * Key-value shapes whose value must never surface: JSON members and
  * env-style assignments whose key names a credential. The replacement keeps
- * the captured key/delimiter and re-quotes the value, so redacted JSON stays
- * parseable.
+ * the captured key/delimiter and re-quotes the value.
+ *
+ * The lookbehind lets a key start only where a run of word characters
+ * begins. Without it, the engine retried `[\w-]*` from every position inside
+ * a long run (a base64 blob, a line of dashes), which is quadratic: 1.4 s for
+ * 30k characters. A key that starts mid-run would match from the run's start
+ * anyway, so the matches are unchanged.
  */
 const KEY_VALUE_PATTERN =
-  /("?[\w-]*(?:api[_-]?key|password|token|secret|authorization)"?\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s,}"']+)/gi;
+  /((?<![\w-])"?[\w-]*(?:api[_-]?key|password|token|secret|authorization)"?\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s,}"']+)/gi;
 
 /** Three dot-separated base64url segments starting with eyJ — a JWT. */
 const JWT_PATTERN = /\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,}\b/g;
