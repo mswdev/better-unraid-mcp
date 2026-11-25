@@ -15,6 +15,14 @@ describe("formatResponse", () => {
 
     expect(firstText(result)).toBe(JSON.stringify({ a: 1 }, null, 2));
   });
+
+  it("redacts a secret in detailed output without breaking the JSON", () => {
+    const result = formatResponse("detailed", "summary", { stdout: 'PASSWORD="hunter2"\nnext' });
+
+    const parsed = JSON.parse(firstText(result)) as { stdout: string };
+    expect(firstText(result)).not.toContain("hunter2");
+    expect(parsed.stdout).toBe('PASSWORD="[redacted]"\nnext');
+  });
 });
 
 describe("formatIdTag", () => {
@@ -58,5 +66,13 @@ describe("formatStructuredResponse", () => {
     });
 
     expect(JSON.stringify(result.structuredContent)).not.toContain("abc123");
+  });
+
+  it("redacts a secret inside a string field without breaking either channel", () => {
+    const result = formatStructuredResponse("detailed", "summary", { note: "TOKEN=abc\nnext" });
+
+    expect(firstText(result)).not.toContain("abc");
+    expect(JSON.parse(firstText(result))).toEqual({ note: 'TOKEN="[redacted]"\nnext' });
+    expect(result.structuredContent).toEqual({ note: 'TOKEN="[redacted]"\nnext' });
   });
 });

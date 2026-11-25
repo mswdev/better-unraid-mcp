@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import { MAX_OUTPUT_CHARS } from "../_shared/truncate-output.js";
 import { buildReadCommand, createFileReadHandler } from "./file-read.js";
 
 const ok = { stdout: "line one\nline two\n", stderr: "", exitCode: 0 };
@@ -177,5 +178,49 @@ describe("file_read pattern rendering and failure output", () => {
     const result = await handler({ response_format: "concise", path: "/etc/hosts", lines: 10 });
 
     expect(firstText(result)).toBe("Failed to read /etc/hosts over SSH: channel closed");
+  });
+});
+
+describe("file_read oversized output", () => {
+  /** A syslog tail far past the output cap once its newlines are JSON-escaped. */
+  const hugeLog = `${Array.from({ length: 2_000 }, (_, index) => `Nov 16 kernel: event ${index + 1} "quoted"`).join("\n")}\n`;
+
+  it("keeps the newest lines in detailed mode and stays parseable", async () => {
+    const { shell } = recordingShell({ stdout: hugeLog, stderr: "", exitCode: 0 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      path: "/var/log/syslog",
+      lines: 2000,
+    });
+    const text = firstText(result);
+    const payload = JSON.parse(text) as {
+      path: string;
+      content: string;
+      truncated: boolean;
+      dropped_leading_chars: { content: number };
+    };
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(payload.path).toBe("/var/log/syslog");
+    expect(payload.content.endsWith('kernel: event 2000 "quoted"')).toBe(true);
+    expect(payload.truncated).toBe(true);
+    expect(payload.dropped_leading_chars.content).toBeGreaterThan(0);
+    expect(payload).not.toHaveProperty("partial_json_head");
+  });
+
+  it("keeps the newest lines in concise mode too", async () => {
+    const { shell } = recordingShell({ stdout: hugeLog, stderr: "", exitCode: 0 });
+    const handler = createFileReadHandler(shell);
+
+    const result = await handler({
+      response_format: "concise",
+      path: "/var/log/syslog",
+      lines: 2000,
+    });
+
+    expect(firstText(result)).toContain("characters from the start]");
+    expect(firstText(result).endsWith('kernel: event 2000 "quoted"')).toBe(true);
   });
 });

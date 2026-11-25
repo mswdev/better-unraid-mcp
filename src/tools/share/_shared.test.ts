@@ -7,7 +7,6 @@ import {
   parsePoolNames,
   parseReservedNames,
   parseShareCfg,
-  validateShareName,
 } from "./_shared.js";
 
 const CFG = `# Generated settings:
@@ -109,11 +108,16 @@ describe("share config helpers", () => {
     expect(isReservedName("media", ["cache"])).toBe(false);
   });
 
-  it("validates share names like the web UI", () => {
-    expect(validateShareName("media")).toBeNull();
-    expect(validateShareName("my share")).toMatch(/letters/);
-    expect(validateShareName(".hidden")).toMatch(/dot/);
-    expect(validateShareName("a".repeat(41))).toMatch(/40/);
-    expect(validateShareName("")).not.toBeNull();
+  it("URL-encodes a share name with spaces in both name fields of the form body", () => {
+    const query = buildEditQuery({
+      name: "TV Shows",
+      nameOrig: "TV Shows",
+      current: {},
+      changes: {},
+      command: "Apply",
+    });
+
+    expect(query.startsWith("shareName=TV%20Shows&shareNameOrig=TV%20Shows&")).toBe(true);
+    expect(emcmdCommand(query)).toMatch(/^'\/usr\/local\/sbin\/emcmd' 'shareName=TV%20Shows&/);
   });
 });

@@ -14,19 +14,17 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
+import { validateExistingShareName } from "../_shared/share-name/share-name.js";
 
 const TOOL_NAME = "flash_backup";
 
-/** User shares live here; the share name is appended after validation. */
+/** User shares live here; the share name is appended after validation (and always quoted). */
 const USER_SHARES_ROOT = "/mnt/user";
 const BACKUP_SUBDIR = "flash-backups";
 const FLASH_ROOT = "/boot";
 const CONFIG_SUBDIR = "config";
 const ARCHIVE_PREFIX = "flash-backup";
 const ARCHIVE_SUFFIX = ".tar.gz";
-
-/** Share names as Unraid allows them, minus anything that could escape the shares root. */
-const SHARE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 const PROBE_TIMEOUT_MS = 10_000;
 /** A full-flash archive (bzroot, bzimage, … ≈ 2.6 GB on a real server) can take minutes. */
@@ -54,7 +52,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Existing user share to write the archive into: the plain name from share_list, not a path.",
+      "Existing user share to write the archive into: the plain name from share_list, not a path. Spaces are fine; quotes, `$`, backticks, `/`, and a leading `-` are refused.",
     ),
   full: z
     .boolean()
@@ -66,7 +64,7 @@ const inputSchema = z.object({
     .positive()
     .optional()
     .describe(
-      "Newest archives to keep in the share's flash-backups folder, config and full combined; older ones are deleted. Omit to keep all.",
+      "Newest archives of this call's scope (config or full) to keep in the share's flash-backups folder, counting the new one; older archives of that scope are deleted and the other scope's are never touched. Omit to keep all.",
     ),
   confirm: confirmSchema,
   acknowledge_risk: z
@@ -163,19 +161,43 @@ function isTarWarningOnly(result: ShellResult): boolean {
   return result.exitCode === TAR_WARNING_EXIT_CODE;
 }
 
-/** Lists then deletes archives beyond `keep`, returning exactly what was removed. */
+/**
+ * The name prefix shared by every archive of one scope. Neither scope name is
+ * a prefix of the other, so a config prefix can never match a full archive.
+ */
+function scopePrefix(scope: BackupScope): string {
+  return `${ARCHIVE_PREFIX}-${scope}-`;
+}
+
+/**
+ * True for a listed path that may be deleted: an archive of the target's scope
+ * (the prefix re-check) that is not the archive this run just wrote.
+ */
+function isPrunable(path: string, target: BackupTarget): boolean {
+  const prefix = `${target.directory}/${scopePrefix(target.scope)}`;
+  return path.startsWith(prefix) && path.endsWith(ARCHIVE_SUFFIX) && path !== target.file;
+}
+
+/**
+ * Lists then deletes archives of the target's scope beyond `keep`, returning
+ * exactly what was removed. Archives are ranked by the UTC timestamp in their
+ * names (zero-padded, so a byte-wise reverse sort is newest first), not by
+ * modification time: a copied-back or clock-skewed file must not outrank the
+ * new archive. Archives of the other scope are never listed, and the archive
+ * just written is never deleted, even if a future-dated name outranks it.
+ */
 async function pruneOlder(
   shell: ShellExecutor,
   target: BackupTarget,
   keep: number,
 ): Promise<string[]> {
-  const listCommand = `ls -1t ${quoteForShell(target.directory)}/${ARCHIVE_PREFIX}-*${ARCHIVE_SUFFIX} | tail -n +${keep + TAIL_OFFSET}`;
+  const pattern = `${scopePrefix(target.scope)}*${ARCHIVE_SUFFIX}`;
+  const listCommand = `ls -1 ${quoteForShell(target.directory)}/${pattern} | LC_ALL=C sort -r | tail -n +${keep + TAIL_OFFSET}`;
   const listing = await shell.execute(listCommand, PRUNE_TIMEOUT_MS);
-  const prefix = `${target.directory}/${ARCHIVE_PREFIX}-`;
   const victims = listing.stdout
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.startsWith(prefix) && line.endsWith(ARCHIVE_SUFFIX));
+    .filter((line) => isPrunable(line, target));
   if (victims.length === 0) {
     return [];
   }
@@ -233,6 +255,21 @@ function isToolResult(value: BackupOutcome | CallToolResult): value is CallToolR
 }
 
 /**
+ * Refuses, before anything runs, a share name that breaks the shared
+ * existing-share rule (spaces allowed; quotes, `$`, backticks, `/`, `..`,
+ * control characters, and a leading `-` refused).
+ */
+function invalidShareError(share: string): CallToolResult | null {
+  const reason = validateExistingShareName(share);
+  if (!reason) {
+    return null;
+  }
+  return toolError(
+    `Invalid share name "${share}": ${reason} Use the plain share name from share_list. No changes were made.`,
+  );
+}
+
+/**
  * Creates the `flash_backup` handler bound to a shell executor.
  *
  * @param deps - Shell executor (null when SSH is unconfigured), elicitation channel, clock.
@@ -246,10 +283,9 @@ export function createFlashBackupHandler(deps: FlashBackupDeps) {
     if (!deps.shell) {
       return sshUnavailableError();
     }
-    if (!SHARE_NAME_PATTERN.test(args.share)) {
-      return toolError(
-        `Invalid share name "${args.share}": use the plain share name from share_list. No changes were made.`,
-      );
+    const invalidShare = invalidShareError(args.share);
+    if (invalidShare) {
+      return invalidShare;
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
@@ -291,7 +327,7 @@ export function registerFlashBackup(server: McpServer, shell: ShellExecutor | nu
     {
       title: "Back Up Flash Device",
       description:
-        "⚠ Archives the Unraid flash (USB boot) device over SSH into a user share: by default /boot/config only (settings, plugins, keys — a few hundred MB); `full: true` archives all of /boot (several GB, includes the OS images). Writes /mnt/user/<share>/flash-backups/flash-backup-<scope>-<UTC timestamp>.tar.gz, verifies it with `tar -tzf`, and reports size and entry count; `keep: N` prunes older archives in that folder beyond N and lists exactly what it removed. The archive CONTAINS your license key, API keys, passwords, and network config — it stays on your own array; never copy it off the server unencrypted. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_*). Replaces the Unraid API's flash-backup mutation, which is an unimplemented stub.",
+        "⚠ Archives the Unraid flash (USB boot) device over SSH into a user share: by default /boot/config only (settings, plugins, keys — a few hundred MB); `full: true` archives all of /boot (several GB, includes the OS images). Writes /mnt/user/<share>/flash-backups/flash-backup-<scope>-<UTC timestamp>.tar.gz, verifies it with `tar -tzf`, and reports size and entry count; `keep: N` keeps the newest N archives of the scope just written (including the new one), deletes older ones of that scope only (a config backup never prunes full archives, nor the reverse), and lists exactly what it removed. The archive CONTAINS your license key, API keys, passwords, and network config — it stays on your own array; never copy it off the server unencrypted. Requires `confirm: true` AND `acknowledge_risk: true`, plus SSH (UNRAID_SSH_*). Replaces the Unraid API's flash-backup mutation, which is an unimplemented stub.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

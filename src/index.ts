@@ -68,6 +68,7 @@ async function main(): Promise<void> {
     history,
     feed,
     liveStore,
+    sshUser: env.UNRAID_SSH_USER,
   };
 
   if (isDoctorInvocation(process.argv)) {

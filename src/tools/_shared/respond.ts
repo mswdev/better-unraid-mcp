@@ -1,10 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { redactSecrets } from "./redact.js";
-import { truncateJsonPayload } from "./truncate-output.js";
-
-/** Number of spaces used when pretty-printing detailed JSON responses. */
-const JSON_INDENT_SPACES = 2;
+import { redactSecrets, stringifyRedacted } from "./redact.js";
+import { JSON_INDENT_SPACES, truncateJsonPayload } from "./truncate-output.js";
 
 /** How verbose a tool response should be. */
 export type ResponseFormat = "concise" | "detailed";
@@ -49,6 +46,23 @@ export function toolText(text: string): CallToolResult {
 }
 
 /**
+ * Wraps a value as a successful tool result carrying pretty-printed JSON. This
+ * is the choke point every JSON tool output flows through: secrets are
+ * redacted value by value before serializing (a text pass over serialized
+ * JSON would break escaped quotes and leak the value), and an oversized
+ * payload becomes the parseable truncation envelope. The text is NOT passed
+ * through `toolText`, whose text pass would break the JSON again.
+ *
+ * @param value - The payload to render.
+ * @returns A successful `CallToolResult` whose text always survives JSON.parse.
+ * @see stringifyRedacted
+ */
+export function toolJson(value: unknown): CallToolResult {
+  const text = truncateJsonPayload(stringifyRedacted(value, JSON_INDENT_SPACES));
+  return { content: [{ type: "text", text }] };
+}
+
+/**
  * Wraps a message as an error tool result (sets `isError`). Secrets are
  * redacted the same way as in `toolText`.
  *
@@ -76,14 +90,14 @@ export function formatResponse(
   detailed: unknown,
 ): CallToolResult {
   if (format === "detailed") {
-    return toolText(truncateJsonPayload(JSON.stringify(detailed, null, JSON_INDENT_SPACES)));
+    return toolJson(detailed);
   }
   return toolText(concise);
 }
 
-/** Round-trips structured data through the string redactor (stays parseable). */
+/** Redacts structured data value by value, returning a plain JSON copy. */
 function redactStructured(structured: object): Record<string, unknown> {
-  return JSON.parse(redactSecrets(JSON.stringify(structured))) as Record<string, unknown>;
+  return JSON.parse(stringifyRedacted(structured)) as Record<string, unknown>;
 }
 
 /**

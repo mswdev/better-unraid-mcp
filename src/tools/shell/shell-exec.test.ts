@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import { MAX_OUTPUT_CHARS } from "../_shared/truncate-output.js";
 import { createShellExecHandler } from "./shell-exec.js";
 
 const ok = { stdout: "hello\n", stderr: "", exitCode: 0 };
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Room for the exit-code line, the stream headers, and two truncation notes. */
+const SUMMARY_FRAMING_CHARS = 200;
 
 describe("shell_exec", () => {
   it("refuses with configuration guidance when SSH is not set up", async () => {
@@ -144,7 +148,83 @@ describe("shell_exec progress heartbeat", () => {
   });
 });
 
+describe("shell_exec oversized output", () => {
+  /** Numbered output lines, newest last, well past the cap once JSON-escaped. */
+  function manyLines(label: string): string {
+    return `${Array.from({ length: 3_000 }, (_, index) => `${label} line ${index + 1}`).join("\n")}\n`;
+  }
+
+  it("keeps the newest stdout and stderr lines in detailed mode and stays parseable", async () => {
+    const { shell } = recordingShell({
+      stdout: manyLines("out"),
+      stderr: manyLines("err"),
+      exitCode: 0,
+    });
+    const handler = createShellExecHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      command: "dmesg",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+    const text = firstText(result);
+    const payload = JSON.parse(text) as {
+      command: string;
+      stdout: string;
+      stderr: string;
+      truncated: boolean;
+      dropped_leading_chars: { stdout: number; stderr: number };
+    };
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(payload.command).toBe("dmesg");
+    expect(payload.stdout.endsWith("out line 3000\n")).toBe(true);
+    expect(payload.stderr.endsWith("err line 3000\n")).toBe(true);
+    expect(payload.truncated).toBe(true);
+    expect(payload.dropped_leading_chars.stdout).toBeGreaterThan(0);
+    expect(payload.dropped_leading_chars.stderr).toBeGreaterThan(0);
+  });
+});
+
 describe("shell_exec failure messages", () => {
+  it("redacts a cfg-style password in detailed mode and stays parseable", async () => {
+    const cfg = { stdout: 'USER="root"\nPASSWORD="hunter2"\nPORT="22"\n', stderr: "", exitCode: 0 };
+    const { shell } = recordingShell(cfg);
+    const handler = createShellExecHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      command: "cat /boot/config/example.cfg",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    const parsed = JSON.parse(firstText(result)) as { stdout: string };
+    expect(firstText(result)).not.toContain("hunter2");
+    expect(parsed.stdout).toBe('USER="root"\nPASSWORD="[redacted]"\nPORT="22"\n');
+  });
+
+  it("keeps a concise summary of two large streams within one output cap", async () => {
+    const loud = {
+      stdout: "o".repeat(MAX_OUTPUT_CHARS),
+      stderr: "e".repeat(MAX_OUTPUT_CHARS),
+      exitCode: 0,
+    };
+    const { shell } = recordingShell(loud);
+    const handler = createShellExecHandler(shell);
+
+    const result = await handler({
+      response_format: "concise",
+      command: "noisy",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    expect(firstText(result).length).toBeLessThan(MAX_OUTPUT_CHARS + SUMMARY_FRAMING_CHARS);
+    expect(firstText(result).endsWith("e".repeat(100))).toBe(true);
+  });
+
   it("prefixes SSH failures with the tool context", async () => {
     const handler = createShellExecHandler(throwingShell("channel closed"));
 

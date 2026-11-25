@@ -139,7 +139,7 @@ Add an entry to the `mcpServers` object in `~/.gemini/settings.json`:
 
 </details>
 
-If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.4`) if you want fully predictable behavior.
+If your server uses a self-signed TLS certificate on the LAN, also set `UNRAID_ALLOW_SELF_SIGNED=true`. To turn on the SSH-backed tools (reading files like `/boot/logs/syslog-previous`, ZFS, running one-off commands, and the rest of the tools marked SSH below), also pass the `UNRAID_SSH_*` variables described under [Configuration](#configuration). `@latest` keeps you on the newest release; pin a version (for example `better-unraid-mcp@0.1.5`) if you want fully predictable behavior.
 
 #### Other ways to install
 
@@ -369,7 +369,7 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
+| `flash_backup` | destructive | Archives the flash (USB boot) device into a user share as `/mnt/user/<share>/flash-backups/flash-backup-<scope>-<timestamp>.tar.gz`: `/boot/config` by default, or the whole flash with `full: true`. Each archive is checked with `tar -tzf`, and `keep: N` prunes older archives of the same scope (config backups never prune full ones, and the reverse) and lists what it removed. The archive contains your license key, API keys, and passwords, so it stays on your array. Requires `confirm` + `acknowledge_risk`. |
 
 </details>
 
@@ -380,8 +380,8 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 
 | Tool | Type | Description |
 | --- | --- | --- |
-| `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin. |
-| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary root code, so this requires `confirm` + `acknowledge_risk`. |
+| `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin, and says whether the plugin is missing or installed with no scripts yet. |
+| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary code run as the SSH user (typically root), so this requires `confirm` + `acknowledge_risk`. |
 
 </details>
 

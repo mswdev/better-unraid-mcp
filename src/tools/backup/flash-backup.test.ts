@@ -58,6 +58,29 @@ describe("flash_backup gates and validation", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it.each(["a/b", ".", "..", "it's", 'say"hi', "a`id`", "$HOME", "media\nrm", "-rf"])(
+    "rejects the unsafe share name %j and runs nothing",
+    async (share) => {
+      const { handler, calls } = handlerWith([]);
+
+      const result = await handler({ response_format: "concise", share, ...bothFlags });
+
+      expect(result.isError).toBe(true);
+      expect(firstText(result)).toMatch(/^Invalid share name .*No changes were made\.$/s);
+      expect(calls).toHaveLength(0);
+    },
+  );
+
+  it("says why a share name was refused", async () => {
+    const { handler } = handlerWith([]);
+
+    const result = await handler({ response_format: "concise", share: "-rf", ...bothFlags });
+
+    expect(firstText(result)).toBe(
+      'Invalid share name "-rf": Share names must not start with a hyphen. Use the plain share name from share_list. No changes were made.',
+    );
+  });
+
   it("refuses when the share directory does not exist", async () => {
     const { handler, calls } = handlerWith([{ stdout: "", stderr: "", exitCode: 1 }]);
 
@@ -206,7 +229,9 @@ describe("flash_backup pruning", () => {
       ...bothFlags,
     });
 
-    expect(calls[3].command).toBe(`ls -1t '${EXPECTED_DIR}'/flash-backup-*.tar.gz | tail -n +3`);
+    expect(calls[3].command).toBe(
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +3`,
+    );
     expect(calls[4].command).toBe(`rm -f '${older[0]}' '${older[1]}'`);
     expect(firstText(result)).toContain("Pruned 2 older archive(s)");
     expect(firstText(result)).toContain(older[1]);
@@ -226,12 +251,108 @@ describe("flash_backup pruning", () => {
     expect(calls).toHaveLength(4);
   });
 
+  it("never deletes the archive it just wrote, even when another name outranks it", async () => {
+    // A future-dated archive (flash-backup-config-20300101-…) sorts first, so
+    // with keep: 1 the listing past it holds the new archive and an older one.
+    const listing = ok(`${EXPECTED_FILE}\n${older[0]}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[4].command).toBe(`rm -f '${older[0]}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([older[0]]);
+  });
+
+  it("removes nothing when the only archive beyond keep is the one just written", async () => {
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, ok(`${EXPECTED_FILE}\n`)]);
+
+    const result = await handler({
+      response_format: "concise",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls).toHaveLength(4);
+    expect(firstText(result)).not.toContain("Pruned");
+  });
+
   it("never prunes when keep is unset", async () => {
     const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk]);
 
     await handler({ response_format: "concise", share: "backups", ...bothFlags });
 
     expect(calls).toHaveLength(3);
+  });
+
+  it("prunes only config archives on a config backup, never full ones", async () => {
+    const fullArchive = `${EXPECTED_DIR}/flash-backup-full-20260801-010101.tar.gz`;
+    const listing = ok(`${older[0]}\n${fullArchive}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[3].command).toBe(
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
+    );
+    expect(calls[4].command).toBe(`rm -f '${older[0]}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([older[0]]);
+  });
+
+  it("prunes only full archives on a full backup, never config ones", async () => {
+    const fullArchive = `${EXPECTED_DIR}/flash-backup-full-20260801-010101.tar.gz`;
+    const listing = ok(`${fullArchive}\n${older[0]}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "detailed",
+      share: "backups",
+      full: true,
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(calls[3].command).toBe(
+      `ls -1 '${EXPECTED_DIR}'/flash-backup-full-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
+    );
+    expect(calls[4].command).toBe(`rm -f '${fullArchive}'`);
+    expect(JSON.parse(firstText(result)).pruned).toEqual([fullArchive]);
+  });
+
+  it("backs up into a share whose name has spaces, quoting every path it builds", async () => {
+    const spacedDir = "/mnt/user/My Backups/flash-backups";
+    const spacedFile = `${spacedDir}/flash-backup-config-20260917-224105.tar.gz`;
+    const olderSpaced = `${spacedDir}/flash-backup-config-20260801-010101.tar.gz`;
+    const listing = ok(`${olderSpaced}\n`);
+    const { handler, calls } = handlerWith([probeOk, tarOk, verifyOk, listing, ok()]);
+
+    const result = await handler({
+      response_format: "concise",
+      share: "My Backups",
+      keep: 1,
+      ...bothFlags,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls.map((call) => call.command)).toEqual([
+      "test -d '/mnt/user/My Backups'",
+      `mkdir -p '${spacedDir}' && tar -czf '${spacedFile}' -C '/boot' 'config'`,
+      `tar -tzf '${spacedFile}' | wc -l && stat -c %s '${spacedFile}'`,
+      `ls -1 '${spacedDir}'/flash-backup-config-*.tar.gz | LC_ALL=C sort -r | tail -n +2`,
+      `rm -f '${olderSpaced}'`,
+    ]);
+    expect(firstText(result)).toContain(spacedFile);
   });
 
   it("ignores listed paths outside the backup directory", async () => {

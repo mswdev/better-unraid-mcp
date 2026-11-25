@@ -6,7 +6,8 @@ import { createElicitationChannel, type ElicitationChannel } from "../_shared/el
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError } from "../_shared/respond.js";
-import { MAX_SHARE_NAME_LENGTH, type ShareSettings, validateShareName } from "./_shared.js";
+import { MAX_SHARE_NAME_LENGTH, validateNewShareName } from "../_shared/share-name/share-name.js";
+import type { ShareSettings } from "./_shared.js";
 import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from "./write-flow.js";
 
 const TOOL_NAME = "share_create";
@@ -59,7 +60,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      `Name for the new share: letters, digits, dot, underscore, hyphen; at most ${MAX_SHARE_NAME_LENGTH} characters; no leading dot.`,
+      `Name for the new share: letters, digits, dot, underscore, hyphen (no spaces); at most ${MAX_SHARE_NAME_LENGTH} characters; no leading dot or hyphen.`,
     ),
   ...shareSettingsSchema,
 });
@@ -112,7 +113,7 @@ export function createShareCreateHandler(
     if (!shell) {
       return sshUnavailableError();
     }
-    const invalidName = validateShareName(args.name);
+    const invalidName = validateNewShareName(args.name);
     if (invalidName) {
       return toolError(`${invalidName} No changes were made.`);
     }
