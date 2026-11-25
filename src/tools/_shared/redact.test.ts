@@ -59,6 +59,25 @@ describe("redactSecrets", () => {
   });
 });
 
+describe("redactSecrets idempotence", () => {
+  it("changes nothing on a second pass, even when a secret is part of the marker", () => {
+    registerSecretValues(["red", "acted"]);
+
+    const once = redactSecrets("red acted TOKEN=red");
+
+    expect(once).toBe('[redacted] [redacted] TOKEN="[redacted]"');
+    expect(redactSecrets(once)).toBe(once);
+  });
+
+  it("still redacts a JWT after a space, a quote or an equals sign", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9P";
+
+    const result = redactSecrets(`Bearer ${jwt} "${jwt}" jwt=${jwt}`);
+
+    expect(result).not.toContain(jwt);
+  });
+});
+
 describe("redactSecrets performance", () => {
   it("stays linear on a long unbroken run of word characters", () => {
     const run = "o".repeat(LONG_RUN_CHARS);
@@ -67,6 +86,15 @@ describe("redactSecrets performance", () => {
     const result = redactSecrets(run);
 
     expect(result).toBe(run);
+    expect(performance.now() - started).toBeLessThan(MAX_LINEAR_REDACTION_MS);
+  });
+
+  it("stays linear on a long run of eyJ- fragments", () => {
+    const run = "eyJ-".repeat(LONG_RUN_CHARS / "eyJ-".length);
+
+    const started = performance.now();
+    redactSecrets(run);
+
     expect(performance.now() - started).toBeLessThan(MAX_LINEAR_REDACTION_MS);
   });
 
@@ -120,6 +148,26 @@ describe("stringifyRedacted", () => {
     const parsed = JSON.parse(stringifyRedacted(value));
 
     expect(parsed).toEqual({ secret: { note: "[redacted]" }, token: ["[redacted]"] });
+  });
+
+  it("redacts credential keys that contain dots, spaces or colons", () => {
+    const value = {
+      "x.password": "hunter2",
+      "Admin Password": "hunter2",
+      "db:token": "hunter2",
+      labels: { "com.example.api-key": "hunter2" },
+    };
+
+    expect(stringifyRedacted(value)).not.toContain("hunter2");
+  });
+
+  it("redacts a registered secret used as an object key", () => {
+    registerSecretValues(["s3cr3t-api-key"]);
+
+    const serialized = stringifyRedacted({ keys: { "s3cr3t-api-key": { name: "mcp" } } });
+
+    expect(serialized).not.toContain("s3cr3t-api-key");
+    expect(JSON.parse(serialized)).toEqual({ keys: { "[redacted]": { name: "mcp" } } });
   });
 
   it("indents like JSON.stringify when given an indent", () => {

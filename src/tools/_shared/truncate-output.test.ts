@@ -22,6 +22,9 @@ const LONG_SECRET = "0123456789abcdef".repeat(3).concat("tail");
 const SHORT_SECRET = "abcd";
 const SHORT_SECRET_REPEATS = 20_000;
 
+/** A secret that is itself part of the "[redacted]" marker. */
+const MARKER_FRAGMENT_SECRET = "red";
+
 /** Enough back-to-back copies of LONG_SECRET to overflow the cap, but not once redacted. */
 const SECRET_REPEATS_OVER_CAP = 1_200;
 
@@ -254,6 +257,17 @@ describe("fitTailsToOutputCap", () => {
       command: "[redacted]",
       stdout: "[redacted]".repeat(SECRET_REPEATS_OVER_CAP),
     });
+  });
+
+  it("stays tail-fitted under the cap when the secret is part of the marker", () => {
+    registerSecretValues([MARKER_FRAGMENT_SECRET]);
+    const stdout = `${MARKER_FRAGMENT_SECRET} `.repeat(SHORT_SECRET_REPEATS);
+
+    const payload = fitTailsToOutputCap({ fixed: { exit_code: 0 }, tails: { stdout } });
+    const text = firstText(formatResponse("detailed", "summary", payload));
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(JSON.parse(text)).toHaveProperty("stdout");
   });
 
   it("stays under the cap after redaction when a short secret repeats", () => {
