@@ -6,6 +6,9 @@ import { createShellExecHandler } from "./shell-exec.js";
 const ok = { stdout: "hello\n", stderr: "", exitCode: 0 };
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** Room for the exit-code line, the stream headers, and two truncation notes. */
+const SUMMARY_FRAMING_CHARS = 200;
+
 describe("shell_exec", () => {
   it("refuses with configuration guidance when SSH is not set up", async () => {
     const handler = createShellExecHandler(null);
@@ -185,6 +188,43 @@ describe("shell_exec oversized output", () => {
 });
 
 describe("shell_exec failure messages", () => {
+  it("redacts a cfg-style password in detailed mode and stays parseable", async () => {
+    const cfg = { stdout: 'USER="root"\nPASSWORD="hunter2"\nPORT="22"\n', stderr: "", exitCode: 0 };
+    const { shell } = recordingShell(cfg);
+    const handler = createShellExecHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      command: "cat /boot/config/example.cfg",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    const parsed = JSON.parse(firstText(result)) as { stdout: string };
+    expect(firstText(result)).not.toContain("hunter2");
+    expect(parsed.stdout).toBe('USER="root"\nPASSWORD="[redacted]"\nPORT="22"\n');
+  });
+
+  it("keeps a concise summary of two large streams within one output cap", async () => {
+    const loud = {
+      stdout: "o".repeat(MAX_OUTPUT_CHARS),
+      stderr: "e".repeat(MAX_OUTPUT_CHARS),
+      exitCode: 0,
+    };
+    const { shell } = recordingShell(loud);
+    const handler = createShellExecHandler(shell);
+
+    const result = await handler({
+      response_format: "concise",
+      command: "noisy",
+      timeout_seconds: 30,
+      confirm: true,
+    });
+
+    expect(firstText(result).length).toBeLessThan(MAX_OUTPUT_CHARS + SUMMARY_FRAMING_CHARS);
+    expect(firstText(result).endsWith("e".repeat(100))).toBe(true);
+  });
+
   it("prefixes SSH failures with the tool context", async () => {
     const handler = createShellExecHandler(throwingShell("channel closed"));
 

@@ -1,6 +1,6 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import type { ShellExecutor } from "../../shell/executor.js";
+import type { ShellExecutor, ShellResult } from "../../shell/executor.js";
 import { confirmSchema, requireRiskAcknowledgementInteractive } from "../_shared/confirm.js";
 import { createElicitationChannel, type ElicitationChannel } from "../_shared/elicitation.js";
 import { errorMessage } from "../_shared/errors/error-message.js";
@@ -12,7 +12,7 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
-import { fitTailsToOutputCap, truncateOutput } from "../_shared/truncate-output.js";
+import { fitTailsToOutputCap, truncateStreams } from "../_shared/truncate-output.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
 
 const TOOL_NAME = "user_script_run";
@@ -79,13 +79,15 @@ function buildRunner(name: string): string {
   ].join("; ");
 }
 
-function summarize(name: string, exitCode: number, stdout: string, stderr: string): string {
-  const parts = [`Script "${name}" finished with exit code ${exitCode}.`];
+/** Renders the exit code plus whichever output streams are non-empty, sharing one output cap. */
+function summarize(name: string, result: ShellResult): string {
+  const parts = [`Script "${name}" finished with exit code ${result.exitCode}.`];
+  const { stdout, stderr } = truncateStreams(result.stdout, result.stderr);
   if (stdout.trim()) {
-    parts.push("--- stdout ---", truncateOutput(stdout.trimEnd()));
+    parts.push("--- stdout ---", stdout);
   }
   if (stderr.trim()) {
-    parts.push("--- stderr ---", truncateOutput(stderr.trimEnd()));
+    parts.push("--- stderr ---", stderr);
   }
   return parts.join("\n");
 }
@@ -107,7 +109,7 @@ async function runScript(shell: ShellExecutor, args: UserScriptRunArgs): Promise
     fixed: { name: args.name, exit_code: result.exitCode },
     tails: { stdout: result.stdout, stderr: result.stderr },
   });
-  const summary = summarize(args.name, result.exitCode, result.stdout, result.stderr);
+  const summary = summarize(args.name, result);
   return formatResponse(args.response_format, summary, detailed);
 }
 

@@ -15,7 +15,7 @@ import {
 import {
   fitTailsToOutputCap,
   MAX_OUTPUT_CHARS,
-  truncateOutput,
+  truncateStreams,
 } from "../_shared/truncate-output.js";
 
 const TOOL_NAME = "shell_exec";
@@ -51,16 +51,17 @@ interface ShellExecInput {
   confirm?: boolean;
 }
 
-/** Renders exit code plus whichever output streams are non-empty. */
+/** Renders exit code plus whichever output streams are non-empty, sharing one output cap. */
 function summarize(result: ShellResult): string {
   const parts = [`Exit code ${result.exitCode}.`];
-  if (result.stdout.trim()) {
-    parts.push("--- stdout ---", truncateOutput(result.stdout.trimEnd()));
+  const { stdout, stderr } = truncateStreams(result.stdout, result.stderr);
+  if (stdout.trim()) {
+    parts.push("--- stdout ---", stdout);
   }
-  if (result.stderr.trim()) {
-    parts.push("--- stderr ---", truncateOutput(result.stderr.trimEnd()));
+  if (stderr.trim()) {
+    parts.push("--- stderr ---", stderr);
   }
-  if (!result.stdout.trim() && !result.stderr.trim()) {
+  if (!stdout.trim() && !stderr.trim()) {
     parts.push("(no output)");
   }
   return parts.join("\n");

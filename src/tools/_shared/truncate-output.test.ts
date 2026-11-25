@@ -1,11 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { clearSecretValues, registerSecretValues } from "./redact.js";
+import { formatResponse } from "./respond.js";
+import { firstText } from "./test-support.js";
 import {
   fitTailsToOutputCap,
   MAX_OUTPUT_CHARS,
   TRUNCATED_HEAD_CHARS,
   truncateJsonPayload,
   truncateOutput,
+  truncateStreams,
 } from "./truncate-output.js";
+
+afterEach(() => {
+  clearSecretValues();
+});
+
+/** A registered secret long enough that a cut can leave a recognizable piece of it. */
+const LONG_SECRET = "0123456789abcdef".repeat(3).concat("tail");
+
+/** A registered secret shorter than "[redacted]", so redacting it lengthens the text. */
+const SHORT_SECRET = "abcd";
+const SHORT_SECRET_REPEATS = 20_000;
+
+/** Enough back-to-back copies of LONG_SECRET to overflow the cap, but not once redacted. */
+const SECRET_REPEATS_OVER_CAP = 1_200;
 
 describe("truncateOutput", () => {
   it("returns short output unchanged", () => {
@@ -19,6 +37,41 @@ describe("truncateOutput", () => {
 
     expect(truncated).toContain("[truncated 1 characters from the start]");
     expect(truncated.endsWith("x".repeat(100))).toBe(true);
+  });
+});
+
+describe("truncateOutput redaction and limit", () => {
+  it("redacts before cutting, so a secret on the cut line leaves no fragment", () => {
+    registerSecretValues([LONG_SECRET]);
+    const prefix = "x".repeat(MAX_OUTPUT_CHARS + LONG_SECRET.length);
+    const output = `${prefix}${LONG_SECRET}${"y".repeat(MAX_OUTPUT_CHARS - LONG_SECRET.length / 2)}`;
+
+    const truncated = truncateOutput(output);
+
+    expect(truncated).not.toContain(LONG_SECRET.slice(-LONG_SECRET.length / 2));
+    expect(truncated).toContain("[redacted]");
+  });
+
+  it("cuts to a smaller limit when given one", () => {
+    const truncated = truncateOutput("z".repeat(MAX_OUTPUT_CHARS), MAX_OUTPUT_CHARS / 2);
+
+    expect(truncated).toContain(`[truncated ${MAX_OUTPUT_CHARS / 2} characters from the start]`);
+  });
+});
+
+describe("truncateStreams", () => {
+  it("gives each stream half the cap when both have output", () => {
+    const streams = truncateStreams("o".repeat(MAX_OUTPUT_CHARS), "e".repeat(MAX_OUTPUT_CHARS));
+
+    expect(streams.stdout).toContain(`[truncated ${MAX_OUTPUT_CHARS / 2} characters`);
+    expect(streams.stderr).toContain(`[truncated ${MAX_OUTPUT_CHARS / 2} characters`);
+  });
+
+  it("gives a lone stream the whole cap and trims trailing whitespace", () => {
+    const streams = truncateStreams(`${"o".repeat(MAX_OUTPUT_CHARS)}\n\n`, "  \n");
+
+    expect(streams.stdout).toBe("o".repeat(MAX_OUTPUT_CHARS));
+    expect(streams.stderr).toBe("");
   });
 });
 
@@ -189,6 +242,31 @@ describe("fitTailsToOutputCap", () => {
     expect(rendered(payload).length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
     expect(parsed.stdout).toMatch(/^(😀|\n)/u);
     expect(parsed.stdout.endsWith("😀\naaa")).toBe(true);
+  });
+
+  it("redacts before measuring, so no cut can land inside a secret", () => {
+    registerSecretValues([LONG_SECRET]);
+    const stdout = LONG_SECRET.repeat(SECRET_REPEATS_OVER_CAP);
+
+    const payload = fitTailsToOutputCap({ fixed: { command: LONG_SECRET }, tails: { stdout } });
+
+    expect(payload).toEqual({
+      command: "[redacted]",
+      stdout: "[redacted]".repeat(SECRET_REPEATS_OVER_CAP),
+    });
+  });
+
+  it("stays under the cap after redaction when a short secret repeats", () => {
+    registerSecretValues([SHORT_SECRET]);
+    const stdout = SHORT_SECRET.repeat(SHORT_SECRET_REPEATS);
+
+    const payload = fitTailsToOutputCap({ fixed: { exit_code: 0 }, tails: { stdout } });
+    const text = firstText(formatResponse("detailed", "summary", payload));
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(text).not.toContain(SHORT_SECRET);
+    expect(JSON.parse(text)).toMatchObject({ truncated: true, exit_code: 0 });
+    expect(JSON.parse(text)).toHaveProperty("stdout");
   });
 
   it("empties the tails and still ends when the fixed fields alone exceed the cap", () => {
