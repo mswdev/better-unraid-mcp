@@ -5,6 +5,9 @@ on:
     branches: [develop, main]
   pull_request:
     branches: [develop, main]
+  # schema-drift.yml dispatches CI for its own PR branch, whose bot-opened PR
+  # cannot trigger pull_request runs.
+  workflow_dispatch:
 
 permissions:
   contents: read
