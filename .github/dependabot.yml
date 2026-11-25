@@ -13,8 +13,8 @@ updates:
     open-pull-requests-limit: 5
     labels: [dependencies]
     ignore:
-      # @types/node tracks the engines floor (Node 22): a newer major would
-      # type APIs that Node 22 users do not have. Move it with the floor.
+      # @types/node tracks the engines floor (Node 24): a newer major would
+      # type APIs that Node 24 users do not have. Move it with the floor.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
