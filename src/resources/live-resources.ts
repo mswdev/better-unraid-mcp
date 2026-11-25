@@ -7,6 +7,7 @@ import {
 } from "../graphql/live-store.js";
 import { METRIC_SUBSCRIPTIONS } from "../graphql/metric-subscriptions.js";
 import type { SubscriptionFeed } from "../graphql/subscription-feed.js";
+import { stringifyRedacted } from "../tools/_shared/redact.js";
 
 const JSON_INDENT_SPACES = 2;
 
@@ -124,13 +125,14 @@ const WAITING_ENVELOPE = {
 /**
  * Renders a resource's latest state: single-topic resources return
  * `{data, age_ms}`, merged resources return per-topic `parts`; either shape
- * becomes the waiting envelope until a first sample lands.
+ * becomes the waiting envelope until a first sample lands. Secrets are
+ * redacted value by value (log lines and notifications can carry them).
  */
 function renderResource(store: LiveSnapshotStore, topics: string[]): string {
   if (topics.length === 1) {
     const sample = store.get(topics[0]);
     const body = sample ? { data: sample.data, age_ms: sample.ageMs } : WAITING_ENVELOPE;
-    return JSON.stringify(body, null, JSON_INDENT_SPACES);
+    return stringifyRedacted(body, JSON_INDENT_SPACES);
   }
   const parts: Record<string, { data: unknown; age_ms: number } | null> = {};
   let any = false;
@@ -139,7 +141,7 @@ function renderResource(store: LiveSnapshotStore, topics: string[]): string {
     parts[topic] = sample ? { data: sample.data, age_ms: sample.ageMs } : null;
     any = any || sample !== null;
   }
-  return JSON.stringify(any ? { parts } : WAITING_ENVELOPE, null, JSON_INDENT_SPACES);
+  return stringifyRedacted(any ? { parts } : WAITING_ENVELOPE, JSON_INDENT_SPACES);
 }
 
 /** Resolves a subscribed URI to its upstream subscription list. */

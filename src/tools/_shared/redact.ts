@@ -28,8 +28,11 @@ const CREDENTIAL_KEY_PATTERN = /(?:api[_-]?key|password|token|secret|authorizati
  * `\b`, a run like `eyJ-eyJ-…` started a full scan after every dash. A JWT
  * glued to a preceding word character or dash is no longer caught; one after
  * a space, quote, `=` or `:` (Bearer headers, assignments, JSON) still is.
+ * Each segment is written as an exact count plus `*` rather than `{8,}`: on
+ * one unbroken run of several MB, V8 overflows its stack on the counted
+ * open-ended form (RangeError), while this equivalent form stays linear.
  */
-const JWT_PATTERN = /(?<![\w-])eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,}\b/g;
+const JWT_PATTERN = /(?<![\w-])eyJ[\w-]{8}[\w-]*\.[\w-]{8}[\w-]*\.[\w-]{4}[\w-]*\b/g;
 
 let configuredSecrets: string[] = [];
 
