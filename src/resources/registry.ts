@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/server";
+import { stringifyRedacted } from "../tools/_shared/redact.js";
 import type { RegistryOptions } from "../tools/registry.js";
 import { runConnectionDoctor } from "../tools/system/connection-doctor.js";
 import { runSystemHealth } from "../tools/system/system-health.js";
@@ -13,7 +14,9 @@ const JSON_INDENT_SPACES = 2;
 /**
  * Registers the server's MCP resources: the vendored GraphQL SDL, the
  * system-health rollup, and the connection self-test. Read-only by nature,
- * so read-only mode changes nothing here.
+ * so read-only mode changes nothing here. JSON resources are redacted the
+ * same way tool output is (stringifyRedacted), since a client may hand them
+ * to the model just like a tool result.
  *
  * @param server - The MCP server to register resources on.
  * @param options - The executors and mode shared with the tool registry.
@@ -59,7 +62,7 @@ function registerHealthResource(server: McpServer, options: RegistryOptions): vo
         {
           uri: HEALTH_URI,
           mimeType: "application/json",
-          text: JSON.stringify(await runSystemHealth(options.client), null, JSON_INDENT_SPACES),
+          text: stringifyRedacted(await runSystemHealth(options.client), JSON_INDENT_SPACES),
         },
       ],
     }),
@@ -82,7 +85,7 @@ function registerDoctorResource(server: McpServer, options: RegistryOptions): vo
         {
           uri: DOCTOR_URI,
           mimeType: "application/json",
-          text: JSON.stringify(await runConnectionDoctor(options), null, JSON_INDENT_SPACES),
+          text: stringifyRedacted(await runConnectionDoctor(options), JSON_INDENT_SPACES),
         },
       ],
     }),

@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { clearSecretValues, registerSecretValues } from "../tools/_shared/redact.js";
 import { recordingExecutor } from "../tools/_shared/test-support.js";
 import type {
   ConnectionDoctorQuery,
@@ -54,6 +55,10 @@ describe("loadSchemaSdl", () => {
 });
 
 describe("registerAllResources", () => {
+  afterEach(() => {
+    clearSecretValues();
+  });
+
   it("registers the four unraid:// resources", () => {
     const { server, resources } = fakeServer();
     const { executor } = recordingExecutor(doctorFixture);
@@ -103,6 +108,23 @@ describe("registerAllResources", () => {
     const parsed = JSON.parse(result.contents[0].text) as { checks: Array<{ check: string }> };
 
     expect(parsed.checks.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("redacts registered secrets from the doctor output", async () => {
+    registerSecretValues([doctorFixture.info.versions.core.api]);
+    const { server, resources } = fakeServer();
+    const { executor } = recordingExecutor(doctorFixture);
+    registerAllResources(server, {
+      client: executor,
+      shell: null,
+      readOnly: true,
+      schemaApiVersion: null,
+    });
+
+    const result = await resources[2].read();
+
+    expect(result.contents[0].text).not.toContain(doctorFixture.info.versions.core.api);
+    expect(result.contents[0].text).toContain("[redacted]");
   });
 
   it("serves the health rollup as JSON", async () => {

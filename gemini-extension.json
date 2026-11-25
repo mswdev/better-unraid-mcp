@@ -1,6 +1,6 @@
 {
   "name": "better-unraid-mcp",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Monitor and manage an Unraid server from Gemini CLI: array, Docker, VMs, ZFS, logs, and UPS.",
   "mcpServers": {
     "better-unraid": {

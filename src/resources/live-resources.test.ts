@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LiveSnapshotStore } from "../graphql/live-store.js";
 import type { FeedHandlers, SubscriptionFeed } from "../graphql/subscription-feed.js";
+import { clearSecretValues, registerSecretValues } from "../tools/_shared/redact.js";
 import { registerLiveResources } from "./live-resources.js";
 
 interface RecordedFeedSub {
@@ -179,6 +180,10 @@ describe("live subscription lifecycle hardening", () => {
 });
 
 describe("live resource reads", () => {
+  afterEach(() => {
+    clearSecretValues();
+  });
+
   type ReadResult = { contents: Array<{ uri: string; text: string }> };
 
   async function readBody(fake: ReturnType<typeof fakeMcpServer>, name: string, uri?: URL) {
@@ -238,6 +243,30 @@ describe("live resource reads", () => {
 
     expect(before.waiting).toBe(true);
     expect(after).toEqual({ data: { logFile: { content: "line" } }, age_ms: 0 });
+  });
+
+  it("redacts a secret in a followed log line and stays valid JSON", async () => {
+    const { fake, store } = setup();
+    const uri = new URL("unraid://logs/syslog");
+    store.set("unraid://logs/syslog", { logFile: { content: 'PASSWORD="hunter2"\nnext' } });
+
+    const body = await readBody(fake, "unraid-logs", uri);
+
+    expect(body).toEqual({
+      data: { logFile: { content: 'PASSWORD="[redacted]"\nnext' } },
+      age_ms: 0,
+    });
+  });
+
+  it("redacts registered secrets inside a merged resource's parts", async () => {
+    registerSecretValues(["s3cr3t-api-key"]);
+    const { fake, store } = setup();
+    store.set("systemMetricsCpu", { note: "s3cr3t-api-key" });
+
+    const body = await readBody(fake, "unraid-live-metrics");
+
+    expect(JSON.stringify(body)).not.toContain("s3cr3t-api-key");
+    expect(body).toMatchObject({ parts: { systemMetricsCpu: { data: { note: "[redacted]" } } } });
   });
 
   it("swallows a failed resource-updated notification", async () => {
