@@ -6,14 +6,19 @@ import { createElicitationChannel, type ElicitationChannel } from "../_shared/el
 import { errorMessage } from "../_shared/errors/error-message.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError } from "../_shared/respond.js";
-import { validateShareName } from "./_shared.js";
+import { validateExistingShareName } from "../_shared/share-name/share-name.js";
 import { type ShareWriteArgs, settingsOf, shareSettingsSchema } from "./share-create.js";
 import { applyAndVerify, checkAgainstHost, readHostContext, readShareCfg } from "./write-flow.js";
 
 const TOOL_NAME = "share_edit";
 
 const inputSchema = z.object({
-  name: z.string().min(1).describe("Exact name of the existing share to edit, from share_list."),
+  name: z
+    .string()
+    .min(1)
+    .describe(
+      "Exact name of the existing share to edit, from share_list; spaces are fine, but quotes, `$`, backticks, `/`, and a leading `-` are refused.",
+    ),
   ...shareSettingsSchema,
 });
 
@@ -57,7 +62,7 @@ export function createShareEditHandler(
     if (!shell) {
       return sshUnavailableError();
     }
-    const invalidName = validateShareName(args.name);
+    const invalidName = validateExistingShareName(args.name);
     if (invalidName) {
       return toolError(`${invalidName} No changes were made.`);
     }

@@ -8,6 +8,9 @@ const ok = (stdout = ""): ShellResult => ({ stdout, stderr: "", exitCode: 0 });
 const missing: ShellResult = { stdout: "", stderr: "cat: no such file", exitCode: 1 };
 const existing = ok('shareComment="x"\n');
 
+/** One name per unsafe category (path, parent, quotes, backtick, `$`, control, option). */
+const DANGEROUS_NAMES = ["a/b", "..", "it's", 'say"hi', "a`id`", "$HOME", "media\nrm", "-rf"];
+
 describe("share_delete", () => {
   it("refuses without both flags and runs nothing", async () => {
     const { shell, calls } = sequencedShell([]);
@@ -56,6 +59,21 @@ describe("share_delete", () => {
     expect(calls).toHaveLength(4);
   });
 
+  it("deletes a share whose name has spaces, quoting every path and URL-encoding the form", async () => {
+    const { shell, calls } = sequencedShell([existing, ok(""), ok(), missing]);
+    const handler = createShareDeleteHandler(shell);
+
+    const result = await handler({ name: "Old Backups", ...bothFlags });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls.map((call) => call.command)).toEqual([
+      "cat '/boot/config/shares/Old Backups.cfg'",
+      "find '/mnt/user/Old Backups' -mindepth 1 -print -quit 2>/dev/null",
+      "'/usr/local/sbin/emcmd' 'shareName=Old%20Backups&shareNameOrig=Old%20Backups&cmdEditShare=Delete'",
+      "cat '/boot/config/shares/Old Backups.cfg'",
+    ]);
+  });
+
   it("reports an unverified delete when the cfg still exists", async () => {
     const { shell } = sequencedShell([existing, ok(""), ok(), existing]);
     const handler = createShareDeleteHandler(shell);
@@ -90,11 +108,11 @@ describe("share_delete failures", () => {
     expect(firstText(result)).toContain("SSH is not configured");
   });
 
-  it("rejects an invalid share name before any command", async () => {
+  it.each(DANGEROUS_NAMES)("rejects the unsafe share name %j before any command", async (name) => {
     const { shell, calls } = sequencedShell([]);
     const handler = createShareDeleteHandler(shell);
 
-    const result = await handler({ name: "../etc", ...bothFlags });
+    const result = await handler({ name, ...bothFlags });
 
     expect(result.isError).toBe(true);
     expect(firstText(result)).toContain("No changes were made.");

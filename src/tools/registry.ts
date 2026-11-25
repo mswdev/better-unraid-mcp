@@ -85,6 +85,8 @@ export interface RegistryOptions {
   feed?: SubscriptionFeed | null;
   /** Latest live samples, shared between resources and tools. */
   liveStore?: LiveSnapshotStore | null;
+  /** The configured SSH login (UNRAID_SSH_USER), named in refusals; absent in minimal setups/tests. */
+  sshUser?: string;
 }
 
 /** One tool's registry entry: whether it mutates server state, and how to register it. */
@@ -196,7 +198,10 @@ export const TOOL_REGISTRATIONS: ToolRegistration[] = [
   { isMutating: false, register: (server, { shell }) => registerVmSnapshotList(server, shell) },
   { isMutating: true, register: (server, { shell }) => registerVmSnapshotCreate(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerUserScriptList(server, shell) },
-  { isMutating: true, register: (server, { shell }) => registerUserScriptRun(server, shell) },
+  {
+    isMutating: true,
+    register: (server, { shell, sshUser }) => registerUserScriptRun(server, shell, sshUser),
+  },
   { isMutating: false, register: (server, { shell }) => registerGpuMetrics(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerProcessList(server, shell) },
   { isMutating: false, register: (server, { shell }) => registerZfsStatus(server, shell) },

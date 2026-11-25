@@ -7,13 +7,8 @@ import { errorMessage } from "../_shared/errors/error-message.js";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import { sshUnavailableError } from "../_shared/require-shell.js";
 import { toolError, toolText } from "../_shared/respond.js";
-import {
-  buildEditQuery,
-  CFG_TIMEOUT_MS,
-  SHARES_ROOT,
-  shareCfgPath,
-  validateShareName,
-} from "./_shared.js";
+import { validateExistingShareName } from "../_shared/share-name/share-name.js";
+import { buildEditQuery, CFG_TIMEOUT_MS, SHARES_ROOT, shareCfgPath } from "./_shared.js";
 import { readShareCfg, submitToEmhttpd } from "./write-flow.js";
 
 const TOOL_NAME = "share_delete";
@@ -22,7 +17,9 @@ const inputSchema = z.object({
   name: z
     .string()
     .min(1)
-    .describe("Exact name of the empty share whose configuration to delete, from share_list."),
+    .describe(
+      "Exact name of the empty share whose configuration to delete, from share_list; spaces are fine, but quotes, `$`, backticks, `/`, and a leading `-` are refused.",
+    ),
   confirm: confirmSchema,
   acknowledge_risk: z
     .boolean()
@@ -105,7 +102,7 @@ export function createShareDeleteHandler(
     if (!shell) {
       return sshUnavailableError();
     }
-    const invalidName = validateShareName(args.name);
+    const invalidName = validateExistingShareName(args.name);
     if (invalidName) {
       return toolError(`${invalidName} No changes were made.`);
     }

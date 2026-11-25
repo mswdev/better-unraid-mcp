@@ -12,7 +12,7 @@ import {
   responseFormatSchema,
   toolError,
 } from "../_shared/respond.js";
-import { truncateOutput } from "../_shared/truncate-output.js";
+import { fitTailsToOutputCap, truncateOutput } from "../_shared/truncate-output.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
 
 const TOOL_NAME = "user_script_run";
@@ -91,15 +91,39 @@ function summarize(name: string, exitCode: number, stdout: string, stderr: strin
 }
 
 /**
+ * The gate's blast-radius copy. It names the configured SSH user when the
+ * registry passed one (scripts run as whoever SSH logs in as, not always
+ * root), and falls back to the neutral "the SSH user" otherwise.
+ */
+function refusalMessage(name: string, sshUser: string | undefined): string {
+  const runsAs = sshUser ? `the SSH user "${sshUser}"` : "the SSH user";
+  return `Refusing to run user script "${name}": user scripts are arbitrary code, and this one would run as ${runsAs} on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`;
+}
+
+/** Runs the script and renders its result; both modes keep the newest output. */
+async function runScript(shell: ShellExecutor, args: UserScriptRunArgs): Promise<CallToolResult> {
+  const result = await shell.execute(buildRunner(args.name), args.timeout_seconds * MS_PER_SECOND);
+  const detailed = fitTailsToOutputCap({
+    fixed: { name: args.name, exit_code: result.exitCode },
+    tails: { stdout: result.stdout, stderr: result.stderr },
+  });
+  const summary = summarize(args.name, result.exitCode, result.stdout, result.stderr);
+  return formatResponse(args.response_format, summary, detailed);
+}
+
+/**
  * Creates the `user_script_run` handler bound to a shell executor.
  *
  * @param shell - The SSH executor, or `null` when SSH is not configured.
  * @param channel - Optional elicitation channel for interactive confirmation.
+ * @param sshUser - The configured SSH login (UNRAID_SSH_USER), named in the
+ *   refusal; when omitted the refusal says "the SSH user".
  * @returns An MCP handler that runs one User Script behind the tier-2 gate.
  */
 export function createUserScriptRunHandler(
   shell: ShellExecutor | null,
   channel?: ElicitationChannel | null,
+  sshUser?: string,
 ) {
   return async (args: UserScriptRunArgs): Promise<CallToolResult> => {
     if (!shell) {
@@ -110,25 +134,14 @@ export function createUserScriptRunHandler(
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
-      refusalMessage: `Refusing to run user script "${args.name}": user scripts are arbitrary code running as root on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`,
+      refusalMessage: refusalMessage(args.name, sshUser),
       channel,
     });
     if (refusal) {
       return refusal;
     }
     try {
-      const result = await shell.execute(
-        buildRunner(args.name),
-        args.timeout_seconds * MS_PER_SECOND,
-      );
-      const detailed = {
-        name: args.name,
-        exit_code: result.exitCode,
-        stdout: truncateOutput(result.stdout),
-        stderr: truncateOutput(result.stderr),
-      };
-      const summary = summarize(args.name, result.exitCode, result.stdout, result.stderr);
-      return formatResponse(args.response_format, summary, detailed);
+      return await runScript(shell, args);
     } catch (error) {
       const message = errorMessage(error);
       return toolError(`Failed to run user script "${args.name}" over SSH: ${message}`);
@@ -141,9 +154,14 @@ export function createUserScriptRunHandler(
  *
  * @param server - The MCP server to register the tool on.
  * @param shell - The SSH executor the tool uses (or `null` when unconfigured).
+ * @param sshUser - The configured SSH login, named in the confirmation refusal.
  * @returns Nothing; registers the tool as a side effect.
  */
-export function registerUserScriptRun(server: McpServer, shell: ShellExecutor | null): void {
+export function registerUserScriptRun(
+  server: McpServer,
+  shell: ShellExecutor | null,
+  sshUser?: string,
+): void {
   server.registerTool(
     TOOL_NAME,
     {
@@ -158,6 +176,6 @@ export function registerUserScriptRun(server: McpServer, shell: ShellExecutor | 
         openWorldHint: true,
       },
     },
-    createUserScriptRunHandler(shell, createElicitationChannel(server)),
+    createUserScriptRunHandler(shell, createElicitationChannel(server), sshUser),
   );
 }

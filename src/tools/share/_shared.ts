@@ -10,9 +10,6 @@ export const EMCMD = "/usr/local/sbin/emcmd";
 /** Separator between the disks.ini and var.ini parts of the one-shot context read. */
 export const CONTEXT_SEPARATOR = "=== VAR";
 
-export const MAX_SHARE_NAME_LENGTH = 40;
-const SHARE_NAME_CHARACTERS = /^[A-Za-z0-9._-]+$/;
-
 /** Names Unraid itself uses under /mnt or as pseudo-shares; never creatable. */
 export const RESERVED_SHARE_NAMES = [
   "flash",
@@ -204,28 +201,6 @@ export function parseReservedNames(varIni: string): string[] {
 export function isReservedName(name: string, extra: string[]): boolean {
   const lowered = name.toLowerCase();
   return [...RESERVED_SHARE_NAMES, ...extra].some((reserved) => reserved.toLowerCase() === lowered);
-}
-
-/**
- * Validates a share name the way ShareEdit.page does.
- *
- * @param name - The requested share name.
- * @returns A human reason when invalid, or null when acceptable.
- */
-export function validateShareName(name: string): string | null {
-  if (name.length === 0) {
-    return "Share name is empty.";
-  }
-  if (name.length > MAX_SHARE_NAME_LENGTH) {
-    return `Share name must be ${MAX_SHARE_NAME_LENGTH} characters or less.`;
-  }
-  if (name.startsWith(".")) {
-    return "Share names must not start with a dot (hidden shares are not allowed).";
-  }
-  if (!SHARE_NAME_CHARACTERS.test(name)) {
-    return "Share names may only contain letters, digits, dot, underscore, and hyphen.";
-  }
-  return null;
 }
 
 export function shareCfgPath(name: string): string {

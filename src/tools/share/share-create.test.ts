@@ -34,6 +34,28 @@ describe("share_create gates", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("keeps refusing spaces in a NEW name even though existing shares may have them", async () => {
+    const { shell, calls } = sequencedShell([]);
+    const handler = createShareCreateHandler(shell);
+
+    const result = await handler({ name: "TV Shows", ...bothFlags });
+
+    expect(firstText(result)).toContain("(no spaces)");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects a leading hyphen and an embedded '..' before the gate", async () => {
+    const { shell, calls } = sequencedShell([]);
+    const handler = createShareCreateHandler(shell);
+
+    const hyphen = await handler({ name: "-rf", ...bothFlags });
+    const dots = await handler({ name: "a..b", ...bothFlags });
+
+    expect(firstText(hyphen)).toContain("hyphen");
+    expect(firstText(dots)).toContain('".."');
+    expect(calls).toHaveLength(0);
+  });
+
   it("refuses when the share already exists", async () => {
     const { shell, calls } = sequencedShell([ok('shareComment=""\n')]);
     const handler = createShareCreateHandler(shell);

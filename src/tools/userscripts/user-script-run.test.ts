@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { firstText, recordingShell, throwingShell } from "../_shared/test-support.js";
+import { MAX_OUTPUT_CHARS } from "../_shared/truncate-output.js";
 import { createUserScriptRunHandler } from "./user-script-run.js";
 
 const okResult = { stdout: "done\n", stderr: "", exitCode: 0 };
@@ -88,6 +89,47 @@ describe("user_script_run", () => {
   });
 });
 
+describe("user_script_run refusal names the SSH user", () => {
+  const unconfirmed = {
+    response_format: "concise",
+    name: "backup",
+    timeout_seconds: 60,
+    confirm: true,
+  } as const;
+
+  it("names the configured SSH user instead of assuming root", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell, null, "scripts-bot");
+
+    const result = await handler(unconfirmed);
+
+    expect(result.isError).toBe(true);
+    expect(firstText(result)).toContain('would run as the SSH user "scripts-bot" on your server');
+    expect(firstText(result)).not.toContain("root");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("names root when root is the configured SSH user", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell, null, "root");
+
+    const result = await handler(unconfirmed);
+
+    expect(firstText(result)).toContain('would run as the SSH user "root" on your server');
+  });
+
+  it("falls back to neutral wording when the SSH user is not known", async () => {
+    const { shell } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell);
+
+    const result = await handler(unconfirmed);
+
+    expect(firstText(result)).toBe(
+      'Refusing to run user script "backup": user scripts are arbitrary code, and this one would run as the SSH user on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.',
+    );
+  });
+});
+
 describe("user_script_run dot-name confinement", () => {
   it('rejects "." and ".." names before the gate', async () => {
     const { shell, calls } = recordingShell(okResult);
@@ -109,6 +151,28 @@ describe("user_script_run dot-name confinement", () => {
     expect(dot.isError).toBe(true);
     expect(dotdot.isError).toBe(true);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("user_script_run oversized output", () => {
+  it("keeps the newest output lines in detailed mode and stays parseable", async () => {
+    const stdout = `${Array.from({ length: 4_000 }, (_, index) => `step ${index + 1}`).join("\n")}\n`;
+    const { shell } = recordingShell({ stdout, stderr: "", exitCode: 0 });
+    const handler = createUserScriptRunHandler(shell);
+
+    const result = await handler({
+      response_format: "detailed",
+      name: "backup",
+      timeout_seconds: 60,
+      ...bothFlags,
+    });
+    const text = firstText(result);
+    const payload = JSON.parse(text) as { name: string; stdout: string; truncated: boolean };
+
+    expect(text.length).toBeLessThanOrEqual(MAX_OUTPUT_CHARS);
+    expect(payload.name).toBe("backup");
+    expect(payload.stdout.endsWith("step 4000\n")).toBe(true);
+    expect(payload.truncated).toBe(true);
   });
 });
 
