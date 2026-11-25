@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Better Unraid MCP — HTTP transport image for remote/hosted MCP clients.
 # The server refuses to start without MCP_HTTP_BEARER_TOKEN (see README → Docker).
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
@@ -10,7 +10,7 @@ COPY src ./src
 COPY schema ./schema
 RUN npm run build && npm prune --omit=dev
 
-FROM node:20-alpine
+FROM node:22-alpine
 ENV NODE_ENV=production \
     MCP_TRANSPORT=http \
     MCP_HTTP_HOST=0.0.0.0 \

@@ -67,6 +67,6 @@
   "compatibility": {
     "claude_desktop": ">=1.0.0",
     "platforms": ["darwin", "win32", "linux"],
-    "runtimes": { "node": ">=20.18.1" }
+    "runtimes": { "node": ">=22.19.0" }
   }
 }
