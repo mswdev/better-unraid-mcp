@@ -38,20 +38,19 @@ function escapeCodePoint(codePoint: string): string {
  * letters, digits, punctuation, symbols, and the ordinary space are left
  * alone. An astral code point such as a tag character becomes both of its
  * UTF-16 code units. Use it on display copy only, never on what actually
- * runs. Applied to
- * `JSON.stringify` output, the result is still JSON that parses back to the
- * original value.
+ * runs. Applied to `JSON.stringify` output, the result is still JSON that
+ * parses back to the original value.
  *
  * Zero-width joiner (U+200D) is a format character and variation selectors
  * are default-ignorable, so an emoji ZWJ sequence or an emoji with a
- * presentation selector displays partly escaped (for example "👩‍💻"),
+ * presentation selector displays partly escaped (for example 👩 U+200D 💻),
  * and so does text with combining marks (decomposed accents, many Indic
  * scripts). That costs some readability, which is the right trade in a
  * prompt that gates arbitrary code.
  *
  * @param text - The text to display, typically `JSON.stringify` output.
  * @returns The text with every untrusted-for-display code point escaped.
- * @example escapeInvisibleCharacters('["a‮b"]') // '["a\\u202eb"]'
+ * @example escapeInvisibleCharacters('["a\u202eb"]') // '["a\\u202eb"]'
  */
 export function escapeInvisibleCharacters(text: string): string {
   return text.replace(UNTRUSTED_FOR_DISPLAY, escapeCodePoint);
