@@ -16,8 +16,12 @@ export const MAX_SCRIPT_ARGUMENT_LENGTH = 4_096;
  */
 export const MAX_TOTAL_SCRIPT_ARGUMENTS_LENGTH = 16_384;
 
-/** A POSIX argv entry is a C string, so it ends at the first NUL and can never carry one. */
-const NUL_CHARACTER = "\0";
+/**
+ * A string with no NUL anywhere. A POSIX argv entry is a C string, so it ends
+ * at the first NUL and can never carry one. As a `.regex()` check it is also
+ * published as the item's JSON schema `pattern`, so clients can validate it.
+ */
+const WITHOUT_NUL_CHARACTER = /^[^\0]*$/;
 
 /**
  * An unpaired UTF-16 surrogate. Under the `u` flag a correctly paired
@@ -46,7 +50,7 @@ const scriptArgumentSchema = z
   .refine((scriptArgument) => scriptArgument.length <= MAX_SCRIPT_ARGUMENT_LENGTH, {
     error: ARGUMENT_TOO_LONG_MESSAGE,
   })
-  .refine((scriptArgument) => !scriptArgument.includes(NUL_CHARACTER), {
+  .regex(WITHOUT_NUL_CHARACTER, {
     error:
       "A script argument cannot contain a NUL character (\\0): a POSIX argument cannot carry one.",
   })
@@ -61,10 +65,10 @@ const scriptArgumentSchema = z
 /**
  * The optional `args` input of `user_script_run`. Validation happens here, at
  * the SDK boundary, so an oversized, NUL-carrying, or malformed list is
- * rejected before the handler (and its SSH command) ever runs. The count and
- * per-item caps also appear in the emitted JSON schema; the total cap, the
- * NUL rule, and the lone-surrogate rule are refinements JSON schema cannot
- * express, so the description spells them out.
+ * rejected before the handler (and its SSH command) ever runs. The count cap,
+ * the per-item cap, and the NUL rule also appear in the emitted JSON schema
+ * (`maxItems`, `maxLength`, `pattern`). The total cap and the lone-surrogate
+ * rule are server-side refinements, so the description spells them out.
  *
  * @example
  * const inputSchema = z.object({ name: z.string(), args: scriptArgumentsSchema });

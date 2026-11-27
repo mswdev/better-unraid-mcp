@@ -61,15 +61,28 @@ const inputSchema = z.object({
 interface UserScriptRunArgs {
   response_format: ResponseFormat;
   name: string;
-  /** Always present at runtime: the schema defaults an omitted `args` to `[]`. */
-  args: string[];
+  /**
+   * Positional arguments for the script. The schema defaults an omitted
+   * `args` to `[]` for MCP calls; direct callers may still leave it out.
+   */
+  args?: string[];
   timeout_seconds: number;
   confirm?: boolean;
   acknowledge_risk?: boolean;
 }
 
+/** Handler arguments after an omitted `args` has been resolved to `[]`. */
+interface ResolvedRunArgs extends UserScriptRunArgs {
+  args: string[];
+}
+
 /** What the gate shows the human: the script and the exact arguments it would get. */
-type ScriptInvocation = Pick<UserScriptRunArgs, "name" | "args">;
+type ScriptInvocation = Pick<ResolvedRunArgs, "name" | "args">;
+
+/** Treats an omitted `args` (a direct, non-MCP caller) as no arguments. */
+function resolveArguments(args: UserScriptRunArgs): ResolvedRunArgs {
+  return { ...args, args: args.args ?? [] };
+}
 
 /**
  * `bash "$T"` plus each argument as its own single-quoted word. With no
@@ -149,7 +162,7 @@ function refusalMessage(invocation: ScriptInvocation, sshUser: string | undefine
  * Runs the script and renders its result; both modes keep the newest output.
  * The arguments are deliberately left out of both renderings.
  */
-async function runScript(shell: ShellExecutor, args: UserScriptRunArgs): Promise<CallToolResult> {
+async function runScript(shell: ShellExecutor, args: ResolvedRunArgs): Promise<CallToolResult> {
   const runner = buildRunner(args.name, args.args);
   const result = await shell.execute(runner, args.timeout_seconds * MS_PER_SECOND);
   const detailed = fitTailsToOutputCap({
@@ -174,7 +187,8 @@ export function createUserScriptRunHandler(
   channel?: ElicitationChannel | null,
   sshUser?: string,
 ) {
-  return async (args: UserScriptRunArgs): Promise<CallToolResult> => {
+  return async (input: UserScriptRunArgs): Promise<CallToolResult> => {
+    const args = resolveArguments(input);
     if (!shell) {
       return sshUnavailableError();
     }

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { quoteForShell } from "../_shared/quote-shell.js";
 import {
   formatScriptArguments,
@@ -103,6 +104,18 @@ describe("scriptArgumentsSchema", () => {
     );
   });
 
+  it("publishes the NUL rule as a JSON schema pattern clients can apply", () => {
+    const jsonSchema = z.toJSONSchema(scriptArgumentsSchema, { io: "input" }) as {
+      items: { pattern?: string };
+    };
+
+    const pattern = new RegExp(jsonSchema.items.pattern ?? "");
+
+    expect(jsonSchema.items.pattern).toBeDefined();
+    expect(pattern.test("before\0after")).toBe(false);
+    expect(pattern.test("plain argument")).toBe(true);
+  });
+
   it.each([
     { label: "a lone high surrogate", value: "a\uD800b" },
     { label: "a lone low surrogate", value: "\uDC00" },
@@ -164,12 +177,21 @@ describe("formatScriptArguments", () => {
   });
 });
 
+/** process.argv starts with the node binary and the script path, before the script's own arguments. */
+const NODE_LAUNCHER_ARGUMENT_COUNT = 2;
+
+/**
+ * The round trip needs a POSIX /bin/sh and /bin/bash, which a native Windows
+ * checkout lacks. Linux CI and macOS always run it.
+ */
+const HAS_NO_POSIX_SHELLS = process.platform === "win32";
+
 /**
  * Prints the argv it receives as JSON. Run as a script file (like the
  * runner's `bash "$T"`), so node stops parsing its own options at the file
  * name and a leading `--wait` reaches the script untouched.
  */
-const ARGV_PRINTER = "process.stdout.write(JSON.stringify(process.argv.slice(2)));";
+const ARGV_PRINTER = `process.stdout.write(JSON.stringify(process.argv.slice(${NODE_LAUNCHER_ARGUMENT_COUNT})));`;
 
 /** Arguments that would be mangled, split, or executed if quoting were wrong. */
 const HOSTILE_ARGUMENTS = [
@@ -191,7 +213,7 @@ const HOSTILE_ARGUMENTS = [
   "héllo 🚀",
 ];
 
-describe("formatScriptArguments through a real shell", () => {
+describe.skipIf(HAS_NO_POSIX_SHELLS)("formatScriptArguments through a real shell", () => {
   const printerDirectory = mkdtempSync(join(tmpdir(), "script-arguments-"));
   const printerPath = join(printerDirectory, "print-argv.mjs");
   writeFileSync(printerPath, ARGV_PRINTER);
