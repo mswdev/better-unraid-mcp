@@ -13,6 +13,14 @@ describe("escapeInvisibleCharacters", () => {
     { label: "a C1 control (U+0085)", raw: "a\u0085b", shown: "a\\u0085b" },
     { label: "DEL (U+007F)", raw: "a\u007Fb", shown: "a\\u007fb" },
     { label: "a tag character (U+E0041)", raw: "a\u{E0041}b", shown: "a\\udb40\\udc41b" },
+    { label: "a Hangul filler (U+3164)", raw: "reㅤstart", shown: "re\\u3164start" },
+    { label: "a Hangul choseong filler (U+115F)", raw: "aᅟb", shown: "a\\u115fb" },
+    { label: "a combining grapheme joiner (U+034F)", raw: "a͏b", shown: "a\\u034fb" },
+    { label: "a variation selector (U+FE0F)", raw: "a️b", shown: "a\\ufe0fb" },
+    { label: "a combining acute accent (U+0301)", raw: "café", shown: "cafe\\u0301" },
+    { label: "an enclosing circle (U+20DD)", raw: "ok⃝", shown: "ok\\u20dd" },
+    { label: "the braille blank (U+2800)", raw: "re⠀start", shown: "re\\u2800start" },
+    { label: "a private-use code point (U+E000)", raw: "ab", shown: "a\\ue000b" },
   ])("escapes $label", ({ raw, shown }) => {
     const escaped = escapeInvisibleCharacters(raw);
 
@@ -29,6 +37,14 @@ describe("escapeInvisibleCharacters", () => {
 
   it("leaves accented letters and emoji alone", () => {
     const text = "héllo wörld 🚀";
+
+    const escaped = escapeInvisibleCharacters(text);
+
+    expect(escaped).toBe(text);
+  });
+
+  it("leaves letters from other scripts and visible symbols alone", () => {
+    const text = "привет 世界 ½ € ±";
 
     const escaped = escapeInvisibleCharacters(text);
 
