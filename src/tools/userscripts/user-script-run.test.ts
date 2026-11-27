@@ -265,6 +265,16 @@ describe("user_script_run positional arguments", () => {
     expect(calls[0].command).toBe(NO_ARGS_RUNNER);
   });
 
+  it("treats args left out by a direct (non-MCP) caller as no arguments", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell);
+
+    const result = await handler({ ...confirmedRequest, name: "clean cache" });
+
+    expect(result.isError).toBeUndefined();
+    expect(calls[0].command).toBe(NO_ARGS_RUNNER);
+  });
+
   it("appends each argument as its own quoted word, in order, after the script", async () => {
     const { shell, calls } = recordingShell(okResult);
     const handler = createUserScriptRunHandler(shell);
