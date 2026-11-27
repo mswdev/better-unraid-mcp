@@ -381,9 +381,40 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 | Tool | Type | Description |
 | --- | --- | --- |
 | `user_script_list` | read-only | Lists scripts managed by the User Scripts plugin, and says whether the plugin is missing or installed with no scripts yet. |
-| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner. A user script is arbitrary code run as the SSH user (typically root), so this requires `confirm` + `acknowledge_risk`. |
+| `user_script_run` | destructive | Runs one user script with the plugin's noexec-safe runner, optionally passing it positional arguments through `args` (see [Script arguments](#script-arguments)). A user script is arbitrary code run as the SSH user (typically root), so this requires `confirm` + `acknowledge_risk`. |
 
 </details>
+
+#### Script arguments
+
+`user_script_run` takes an optional `args` list. Each item reaches the script as exactly one positional argument (`$1`, `$2`, ...), in the order given and literally: spaces, quotes, `$(...)`, backticks, globs, and empty strings arrive as plain text, and nothing in them is expanded or run. Leave `args` out and the script runs with no arguments, exactly as before.
+
+- Up to 32 arguments, 4,096 characters each and 16,384 in total (most emoji count as two). An argument can't contain a NUL character or broken Unicode (an unpaired surrogate). Anything outside these limits is rejected before anything is sent over SSH.
+- The arguments appear as a JSON array in the confirmation prompt (and in the refusal when a flag is missing), so you approve the exact invocation. Supplying them never skips `confirm` or `acknowledge_risk`, and a completed run's output never repeats them.
+- In that prompt, anything other than plain letters, digits, punctuation, symbols, and the ordinary space is shown as a `\uXXXX` escape: zero-width and other invisible characters, right-to-left overrides, non-breaking spaces, combining marks, and the like. So hidden characters can't slip into the prompt, and the script still receives them exactly as sent. Letters are always shown as they are, so look-alike letters from other alphabets, right-to-left text (which can change how nearby arguments are ordered on screen), and very long arguments still need a careful read.
+- Arguments aren't a secret channel: anyone who can list processes on the server can read a command line. Keep credentials in protected config or secret files that the script reads itself.
+- The plugin's own argument prompt (`argumentDescription` and `argumentDefault`) is ignored, and no defaults are filled in. Pass every value explicitly.
+
+Arguments make a small launcher reusable. Save this as a user script named `homeserver-maintenance` and keep the real logic in a file you version-control:
+
+```bash
+#!/usr/bin/env bash
+exec bash /mnt/user/scripts/maintenance.sh "$@"
+```
+
+One registered script then covers many operations:
+
+```json
+{
+  "name": "homeserver-maintenance",
+  "args": ["restart", "cloudflared", "--wait", "30"],
+  "timeout_seconds": 120,
+  "confirm": true,
+  "acknowledge_risk": true
+}
+```
+
+`maintenance.sh` receives `restart`, `cloudflared`, `--wait`, and `30` as `$1` through `$4`.
 
 ### API keys
 

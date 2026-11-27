@@ -13,6 +13,8 @@ import {
   toolError,
 } from "../_shared/respond.js";
 import { fitTailsToOutputCap, truncateStreams } from "../_shared/truncate-output.js";
+import { escapeInvisibleCharacters } from "./escape-invisible-characters.js";
+import { formatScriptArguments, scriptArgumentsSchema } from "./script-arguments.js";
 import { USER_SCRIPTS_DIR } from "./user-script-list.js";
 
 const TOOL_NAME = "user_script_run";
@@ -27,12 +29,16 @@ const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9 ._-]+$/;
 /** "." and ".." pass the character class but escape the scripts directory. */
 const DOT_ONLY_PATTERN = /^\.+$/;
 
+/** Runs the CR-stripped temp copy; any arguments follow it as separate quoted words. */
+const SCRIPT_INVOCATION = 'bash "$T"';
+
 const inputSchema = z.object({
   response_format: responseFormatSchema,
   name: z
     .string()
     .min(1)
     .describe("Script name exactly as returned by user_script_list (its folder name)."),
+  args: scriptArgumentsSchema,
   timeout_seconds: z
     .number()
     .int()
@@ -55,24 +61,42 @@ const inputSchema = z.object({
 interface UserScriptRunArgs {
   response_format: ResponseFormat;
   name: string;
+  /** Always present at runtime: the schema defaults an omitted `args` to `[]`. */
+  args: string[];
   timeout_seconds: number;
   confirm?: boolean;
   acknowledge_risk?: boolean;
 }
 
+/** What the gate shows the human: the script and the exact arguments it would get. */
+type ScriptInvocation = Pick<UserScriptRunArgs, "name" | "args">;
+
+/**
+ * `bash "$T"` plus each argument as its own single-quoted word. With no
+ * arguments it stays exactly `bash "$T"`, so existing callers send the same
+ * command byte for byte.
+ */
+function buildInvocation(args: string[]): string {
+  if (args.length === 0) {
+    return SCRIPT_INVOCATION;
+  }
+  return `${SCRIPT_INVOCATION} ${formatScriptArguments(args)}`;
+}
+
 /**
  * The flash drive is mounted non-executable (fmask=177 since Unraid 6.8), so
  * this replicates the plugin's own runner: copy to a tmp file, strip CR
- * characters, run via bash, clean up, and preserve the script's exit code.
+ * characters, run via bash with the arguments, clean up, and preserve the
+ * script's exit code.
  */
-function buildRunner(name: string): string {
+function buildRunner(name: string, args: string[]): string {
   const scriptPath = quoteForShell(`${USER_SCRIPTS_DIR}/${name}/script`);
   return [
     `S=${scriptPath}`,
     'if [ ! -f "$S" ]; then echo "script not found: $S" >&2; exit 127; fi',
     "T=$(mktemp)",
     `tr -d '\\r' < "$S" > "$T"`,
-    'bash "$T"',
+    buildInvocation(args),
     "RC=$?",
     'rm -f "$T"',
     "exit $RC",
@@ -93,18 +117,41 @@ function summarize(name: string, result: ShellResult): string {
 }
 
 /**
- * The gate's blast-radius copy. It names the configured SSH user when the
- * registry passed one (scripts run as whoever SSH logs in as, not always
- * root), and falls back to the neutral "the SSH user" otherwise.
+ * Names the script and, when there are any, its exact arguments as a JSON
+ * array, so the human approving the gate sees precisely what will run.
+ * Invisible and formatting characters (bidi overrides, zero-width spaces,
+ * and the like) are shown escaped, so a crafted argument cannot hide
+ * characters in the prompt. Letters are shown as they are, so right-to-left
+ * text can still change the on-screen order of nearby arguments. Display only:
+ * the script still gets every argument literally.
  */
-function refusalMessage(name: string, sshUser: string | undefined): string {
-  const runsAs = sshUser ? `the SSH user "${sshUser}"` : "the SSH user";
-  return `Refusing to run user script "${name}": user scripts are arbitrary code, and this one would run as ${runsAs} on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`;
+function describeInvocation(invocation: ScriptInvocation): string {
+  const script = `user script "${invocation.name}"`;
+  if (invocation.args.length === 0) {
+    return script;
+  }
+  const shownArguments = escapeInvisibleCharacters(JSON.stringify(invocation.args));
+  return `${script} with arguments ${shownArguments}`;
 }
 
-/** Runs the script and renders its result; both modes keep the newest output. */
+/**
+ * The gate's blast-radius copy, which is also the elicitation prompt. It names
+ * the configured SSH user when the registry passed one (scripts run as
+ * whoever SSH logs in as, not always root), and falls back to the neutral
+ * "the SSH user" otherwise.
+ */
+function refusalMessage(invocation: ScriptInvocation, sshUser: string | undefined): string {
+  const runsAs = sshUser ? `the SSH user "${sshUser}"` : "the SSH user";
+  return `Refusing to run ${describeInvocation(invocation)}: user scripts are arbitrary code, and this one would run as ${runsAs} on your server. Re-call with "confirm": true and "acknowledge_risk": true to proceed. No changes were made.`;
+}
+
+/**
+ * Runs the script and renders its result; both modes keep the newest output.
+ * The arguments are deliberately left out of both renderings.
+ */
 async function runScript(shell: ShellExecutor, args: UserScriptRunArgs): Promise<CallToolResult> {
-  const result = await shell.execute(buildRunner(args.name), args.timeout_seconds * MS_PER_SECOND);
+  const runner = buildRunner(args.name, args.args);
+  const result = await shell.execute(runner, args.timeout_seconds * MS_PER_SECOND);
   const detailed = fitTailsToOutputCap({
     fixed: { name: args.name, exit_code: result.exitCode },
     tails: { stdout: result.stdout, stderr: result.stderr },
@@ -136,7 +183,7 @@ export function createUserScriptRunHandler(
     }
     const refusal = await requireRiskAcknowledgementInteractive({
       flags: args,
-      refusalMessage: refusalMessage(args.name, sshUser),
+      refusalMessage: refusalMessage(args, sshUser),
       channel,
     });
     if (refusal) {
@@ -169,7 +216,7 @@ export function registerUserScriptRun(
     {
       title: "Run a User Script",
       description:
-        "⚠ Runs one User Scripts plugin script by name over SSH — user scripts are arbitrary code, executed here as the SSH user (typically root). Requires `confirm: true` AND `acknowledge_risk: true`. The flash drive is mounted non-executable, so the script is copied to a temp file (CRs stripped) and run via bash, exactly like the plugin's own runner. Get names from user_script_list; a non-zero exit is reported faithfully, not as a tool error. Waits for the script to finish and returns its exit code, stdout, and stderr. For a one-off command that is not a saved script use shell_exec instead.",
+        "⚠ Runs one User Scripts plugin script by name over SSH — user scripts are arbitrary code, executed here as the SSH user (typically root). Requires `confirm: true` AND `acknowledge_risk: true`. The flash drive is mounted non-executable, so the script is copied to a temp file (CRs stripped) and run via bash, exactly like the plugin's own runner. Optional `args`: each item becomes exactly one positional argument ($1, $2, ...), passed literally, never as a shell expression; not for secrets. Get names from user_script_list; a non-zero exit is reported faithfully, not as a tool error. Waits for the script to finish and returns its exit code, stdout, and stderr. For a one-off command that is not a saved script use shell_exec instead.",
       inputSchema,
       annotations: {
         readOnlyHint: false,
