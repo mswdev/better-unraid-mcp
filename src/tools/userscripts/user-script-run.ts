@@ -120,8 +120,9 @@ function summarize(name: string, result: ShellResult): string {
  * Names the script and, when there are any, its exact arguments as a JSON
  * array, so the human approving the gate sees precisely what will run.
  * Invisible and formatting characters (bidi overrides, zero-width spaces,
- * and the like) are shown escaped, so a crafted argument cannot make the
- * prompt read differently from what the script receives. Display only:
+ * and the like) are shown escaped, so a crafted argument cannot hide
+ * characters in the prompt. Letters are shown as they are, so right-to-left
+ * text can still change the on-screen order of nearby arguments. Display only:
  * the script still gets every argument literally.
  */
 function describeInvocation(invocation: ScriptInvocation): string {

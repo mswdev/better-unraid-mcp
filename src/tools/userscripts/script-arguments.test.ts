@@ -19,6 +19,12 @@ import {
  */
 const WORST_CASE_TAIL_BYTES = 65_631;
 
+/** An astral-plane emoji: one code point, two UTF-16 code units. */
+const ROCKET_EMOJI = "🚀";
+
+/** The single extra code unit that pushes an argument just past a cap. */
+const ONE_CODE_UNIT_OVER = 1;
+
 /** How many arguments the total-length cases spread their characters over. */
 const TOTAL_CASE_ARGUMENT_COUNT = 5;
 
@@ -115,8 +121,9 @@ describe("scriptArgumentsSchema", () => {
   });
 
   it("counts an emoji as two code units against the per-argument cap", () => {
-    const fits = `${"x".repeat(MAX_SCRIPT_ARGUMENT_LENGTH - 2)}🚀`;
-    const overflows = `${"x".repeat(MAX_SCRIPT_ARGUMENT_LENGTH - 1)}🚀`;
+    const fillerToFill = MAX_SCRIPT_ARGUMENT_LENGTH - ROCKET_EMOJI.length;
+    const fits = `${"x".repeat(fillerToFill)}${ROCKET_EMOJI}`;
+    const overflows = `${"x".repeat(fillerToFill + ONE_CODE_UNIT_OVER)}${ROCKET_EMOJI}`;
 
     const accepted = scriptArgumentsSchema.safeParse([fits]);
     const rejected = scriptArgumentsSchema.safeParse([overflows]);
