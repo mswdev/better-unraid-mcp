@@ -66,9 +66,9 @@ describe("scriptArgumentsSchema", () => {
     const rejected = scriptArgumentsSchema.safeParse(overLimit);
 
     expect(accepted.success).toBe(true);
-    expect(rejected.error?.issues[0].message).toBe(
-      `A script argument can be at most ${MAX_SCRIPT_ARGUMENT_LENGTH} characters.`,
-    );
+    expect(rejected.error?.issues.map((issue) => issue.message)).toEqual([
+      `A script argument can be at most ${MAX_SCRIPT_ARGUMENT_LENGTH} UTF-16 code units (most emoji count as two).`,
+    ]);
   });
 
   it("accepts arguments totalling the cap and rejects one character more", () => {
@@ -83,7 +83,7 @@ describe("scriptArgumentsSchema", () => {
     );
     expect(accepted.success).toBe(true);
     expect(rejected.error?.issues[0].message).toBe(
-      `Script arguments can total at most ${MAX_TOTAL_SCRIPT_ARGUMENTS_LENGTH} characters.`,
+      `Script arguments can total at most ${MAX_TOTAL_SCRIPT_ARGUMENTS_LENGTH} UTF-16 code units (most emoji count as two).`,
     );
   });
 
@@ -95,6 +95,36 @@ describe("scriptArgumentsSchema", () => {
     expect(rejected.error?.issues[0].message).toBe(
       "A script argument cannot contain a NUL character (\\0): a POSIX argument cannot carry one.",
     );
+  });
+
+  it.each([
+    { label: "a lone high surrogate", value: "a\uD800b" },
+    { label: "a lone low surrogate", value: "\uDC00" },
+  ])("rejects $label", ({ value }) => {
+    const rejected = scriptArgumentsSchema.safeParse([value]);
+
+    expect(rejected.error?.issues[0].message).toBe(
+      "A script argument cannot contain an unpaired UTF-16 surrogate: it cannot be sent as UTF-8, so the script would not receive it literally.",
+    );
+  });
+
+  it("accepts an emoji, whose surrogates are correctly paired", () => {
+    const parsed = scriptArgumentsSchema.parse(["launch 🚀"]);
+
+    expect(parsed).toEqual(["launch 🚀"]);
+  });
+
+  it("counts an emoji as two code units against the per-argument cap", () => {
+    const fits = `${"x".repeat(MAX_SCRIPT_ARGUMENT_LENGTH - 2)}🚀`;
+    const overflows = `${"x".repeat(MAX_SCRIPT_ARGUMENT_LENGTH - 1)}🚀`;
+
+    const accepted = scriptArgumentsSchema.safeParse([fits]);
+    const rejected = scriptArgumentsSchema.safeParse([overflows]);
+
+    expect(accepted.success).toBe(true);
+    expect(rejected.error?.issues.map((issue) => issue.message)).toEqual([
+      `A script argument can be at most ${MAX_SCRIPT_ARGUMENT_LENGTH} UTF-16 code units (most emoji count as two).`,
+    ]);
   });
 
   it("accepts an empty-string argument", () => {

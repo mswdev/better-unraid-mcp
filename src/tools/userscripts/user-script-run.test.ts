@@ -356,6 +356,30 @@ describe("user_script_run gate with arguments", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("shows invisible characters escaped in the refusal and the prompt", async () => {
+    const disguised = ["safe\u202Ehs.exe", "re\u200Bstart"];
+    const shown = '["safe\\u202ehs.exe","re\\u200bstart"]';
+    const { shell, calls } = recordingShell(okResult);
+    const { channel, prompts } = recordingChannel("unavailable");
+    const handler = createUserScriptRunHandler(shell, channel);
+
+    const result = await handler({ ...unconfirmedRequest, args: disguised });
+
+    expect(prompts[0].message).toContain(`with arguments ${shown}:`);
+    expect(firstText(result)).toContain(`with arguments ${shown}:`);
+    expect(firstText(result)).not.toContain("\u202E");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("still runs the arguments literally, not their escaped display form", async () => {
+    const { shell, calls } = recordingShell(okResult);
+    const handler = createUserScriptRunHandler(shell);
+
+    await handler({ ...unconfirmedRequest, ...bothFlags, args: ["re\u200Bstart"] });
+
+    expect(calls[0].command).toContain(`bash "$T" 're\u200Bstart'; RC=$?`);
+  });
+
   it("shows the human the exact arguments in the confirmation prompt", async () => {
     const { shell, calls } = recordingShell(okResult);
     const { channel, prompts } = recordingChannel("declined");

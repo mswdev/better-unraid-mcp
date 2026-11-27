@@ -389,8 +389,9 @@ The GraphQL API has nothing for services, share changes, or unassigned devices, 
 
 `user_script_run` takes an optional `args` list. Each item reaches the script as exactly one positional argument (`$1`, `$2`, ...), in the order given and literally: spaces, quotes, `$(...)`, backticks, globs, and empty strings arrive as plain text, and nothing in them is expanded or run. Leave `args` out and the script runs with no arguments, exactly as before.
 
-- Up to 32 arguments, 4,096 characters each and 16,384 in total. An argument can't contain a NUL character. Anything outside these limits is rejected before anything is sent over SSH.
-- The arguments appear in the confirmation prompt (and in the refusal when a flag is missing), so you approve the exact invocation. Supplying them never skips `confirm` or `acknowledge_risk`, and a completed run's output never repeats them.
+- Up to 32 arguments, 4,096 characters each and 16,384 in total (most emoji count as two). An argument can't contain a NUL character or broken Unicode (an unpaired surrogate). Anything outside these limits is rejected before anything is sent over SSH.
+- The arguments appear as a JSON array in the confirmation prompt (and in the refusal when a flag is missing), so you approve the exact invocation. Supplying them never skips `confirm` or `acknowledge_risk`, and a completed run's output never repeats them.
+- In that prompt, invisible and formatting characters (zero-width spaces, right-to-left overrides, non-breaking spaces, and the like) are shown as `\uXXXX` escapes, so they can't disguise what will run. The script still receives them exactly as sent.
 - Arguments aren't a secret channel: anyone who can list processes on the server can read a command line. Keep credentials in protected config or secret files that the script reads itself.
 - The plugin's own argument prompt (`argumentDescription` and `argumentDefault`) is ignored, and no defaults are filled in. Pass every value explicitly.
 
