@@ -282,7 +282,12 @@ describe("registerAllTools SSH user wiring", () => {
       sshUser: "scripts-bot",
     });
     const run = handlers.get("user_script_run");
-    const result = await run?.({ response_format: "concise", name: "backup", timeout_seconds: 60 });
+    const result = await run?.({
+      response_format: "concise",
+      name: "backup",
+      args: [],
+      timeout_seconds: 60,
+    });
 
     expect(result && firstText(result)).toContain('run as the SSH user "scripts-bot"');
     expect(calls).toHaveLength(0);
